@@ -75,23 +75,21 @@ async function handlePermanentMediaTool(args: unknown, apiClient: WechatApiClien
         }
         
         try {
-          const result = await apiClient.post(
+          const formData = new FormData();
+          formData.append('media', mediaBuffer, actualFileName);
+          
+          // 视频素材需要描述信息
+          if (type === 'video' && (title || introduction)) {
+            const description = {
+              title: title || '视频标题',
+              introduction: introduction || '视频简介'
+            };
+            formData.append('description', JSON.stringify(description));
+          }
+
+          const result = await apiClient.postForm(
             `/cgi-bin/material/add_material?type=${type}`,
-            (() => {
-              const formData = new FormData();
-              formData.append('media', mediaBuffer, actualFileName);
-              
-              // 视频素材需要描述信息
-              if (type === 'video' && (title || introduction)) {
-                const description = {
-                  title: title || '视频标题',
-                  introduction: introduction || '视频简介'
-                };
-                formData.append('description', JSON.stringify(description));
-              }
-              
-              return formData;
-            })()
+            formData
           ) as any;
           
           return {

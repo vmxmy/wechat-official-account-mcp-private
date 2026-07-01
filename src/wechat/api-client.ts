@@ -1,7 +1,8 @@
-import axios, { AxiosInstance } from 'axios';
 import FormData from 'form-data';
 import { AuthManager } from '../auth/auth-manager.js';
 import { logger } from '../utils/logger.js';
+import { AccessTokenHttpExecutor, type HttpExecutor } from './http-executor.js';
+import { NodeHttpExecutor } from './node-http-executor.js';
 
 /**
  * 微信公众号 API 客户端
@@ -9,33 +10,13 @@ import { logger } from '../utils/logger.js';
  */
 export class WechatApiClient {
   private authManager: AuthManager;
-  private httpClient: AxiosInstance;
+  private httpClient: HttpExecutor;
 
-  constructor(authManager: AuthManager) {
+  constructor(authManager: AuthManager, httpExecutor?: HttpExecutor) {
     this.authManager = authManager;
-    this.httpClient = axios.create({
-      baseURL: 'https://api.weixin.qq.com',
-      timeout: 30000,
-    });
-
-    // 请求拦截器：自动添加 access_token
-    this.httpClient.interceptors.request.use(async (config) => {
-      if (config.url && !config.url.includes('access_token=')) {
-        const tokenInfo = await this.authManager.getAccessToken();
-        const separator = config.url.includes('?') ? '&' : '?';
-        config.url += `${separator}access_token=${tokenInfo.accessToken}`;
-      }
-      return config;
-    });
-
-    // 响应拦截器：处理错误
-    this.httpClient.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        const status = error?.response?.status;
-        logger.error('Wechat API request failed:', status ? String(status) : error?.message);
-        throw error;
-      }
+    this.httpClient = httpExecutor ?? new AccessTokenHttpExecutor(
+      new NodeHttpExecutor(),
+      async () => (await this.authManager.getAccessToken()).accessToken
     );
   }
 
@@ -65,7 +46,7 @@ export class WechatApiClient {
         formData.append('description', JSON.stringify(description));
       }
 
-      const response = await this.httpClient.post(
+      const response = await this.httpClient.postForm(
         `/cgi-bin/media/upload?type=${params.type}`,
         formData,
         {
@@ -212,7 +193,7 @@ export class WechatApiClient {
    */
   async uploadImg(formData: FormData): Promise<{ url: string; errcode?: number; errmsg?: string }> {
     try {
-      const response = await this.httpClient.post(
+      const response = await this.httpClient.postForm(
         '/cgi-bin/media/uploadimg',
         formData,
         {
@@ -261,6 +242,28 @@ export class WechatApiClient {
       return response.data;
     } catch (error) {
       logger.error(`POST ${path} failed:`, (error as any)?.message ?? String(error));
+      throw error;
+    }
+  }
+
+  /**
+   * 通用 multipart/form-data POST 请求
+   */
+  async postForm(path: string, formData: FormData): Promise<unknown> {
+    try {
+      const response = await this.httpClient.postForm(path, formData, {
+        headers: {
+          ...formData.getHeaders(),
+        },
+      });
+
+      if (response.data.errcode && response.data.errcode !== 0) {
+        throw new Error(`API Error: ${response.data.errmsg} (${response.data.errcode})`);
+      }
+
+      return response.data;
+    } catch (error) {
+      logger.error(`POST form ${path} failed:`, (error as any)?.message ?? String(error));
       throw error;
     }
   }

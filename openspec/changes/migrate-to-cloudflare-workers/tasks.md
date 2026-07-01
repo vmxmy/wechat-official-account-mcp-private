@@ -8,10 +8,10 @@
 
 ## 1. Seams (no behavior change on Node)
 
-- [ ] 1.1 Define `HttpExecutor` interface (`get`, `post`, `postForm`) and extract token-injection + safe-error-logging into a shared wrapper
-- [ ] 1.2 Refactor `WechatApiClient` to depend on `HttpExecutor`; inject current axios behavior as `NodeHttpExecutor`
-- [ ] 1.3 Define `StorageManager` interface from current public methods; rename existing class to `SqliteStorageManager` implementing it
-- [ ] 1.4 Run `npm run check`, `npm run build:prod`, `node test-tools.js` (15 tools still register); verify stdio path unchanged
+- [x] 1.1 Define `HttpExecutor` interface (`get`, `post`, `postForm`) and extract token-injection + safe-error-logging into a shared wrapper
+- [x] 1.2 Refactor `WechatApiClient` to depend on `HttpExecutor`; inject current axios behavior as `NodeHttpExecutor`
+- [x] 1.3 Define `StorageManager` interface from current public methods; rename existing class to `SqliteStorageManager` implementing it
+- [x] 1.4 Run `npm run check`, `npm run build:prod`, `node test-tools.js` (15 tools still register); verify stdio path unchanged
 
 ## 2. Workers project skeleton
 

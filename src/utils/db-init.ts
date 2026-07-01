@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 
-import { StorageManager } from '../storage/storage-manager.js';
+import { SqliteStorageManager } from '../storage/storage-manager.js';
 import { logger } from './logger.js';
 
 /**
@@ -11,7 +11,7 @@ async function initDatabase() {
   try {
     logger.info('Initializing database...');
     
-    const storageManager = new StorageManager();
+    const storageManager = new SqliteStorageManager();
     await storageManager.initialize();
     
     logger.info('Database initialized successfully!');

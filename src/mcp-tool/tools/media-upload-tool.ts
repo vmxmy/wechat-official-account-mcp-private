@@ -1,7 +1,7 @@
 import { WechatApiClient } from '../../wechat/api-client.js';
 import { WechatToolResult, McpTool } from '../types.js';
 import { logger } from '../../utils/logger.js';
-import { StorageManager } from '../../storage/storage-manager.js';
+import { SqliteStorageManager } from '../../storage/storage-manager.js';
 import { z } from 'zod';
 import FormData from 'form-data';
 import { mediaIdSchema, FILE_SIZE_LIMITS } from '../../utils/validation.js';
@@ -73,13 +73,13 @@ async function handleMediaUploadTool(args: unknown, apiClient: WechatApiClient):
           formData.append('description', JSON.stringify(description));
         }
         
-        const result = await apiClient.post(
+        const result = await apiClient.postForm(
           `/cgi-bin/media/upload?type=${type}`,
           formData
         ) as any;
         
         // 保存到本地存储（确保已初始化数据库）
-        const storageManager = new StorageManager();
+        const storageManager = new SqliteStorageManager();
         await storageManager.initialize();
         await storageManager.saveMedia({
           mediaId: result.media_id,

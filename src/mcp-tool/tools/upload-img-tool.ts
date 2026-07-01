@@ -57,7 +57,7 @@ async function handleUploadImgTool(args: unknown, apiClient: WechatApiClient): P
     });
 
     // 调用微信API
-    const response = await apiClient.post('/cgi-bin/media/uploadimg', formData) as any;
+    const response = await apiClient.postForm('/cgi-bin/media/uploadimg', formData) as any;
     
     if (response.errcode && response.errcode !== 0) {
       throw new Error(`微信API错误: ${response.errmsg} (${response.errcode})`);

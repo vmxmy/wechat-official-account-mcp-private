@@ -1,5 +1,5 @@
 import { WechatConfig, AccessTokenInfo } from '../mcp-tool/types.js';
-import { StorageManager } from '../storage/storage-manager.js';
+import { SqliteStorageManager, type StorageManager } from '../storage/storage-manager.js';
 import { logger } from '../utils/logger.js';
 import axios from 'axios';
 
@@ -13,8 +13,8 @@ export class AuthManager {
   private tokenInfo: AccessTokenInfo | null = null;
   private refreshPromise: Promise<AccessTokenInfo> | null = null; // Token 刷新锁
 
-  constructor() {
-    this.storageManager = new StorageManager();
+  constructor(storageManager?: StorageManager) {
+    this.storageManager = storageManager ?? new SqliteStorageManager();
   }
 
   /**

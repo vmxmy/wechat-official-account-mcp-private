@@ -11,10 +11,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * 存储管理器
+ * 运行时无关存储接口。
+ * Node 当前由 SqliteStorageManager 实现；Workers 后续会由 D1StorageManager 实现。
+ */
+export interface StorageManager {
+  initialize(): Promise<void>;
+  saveConfig(config: WechatConfig): Promise<void>;
+  getConfig(): Promise<WechatConfig | null>;
+  clearConfig(): Promise<void>;
+  saveAccessToken(tokenInfo: AccessTokenInfo): Promise<void>;
+  getAccessToken(): Promise<AccessTokenInfo | null>;
+  clearAccessToken(): Promise<void>;
+  saveMedia(media: MediaInfo): Promise<void>;
+  getMedia(mediaId: string): Promise<MediaInfo | null>;
+  listMedia(type?: string): Promise<MediaInfo[]>;
+  close(): Promise<void>;
+}
+
+/**
+ * SQLite 存储管理器
  * 使用 SQLite 数据库存储配置、令牌和素材信息
  */
-export class StorageManager {
+export class SqliteStorageManager implements StorageManager {
   private db: sqlite3.Database | null = null;
   private dbPath: string;
   private secretKey: string | undefined;
