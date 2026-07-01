@@ -1,10 +1,10 @@
 ## 0. Official WeChat contract verification
 
-- [ ] 0.1 Review `wechat-official-api-contract.md` before implementation and re-open official docs for any endpoint being touched
-- [ ] 0.2 Fix `wechat_subscribe_msg` contract before/while migrating: use the official endpoint (`/cgi-bin/message/subscribe/bizsend` for service-account subscription notifications, or `/cgi-bin/message/template/subscribe` for one-time subscription) and official field names (`template_id`)
-- [ ] 0.3 Clarify and fix `wechat_permanent_media` `news` support: either expose `news` in the schema and map to official `material/add_news`, or remove unreachable news branches
-- [ ] 0.4 Verify `wechat_customer_service.get_records` has an official endpoint implementation or remove/replace the action
-- [ ] 0.5 Decide whether missing official APIs (`tags/getidlist`, template set/add, mass get/speed set/get/uploadnews) are in scope for this migration or documented as follow-up gaps
+- [x] 0.1 Review `wechat-official-api-contract.md` before implementation and re-open official docs for any endpoint being touched
+- [x] 0.2 Fix `wechat_subscribe_msg` contract before/while migrating: use the official endpoint (`/cgi-bin/message/subscribe/bizsend` for service-account subscription notifications, or `/cgi-bin/message/template/subscribe` for one-time subscription) and official field names (`template_id`)
+- [x] 0.3 Clarify and fix `wechat_permanent_media` `news` support: either expose `news` in the schema and map to official `material/add_news`, or remove unreachable news branches
+- [x] 0.4 Verify `wechat_customer_service.get_records` has an official endpoint implementation or remove/replace the action
+- [x] 0.5 Decide whether missing official APIs (`tags/getidlist`, template set/add, mass get/speed set/get/uploadnews) are in scope for this migration or documented as follow-up gaps
 
 ## 1. Seams (no behavior change on Node)
 

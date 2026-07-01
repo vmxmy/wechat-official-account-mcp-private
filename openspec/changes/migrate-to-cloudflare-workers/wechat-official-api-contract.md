@@ -115,7 +115,7 @@ GET  /cgi-bin/material/get_materialcount?access_token=ACCESS_TOKEN
 
 当前覆盖：临时素材、图文图片、永久素材大部分已覆盖。
 
-已知偏差：`wechat_permanent_media` 的 handler 有 `news` 分支，但 input schema 未暴露 `news`。应在迁移前明确：支持 `news` 并走 `material/add_news`，或移除不可达分支。
+修正状态（2026-07-01）：`wechat_permanent_media` 已暴露 `news` 类型，`add` 操作通过 `articles` 参数调用官方 `material/add_news`，并将工具层 camelCase 字段映射为官方 snake_case 请求字段。
 
 ### 草稿与发布
 
@@ -186,7 +186,7 @@ POST /customservice/kfaccount/uploadheadimg?access_token=ACCESS_TOKEN&kf_account
 
 当前覆盖：`wechat_customer_service` 支持多种 send_* action。
 
-已知偏差：`get_records` action 对应的 `getCustomMessageRecords` 当前未见明确官方 endpoint 实现，迁移前必须复核或移除/替换。
+修正状态（2026-07-01）：`get_records` 已改为官方 `POST /customservice/msgrecord/getmsglist`，请求字段使用 `starttime` / `endtime` / `msgid` / `number`，并按官方返回的 `recordlist` 归一化为工具内部 `records`。
 
 ### 模板消息
 
@@ -221,7 +221,7 @@ POST /cgi-bin/message/subscribe/bizsend?access_token=ACCESS_TOKEN
 POST /cgi-bin/message/template/subscribe?access_token=ACCESS_TOKEN
 ```
 
-当前偏差：`wechat_subscribe_msg` 描述为订阅通知，但 `api-client.ts` 调用 `/cgi-bin/message/subscribe/send`，与已核验官方服务号订阅通知和一次性订阅消息接口都不一致；字段也使用 `templateId`。迁移前必须修正。
+修正状态（2026-07-01）：`wechat_subscribe_msg` 当前实现为服务号订阅通知，调用官方 `POST /cgi-bin/message/subscribe/bizsend`；工具入参保留 `templateId` 兼容用户习惯，但出站请求字段映射为官方 `template_id`，小程序跳转字段映射为 `miniprogram.appid` / `miniprogram.pagepath`。
 
 ### 群发
 
@@ -240,6 +240,8 @@ POST /cgi-bin/media/uploadimg?access_token=ACCESS_TOKEN
 当前覆盖：按标签群发、按 OpenID 群发、删除、预览。
 
 未覆盖：群发状态查询、群发速度获取/设置、上传图文消息素材 `uploadnews`。
+
+迁移范围决策（2026-07-01）：本次 Cloudflare 迁移优先保证现有 MCP 工具 contract 正确并迁移运行时；`tags/getidlist`、模板消息 set/add、群发 get/speed/uploadnews 等缺口记录为后续能力扩展，不作为 G001 必需新增 API。
 
 ### 数据统计
 

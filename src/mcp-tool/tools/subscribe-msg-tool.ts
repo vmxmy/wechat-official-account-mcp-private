@@ -8,7 +8,7 @@ const openIdSchema = z.string().min(1, 'OpenID不能为空');
 
 export const subscribeMsgMcpTool: McpTool = {
   name: 'wechat_subscribe_msg',
-  description: '微信公众号订阅通知 - 发送一次性订阅通知给用户',
+  description: '微信公众号服务号订阅通知 - 按官方 bizsend 接口发送订阅通知给用户',
   inputSchema: {
     action: z.enum([
       'send'
@@ -18,6 +18,9 @@ export const subscribeMsgMcpTool: McpTool = {
     page: z.string().optional(),
     miniProgramAppId: z.string().optional(),
     miniProgramPagePath: z.string().optional(),
+    miniprogramState: z.enum(['developer', 'trial', 'formal']).optional(),
+    lang: z.enum(['zh_CN', 'en_US', 'zh_HK', 'zh_TW']).optional(),
+    clientMsgId: z.string().optional(),
     data: z.record(z.object({
       value: z.string()
     })),
@@ -34,7 +37,7 @@ export const subscribeMsgMcpTool: McpTool = {
 
           const data: any = {
             touser: validated.toUser,
-            templateId: validated.templateId,
+            template_id: validated.templateId,
             data: validated.data
           };
 
@@ -46,9 +49,21 @@ export const subscribeMsgMcpTool: McpTool = {
           // 添加小程序参数
           if (validated.miniProgramAppId && validated.miniProgramPagePath) {
             data.miniprogram = {
-              appId: validated.miniProgramAppId,
-              pagePath: validated.miniProgramPagePath
+              appid: validated.miniProgramAppId,
+              pagepath: validated.miniProgramPagePath
             };
+          }
+
+          if (validated.miniprogramState) {
+            data.miniprogram_state = validated.miniprogramState;
+          }
+
+          if (validated.lang) {
+            data.lang = validated.lang;
+          }
+
+          if (validated.clientMsgId) {
+            data.client_msg_id = validated.clientMsgId;
           }
 
           const result = await apiClient.sendSubscribeMessage(data);
@@ -59,7 +74,7 @@ export const subscribeMsgMcpTool: McpTool = {
               text: `订阅通知发送成功\n` +
                     `- 接收者: ${validated.toUser}\n` +
                     `- 模板ID: ${validated.templateId}\n` +
-                    `- 消息ID: ${result.msgid}`
+                    `- 微信返回: ${result.errmsg || 'ok'}`
             }]
           };
         }

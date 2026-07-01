@@ -126,7 +126,17 @@ export class WechatApiClient {
   }>): Promise<{ mediaId: string }> {
     try {
       const response = await this.httpClient.post('/cgi-bin/material/add_news', {
-        articles,
+        articles: articles.map(article => ({
+          title: article.title,
+          author: article.author || '',
+          digest: article.digest || '',
+          content: article.content,
+          content_source_url: article.contentSourceUrl || '',
+          thumb_media_id: article.thumbMediaId,
+          show_cover_pic: article.showCoverPic || 0,
+          need_open_comment: article.needOpenComment || 0,
+          only_fans_can_comment: article.onlyFansCanComment || 0,
+        })),
       });
 
       if (response.data.errcode) {
@@ -838,6 +848,8 @@ export class WechatApiClient {
       time: number;
       text: string;
     }>;
+    number?: number;
+    msgid?: number;
     errmsg: string;
     errcode: number;
   }> {
@@ -849,13 +861,16 @@ export class WechatApiClient {
       if (msgId !== undefined) data.msgid = msgId;
       if (number !== undefined) data.number = number;
 
-      const response = await this.httpClient.post('/custommsg/get_records', data);
+      const response = await this.httpClient.post('/customservice/msgrecord/getmsglist', data);
 
       if (response.data.errcode && response.data.errcode !== 0) {
         throw new Error(`Get custom message records failed: ${response.data.errmsg} (${response.data.errcode})`);
       }
 
-      return response.data;
+      return {
+        ...response.data,
+        records: response.data.recordlist ?? response.data.records ?? [],
+      };
     } catch (error) {
       logger.error('Failed to get custom message records:', (error as any)?.message ?? String(error));
       throw error;
@@ -1217,13 +1232,16 @@ export class WechatApiClient {
    */
   async sendSubscribeMessage(data: {
     touser: string;
-    templateId: string;
+    template_id: string;
     page?: string;
-    miniprogram?: { appId: string; pagePath: string };
+    miniprogram?: { appid: string; pagepath: string };
+    miniprogram_state?: 'developer' | 'trial' | 'formal';
+    lang?: 'zh_CN' | 'en_US' | 'zh_HK' | 'zh_TW';
+    client_msg_id?: string;
     data: Record<string, { value: string }>;
-  }): Promise<{ errcode: number; errmsg: string; msgid: number }> {
+  }): Promise<{ errcode: number; errmsg: string }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/message/subscribe/send', data);
+      const response = await this.httpClient.post('/cgi-bin/message/subscribe/bizsend', data);
 
       if (response.data.errcode && response.data.errcode !== 0) {
         throw new Error(`Send subscribe message failed: ${response.data.errmsg} (${response.data.errcode})`);

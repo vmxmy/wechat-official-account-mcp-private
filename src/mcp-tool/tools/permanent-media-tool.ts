@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { WechatToolResult, McpTool } from '../types.js';
 import { WechatApiClient } from '../../wechat/api-client.js';
 import { logger } from '../../utils/logger.js';
+import { draftArticleSchema } from '../../utils/validation.js';
 import FormData from 'form-data';
 
 // 永久素材工具参数Schema (暂未使用，保留用于未来扩展)
@@ -13,6 +14,7 @@ const permanentMediaToolSchema = z.object({
   filePath: z.string().optional(),
   fileData: z.string().optional(),
   fileName: z.string().optional(),
+  articles: z.array(draftArticleSchema).optional(),
   title: z.string().optional(),
   introduction: z.string().optional(),
   offset: z.number().optional(),
@@ -30,10 +32,25 @@ async function handlePermanentMediaTool(args: unknown, apiClient: WechatApiClien
 
     switch (action) {
       case 'add': {
-        const { type, filePath, fileData, fileName, title, introduction } = args as any;
+        const { type, filePath, fileData, fileName, articles, title, introduction } = args as any;
         
         if (!type) {
           throw new Error('素材类型不能为空');
+        }
+
+        if (type === 'news') {
+          if (!articles || articles.length === 0) {
+            throw new Error('news 类型 add 操作需要 articles 参数');
+          }
+
+          const result = await apiClient.addNews(articles);
+
+          return {
+            content: [{
+              type: 'text',
+              text: `永久图文素材创建成功！\n素材ID: ${result.mediaId}\n包含文章数: ${articles.length}`,
+            }],
+          };
         }
         
         if (!fileData && !filePath) {
@@ -248,11 +265,22 @@ export const permanentMediaTool: McpTool = {
   description: '管理微信公众号永久素材，支持添加、获取、删除、列表和统计操作',
   inputSchema: {
     action: z.enum(['add', 'get', 'delete', 'list', 'count']).describe('操作类型：add-添加素材, get-获取素材, delete-删除素材, list-获取素材列表, count-获取素材总数'),
-    type: z.enum(['image', 'voice', 'video', 'thumb']).optional().describe('素材类型：image-图片, voice-语音, video-视频, thumb-缩略图'),
+    type: z.enum(['image', 'voice', 'video', 'thumb', 'news']).optional().describe('素材类型：image-图片, voice-语音, video-视频, thumb-缩略图, news-图文素材'),
     mediaId: z.string().optional().describe('媒体文件ID（get和delete操作必需）'),
-    filePath: z.string().optional().describe('本地文件路径（add操作必需）'),
-    fileData: z.string().optional().describe('Base64编码的文件数据（add操作可选，与filePath二选一）'),
+    filePath: z.string().optional().describe('本地文件路径（非news类型add操作必需）'),
+    fileData: z.string().optional().describe('Base64编码的文件数据（非news类型add操作可选，与filePath二选一）'),
     fileName: z.string().optional().describe('文件名（add操作可选）'),
+    articles: z.array(z.object({
+      title: z.string().describe('文章标题'),
+      author: z.string().optional().describe('作者'),
+      digest: z.string().optional().describe('摘要'),
+      content: z.string().describe('文章内容'),
+      contentSourceUrl: z.string().optional().describe('原文链接'),
+      thumbMediaId: z.string().describe('封面图片媒体ID'),
+      showCoverPic: z.number().optional().describe('是否显示封面图片'),
+      needOpenComment: z.number().optional().describe('是否开启评论'),
+      onlyFansCanComment: z.number().optional().describe('是否仅粉丝可评论'),
+    })).optional().describe('图文素材文章列表（news类型add操作必需）'),
     title: z.string().optional().describe('视频素材的标题（video类型add操作必需）'),
     introduction: z.string().optional().describe('视频素材的描述（video类型add操作必需）'),
     offset: z.number().optional().describe('从全部素材中的该偏移位置开始返回（list操作可选，默认0）'),

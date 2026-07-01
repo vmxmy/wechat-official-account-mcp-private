@@ -32,7 +32,7 @@ export const customerServiceMcpTool: McpTool = {
     startTime: z.number().int().positive().optional(),
     endTime: z.number().int().positive().optional(),
     msgId: z.number().int().optional(),
-    number: z.number().int().positive().optional(),
+    number: z.number().int().positive().max(10000).optional(),
   },
   handler: async (params: unknown, apiClient: WechatApiClient): Promise<WechatToolResult> => {
     try {
@@ -214,6 +214,12 @@ export const customerServiceMcpTool: McpTool = {
           if (!validated.endTime) {
             throw new Error('get_records 操作需要 endTime 参数（Unix时间戳）');
           }
+          if (validated.endTime <= validated.startTime) {
+            throw new Error('get_records 操作需要 endTime 大于 startTime');
+          }
+          if (validated.endTime - validated.startTime > 24 * 60 * 60) {
+            throw new Error('get_records 查询时间段不能超过24小时');
+          }
 
           const result = await apiClient.getCustomMessageRecords(
             validated.startTime,
@@ -231,7 +237,7 @@ export const customerServiceMcpTool: McpTool = {
           return {
             content: [{
               type: 'text',
-              text: `客服聊天记录 (共 ${result.records.length} 条):\n${records}`
+              text: `客服聊天记录 (共 ${result.records.length} 条${result.msgid ? `, 下一页 msgId: ${result.msgid}` : ''}):\n${records}`
             }]
           };
         }
