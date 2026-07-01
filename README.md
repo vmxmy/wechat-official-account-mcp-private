@@ -7,21 +7,24 @@
 
 ## 🚀 项目概述
 
-本项目基于 MCP 协议，为 AI 应用（如 Claude Desktop、Cursor、Trae AI 等）提供**完整**的微信公众号 API 集成。通过标准化的工具接口，AI 应用可以轻松管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计等**所有核心功能**。
+本项目基于 MCP 协议，为 AI 应用（如 Claude Desktop、Cursor、Trae AI 等）提供微信公众号 API 工具集。通过标准化的工具接口，AI 应用可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计等常用运营能力。
 
 **当前版本**: `v2.0.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**重大更新**: 从 6 个工具扩展到 15 个工具，覆盖微信公众号 95% 的核心 API 功能！（详见 [功能总览](./FEATURES_OVERVIEW.md)）
+**重大更新**: 从 6 个工具扩展到 15 个工具。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
 
 ## 📖 文档导航
 
-- **[功能总览 (FEATURES_OVERVIEW.md)](./FEATURES_OVERVIEW.md)** - v2.0.0 完整功能介绍、对比表格和使用场景
+- **[功能总览 (FEATURES_OVERVIEW.md)](./FEATURES_OVERVIEW.md)** - v2.0.0 工具介绍、对比表格和使用场景
+- **[微信官方 API Contract 核验 (WECHAT_OFFICIAL_API_CONTRACT.md)](./WECHAT_OFFICIAL_API_CONTRACT.md)** - 已核验的官方接口、项目覆盖情况和已知偏差
 - **[更新日志 (CHANGELOG.md)](./CHANGELOG.md)** - 版本历史和详细更新内容
 - **[开发者指南 (CLAUDE.md)](./CLAUDE.md)** - 架构说明、开发规范、常见模式
 
-### 外部资源
-- [微信公众平台官方文档](https://developers.weixin.qq.com/doc/)
-- [MCP 协议规范](https://modelcontextprotocol.io/)
+### 官方文档真源原则
+
+- 与微信公众号 API 相关的 endpoint、字段名、签名算法、错误码和限制，以 [微信官方文档](https://developers.weixin.qq.com/doc/) 为唯一真源。
+- 本仓库已整理一份本地核验记录：[WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md)。实现或修改工具前先查该文档，并重新打开官方页面确认最新 contract。
+- 不以 README、功能总览或代码里的历史实现作为 API contract 真源。
 
 ## ✨ 核心功能
 
@@ -340,14 +343,18 @@ node dist/src/cli.js mcp -a <your_app_id> -s <your_app_secret>
 
 ### 15. 订阅通知工具 (`wechat_subscribe_msg`)
 
-发送一次性订阅通知。
+发送订阅相关通知。
 
 **支持操作**:
 - `send`: 发送订阅通知
 
+**官方 contract 状态**:
+- 服务号订阅通知官方接口为 `/cgi-bin/message/subscribe/bizsend`，字段使用 `template_id`。
+- 公众号一次性订阅消息官方接口为 `/cgi-bin/message/template/subscribe`。
+- 当前代码中的 `/cgi-bin/message/subscribe/send` 和 `templateId` 字段与已核验官方 contract 不一致，迁移或生产使用前必须修正。详见 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md)。
+
 **特点**:
-- 需要用户主动订阅
-- 一次性推送
+- 需要用户主动订阅或授权
 - 可包含小程序跳转
 
 **使用场景**:
@@ -355,7 +362,7 @@ node dist/src/cli.js mcp -a <your_app_id> -s <your_app_secret>
 - 预约成功通知
 - 重要事件提醒
 
-**注意**: 订阅通知是模板消息的升级版，需要用户授权。
+**注意**: 订阅通知能力以微信官方文档和账号实际开通权限为准。
 
 ## 📁 项目结构
 
@@ -373,14 +380,8 @@ src/
 ├── mcp-tool/            # MCP 工具实现
 │   ├── index.ts         # 工具管理器
 │   ├── types.ts         # 类型定义
-│   └── tools/           # 具体工具实现
-│       ├── index.ts
-│       ├── auth-tool.ts
-│       ├── media-upload-tool.ts
-│       ├── upload-img-tool.ts
-│       ├── permanent-media-tool.ts
-│       ├── draft-tool.ts
-│       └── publish-tool.ts
+│   └── tools/           # 15 个具体工具实现（详见 src/mcp-tool/tools/index.ts）
+│       └── *.ts          # 具体工具文件：auth/media/draft/publish/user/tag/menu/message/statistics 等
 ├── auth/                # 认证管理
 │   └── auth-manager.ts
 ├── wechat/              # 微信 API 客户端

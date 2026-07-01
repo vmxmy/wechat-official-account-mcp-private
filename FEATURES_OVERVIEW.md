@@ -2,7 +2,7 @@
 
 ## 🎉 重大更新
 
-从 v1.1.0 的 **6个工具** 扩展到 v2.0.0 的 **15个工具**，覆盖微信公众号 90% 的核心 API 功能。
+从 v1.1.0 的 **6个工具** 扩展到 v2.0.0 的 **15个工具**。本文件描述当前工具能力，不再声明官方 API 覆盖百分比；API contract、已核验 endpoint 与已知偏差以 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md) 为准。
 
 ---
 
@@ -39,7 +39,7 @@
 
 **工具总数**: 15个
 **操作总数**: 65个
-**API方法数**: 60+ 个
+**API方法数**: 以 `src/wechat/api-client.ts` 当前实现为准；官方 contract 以 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md) 为准。
 
 ---
 
@@ -70,7 +70,7 @@
 - 自动回复规则查询
 - 48小时内客服消息
 - 服务通知模板消息
-- 一次性订阅通知
+- 订阅相关通知（当前实现需按官方 contract 修正后再用于生产）
 
 ### 4. 强大的菜单系统
 ```
@@ -187,26 +187,20 @@ wechat_statistics.get_interface_summary(beginDate, endDate)
 
 ### 代码量统计
 
-- **API Client 方法**: 从 6 个 → 60+ 个（增长 10倍）
+- **API Client 方法**: 多项微信公众号 API 封装（具体数量和 contract 以 `src/wechat/api-client.ts` 与 `WECHAT_OFFICIAL_API_CONTRACT.md` 为准）
 - **MCP 工具**: 从 6 个 → 15 个（增长 2.5倍）
 - **工具操作**: 从 21 个 → 65 个（增长 3倍）
 - **代码文件**: 新增 9 个工具文件
 
-### 覆盖的微信API模块
+### 官方 API 覆盖状态
 
-- ✅ 用户管理 API (100%)
-- ✅ 标签管理 API (100%)
-- ✅ 自定义菜单 API (100%)
-- ✅ 模板消息 API (100%)
-- ✅ 客服消息 API (100%)
-- ✅ 数据统计 API (100%)
-- ✅ 自动回复 API (100%)
-- ✅ 群发消息 API (100%)
-- ✅ 订阅通知 API (100%)
-- ✅ 素材管理 API (100%)
-- ✅ 草稿发布 API (100%)
+本项目不再使用“100% 覆盖”“95%+ 覆盖”等未经官方逐项核验的表述。当前已核验情况如下，完整 contract 见 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md)。
 
-**总体覆盖率**: 95%+ (覆盖微信公众号所有核心API)
+- ✅ 已核验并大体覆盖：用户列表/用户信息、标签基础管理、自定义菜单、素材、草稿、发布、模板消息发送、客服消息发送、群发基础能力、数据统计接口族。
+- ⚠️ 已知需修正：`wechat_subscribe_msg` 当前 endpoint/字段与官方订阅通知 contract 不一致；`wechat_permanent_media` 的 `news` 分支与 schema 不一致；`wechat_customer_service.get_records` 缺少明确官方 endpoint 实现。
+- ➕ 已核验但未覆盖或未完全覆盖：`tags/getidlist`、模板消息设置行业/添加模板、群发状态查询与速度设置、`media/uploadnews` 等。
+
+以微信官方文档为唯一真源；新增或修改工具前必须先补充/更新本地 contract 核验记录。
 
 ---
 
@@ -278,7 +272,7 @@ Access Token自动过期刷新，无需手动干预。
 
 1. **无需修改代码** - 所有新功能都是新增的
 2. **向后兼容** - 现有功能不受影响
-3. **建议升级** - 获取完整的微信API支持
+3. **建议升级** - 获取更多微信公众号 MCP 工具能力
 
 ### 升级步骤
 

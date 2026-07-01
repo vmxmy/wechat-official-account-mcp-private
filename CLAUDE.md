@@ -4,238 +4,149 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a WeChat Official Account MCP (Model Context Protocol) server that provides AI applications like Claude Desktop, Cursor, and Trae AI with seamless integration to WeChat Official Account APIs. The project implements MCP tools for managing WeChat media, drafts, and publishing functionality.
+WeChat Official Account MCP (Model Context Protocol) server exposing **15 MCP tools** for common WeChat Official Account operations (auth, media, drafts, publishing, users, tags, menus, template/customer-service/subscribe messages, statistics, auto-reply, mass-send). Consumed by Claude Desktop, Cursor, Trae AI over stdio/SSE, **and** by web/HTTP clients via a parallel REST API layer. **WeChat API contracts are sourced only from official WeChat developer docs; see `WECHAT_OFFICIAL_API_CONTRACT.md` for verified endpoints and known mismatches.**
 
-**Tech Stack**: Node.js 18+, TypeScript, MCP SDK, SQLite, Axios, Zod, Express (for SSE transport), crypto-js (for encryption)
+**Tech Stack**: Node.js 18+, TypeScript 5.8 (ES Modules), MCP SDK v1, SQLite (sqlite3), Axios, Zod, Express + Multer + JWT, Vercel (`@vercel/node`), crypto-js (AES). A minimal React 18 + Vite + Tailwind frontend scaffold exists but is nearly empty.
 
 ## Essential Commands
 
-### Development
-
 ```bash
-# Build the project (cleans and compiles TypeScript)
-npm run build
+# Build & checks
+npm run build          # clean + tsc (dev tsconfig, strict:false)
+npm run build:prod     # clean + tsc -p tsconfig.prod.json (stricter)
+npm run build:full     # full pipeline: clean + check + prod build + verify (./scripts/build.sh)
+npm run check          # tsc --noEmit (type errors only)
+npm run lint           # eslint .
 
-# Production build (with stricter tsconfig)
-npm run build:prod
+# Test (NOTE: there are NO unit tests; "test" = build then verify tool registration)
+npm test               # = npm run build:prod && node test-tools.js
+# test-tools.js asserts mcpTools.length === 15 — update it if you add/remove tools
 
-# Type checking without emitting files
-npm run check
+# Run MCP server (stdio default; -m sse for SSE)
+npm run dev -- mcp -a <app_id> -s <app_secret>            # tsx, no build
+node dist/src/cli.js mcp -a <app_id> -s <app_secret>      # built
+npx wechat-official-account-mcp mcp -a <id> -s <secret>   # published package
 
-# Lint code
-npm run lint
+# REST API server (Express, port 3001) — separate from MCP transport
+npx nodemon             # or: tsx api/server.ts — watches api/, hot reload
+npx vite                # frontend dev server (5173), proxies /api → :3001
 
-# Run tests
-npm test
+# Packaging
+npm run pack:dry        # npm pack --dry-run (inspect published contents)
+npm run pack:test       # ./scripts/pack-test.sh
 ```
 
-### Running the Server
-
-```bash
-# Development mode (direct with tsx)
-npm run dev -- mcp -a <app_id> -s <app_secret>
-
-# Start built server
-node dist/src/cli.js mcp -a <app_id> -s <app_secret>
-
-# Using npx (recommended for users)
-npx wechat-official-account-mcp mcp -a <app_id> -s <app_secret>
-```
-
-### CLI Options
-
-- `-a, --app-id <appId>`: WeChat App ID (required)
-- `-s, --app-secret <appSecret>`: WeChat App Secret (required)
-- `-m, --mode <mode>`: Transport mode - `stdio` (default) or `sse`
-- `-p, --port <port>`: Port for SSE mode (default: 3000)
-
-### Packaging & Release
-
-```bash
-# Local package testing
-npm run pack:test
-
-# Dry run pack (show what would be included)
-npm run pack:dry
-
-# Full build with verification
-./scripts/build.sh
-```
+**CLI flags**: `-a/--app-id` (required), `-s/--app-secret` (required), `-m/--mode` (`stdio` default | `sse`), `-p/--port` (SSE, default 3000).
 
 ## Architecture
 
-### Core Components
+There are **two entry surfaces over one shared core**:
 
-**Entry Points**:
-- `src/cli.ts` - CLI entry point using Commander.js
-- `src/index.ts` - Module exports for library usage
-
-**MCP Server Layer** (`src/mcp-server/`):
-- `shared/init.ts` - Server initialization logic (`initWechatMcpServer`, `initMcpServerWithTransport`)
-- `shared/types.ts` - Server configuration types (`McpServerOptions`)
-- `transport/stdio.ts` - stdio transport for local MCP clients (default for Claude Desktop)
-- `transport/sse.ts` - SSE (Server-Sent Events) transport for remote/web clients using Express
-
-**Tool Layer** (`src/mcp-tool/`):
-- `index.ts` - `WechatMcpTool` class that manages all MCP tools (tool registry, execution, error handling)
-- `types.ts` - Core type definitions (WechatConfig, AccessTokenInfo, MediaInfo, McpTool, etc.)
-- `tools/` - Individual tool implementations (auth-tool, media-upload-tool, draft-tool, etc.)
-
-**Service Layer**:
-- `src/auth/auth-manager.ts` - Manages WeChat credentials and Access Token lifecycle (with auto-refresh)
-- `src/wechat/api-client.ts` - Axios-based HTTP client with automatic token injection via request interceptor
-- `src/storage/storage-manager.ts` - SQLite persistence with optional AES-256 encryption
-
-**Utilities** (`src/utils/`):
-- `logger.ts` - Logging utility with debug/info/error levels
-- `validation.ts` - Zod schemas and sanitization functions for input validation
-- `db-init.ts` - Database initialization and schema management
-
-### Data Flow
-
-1. CLI args → `McpServerOptions` → `initMcpServerWithTransport()`
-2. Server creates `AuthManager` (handles credentials/token) and `WechatMcpTool` (tool registry)
-3. Tools are registered to MCP server via `WechatMcpTool.registerTools()`
-4. When a tool is called, handler receives `params` and `WechatApiClient`, returns `WechatToolResult`
-
-### Tool Implementation Pattern
-
-Each tool in `src/mcp-tool/tools/` follows this pattern:
-```typescript
-// 1. Define Zod schema for validation (reuse schemas from utils/validation.ts when possible)
-const schema = z.object({
-  action: z.enum(['action1', 'action2']),
-  param: z.string().optional(),
-});
-
-// 2. Export McpTool with handler
-export const toolName: McpTool = {
-  name: 'tool_name',
-  description: 'Tool description',
-  inputSchema: { /* ZodRawShape - directly passed to registerTool */ },
-  handler: async (params: unknown, apiClient: WechatApiClient) => {
-    const validated = schema.parse(params);
-    // Execute logic using apiClient methods
-    return { content: [{ type: 'text', text: 'result' }] };
-  }
-};
+```
+                    ┌─────────────────────────────────────────┐
+   AI clients ─────▶│ MCP path: cli.ts → transport (stdio/sse) │──▶ WechatMcpTool ──▶ 15 tools
+                    └─────────────────────────────────────────┘                        │
+                    ┌─────────────────────────────────────────┐                        ▼
+   HTTP clients ───▶│ REST path: api/* → routes/wechat.ts      │──▶ WechatMcpTool ──▶ WechatApiClient ──▶ WeChat API
+                    └─────────────────────────────────────────┘
 ```
 
-**Key Points**:
-- All tools are exported from `src/mcp-tool/tools/index.ts` as `mcpTools` array
-- Tool handlers receive `(params, apiClient)` - `params` is the raw input, validate it with Zod
-- Return format must match `WechatToolResult` with `content` array containing text/image/resource items
-- The `WechatMcpTool.registerTools()` wraps handlers with error handling, returning formatted errors
-- Use validation schemas from `utils/validation.ts` (e.g., `mediaIdSchema`, `appIdSchema`, `articleTitleSchema`)
-- For file operations, use `isValidMediaType()` and `isValidFileSize()` from validation utilities
+Both paths reuse `AuthManager`, `WechatApiClient`, `WechatMcpTool`, and the same `mcpTools` registry — the REST layer is a thin HTTP wrapper that calls `wechatTool.callTool(name, args)`.
 
-### Security Features
+**MCP entry points** (`src/`):
+- `cli.ts` — Commander.js CLI → `McpServerOptions` → `initMcpServerWithTransport(mode)`
+- `mcp-server/shared/init.ts` — `initWechatMcpServer()` wires `McpServer` + `AuthManager` + `WechatMcpTool`
+- `mcp-server/transport/stdio.ts` / `sse.ts` — stdio (Claude Desktop default) and Express-based SSE
 
-- **Encryption**: Set `WECHAT_MCP_SECRET_KEY` environment variable to enable AES-256 encryption for sensitive fields (app_secret, token, encoding_aes_key, access_token). Encrypted values are stored with `enc:` prefix in the database.
-- **CORS**: Configure `CORS_ORIGIN` as comma-separated whitelist for SSE mode (e.g., `https://domain1.com,https://domain2.com`). **Never use `*` in production**.
-- **Input Validation**: All tool inputs validated with Zod schemas; HTML content sanitized using `sanitizeHtmlContent()` to remove script tags, iframes, and event handlers
-- **Log Sanitization**: Error logs only include status codes/messages, never full response bodies or sensitive data (see `src/wechat/api-client.ts` response interceptor)
-- **Token Management**: Access tokens auto-refresh 1 minute before expiry; uses a promise lock (`refreshPromise`) to prevent concurrent refresh attempts
-- **File Type Whitelisting**: Media uploads validated against `ALLOWED_MEDIA_TYPES` whitelist in `utils/validation.ts`
+**REST entry points** (`api/`):
+- `api/index.ts` — Vercel Serverless entry (`@vercel/node` runtime)
+- `api/server.ts` — local dev server on port 3001
+- `api/app.ts` — Express app (CORS, JSON, error/404 handlers); mounts `/api/auth` and `/api/wechat`
+- `api/routes/wechat.ts` — **exposes all 15 MCP tools as REST**: `GET /api/wechat/tools`, `POST /api/wechat/tools/:toolName`, `POST|GET /api/wechat/config`, `GET /api/wechat/health`. Lazily initializes a singleton `AuthManager`/`WechatMcpTool` (with promise lock); config comes from env (`WECHAT_APP_ID`/`WECHAT_APP_SECRET`) or the `/config` endpoint.
 
-### Storage Schema
+**Core services** (`src/`):
+- `auth/auth-manager.ts` — credentials + Access Token lifecycle. **Auto-refreshes 5 min before expiry** (`REFRESH_BEFORE_EXPIRY = 5 * 60 * 1000`), guarded by a `refreshPromise` lock to dedupe concurrent refreshes. (CLAUDE.md previously said "1 minute" — that was wrong.)
+- `wechat/api-client.ts` — Axios instance; **request interceptor auto-injects `access_token`** (never add it manually to URLs), **response interceptor logs only errcode/errmsg** (no response bodies). ~46 public methods wrapping WeChat API.
+- `mcp-tool/index.ts` — `WechatMcpTool`: registers tools and wraps every handler in uniform try/catch error handling.
+- `mcp-tool/tools/index.ts` — exports `mcpTools` (the 15 registered tools) and `wechatTools` (a smaller internal set).
+- `storage/storage-manager.ts` — SQLite CRUD with optional AES-256 field encryption.
+- `utils/validation.ts` — Zod schemas, `sanitizeHtmlContent()`, `ALLOWED_MEDIA_TYPES` whitelist.
+- `utils/logger.ts` — masks sensitive fields (`appSecret`, `access_token`, `token`, …) by truncation.
+- `utils/db-init.ts` — schema bootstrap.
 
-SQLite database at `./data/wechat-mcp.db` with tables:
-- `config` - App credentials (encrypted if secret key set)
-- `access_tokens` - Token cache with expiry tracking
-- `media` - Temporary media tracking
-- `permanent_media` - Permanent material library
-- `drafts` - Draft content storage
-- `publishes` - Publication records
+### Startup flow
 
-## MCP Tools Available
+1. CLI/REST args → `McpServerOptions` (or REST singleton init)
+2. `AuthManager.initialize()` → loads/encrypts credentials from SQLite
+3. `WechatMcpTool.initialize()` → `registerTools(mcpServer)` registers all 15 tools
+4. On call: `handler(params, apiClient)` → validates with Zod → calls `apiClient.*` → returns `WechatToolResult`
 
-All tools are registered in `src/mcp-tool/tools/index.ts`:
+## The 15 MCP Tools
 
-1. **wechat_auth** - Configure auth, get/refresh tokens, view config
-2. **wechat_media_upload** - Upload/get temporary media (images, voice, video, thumb)
-3. **wechat_upload_img** - Upload article images (doesn't count toward material limit)
-4. **wechat_permanent_media** - Manage permanent materials (add/get/delete/list/count)
-5. **wechat_draft** - Draft CRUD operations (add/get/delete/list/count)
-6. **wechat_publish** - Publish drafts and check status
+Registered in `src/mcp-tool/tools/index.ts` (one file each):
 
-## Important Implementation Notes
+| Category | Tools |
+|---|---|
+| Base | `wechat_auth`, `wechat_draft`, `wechat_publish`, `wechat_permanent_media`, `wechat_media_upload`, `wechat_upload_img` |
+| Users | `wechat_user` |
+| Tags | `wechat_tag` |
+| Menu | `wechat_menu` |
+| Messaging | `wechat_template_msg`, `wechat_customer_service`, `wechat_subscribe_msg` |
+| Analytics | `wechat_statistics` |
+| Advanced | `wechat_auto_reply`, `wechat_mass_send` |
 
-- **Module System**: Uses ES modules (`"type": "module"` in package.json) - **must use `.js` extensions in all imports**
-- **TypeScript Config**: Two configs - `tsconfig.json` for dev (looser checks), `tsconfig.prod.json` for production builds (stricter)
-- **Path Aliases**: `@/*` maps to `./src/*` (configured in tsconfig.json) - use this for cleaner imports
-- **Error Handling**: WeChat API errors always include `errcode` and `errmsg` fields; errors are logged but not exposed in full to prevent data leakage
-- **Media Uploads**: Use `form-data` library for multipart uploads; the API client handles the multipart construction
-- **CLI Executable**: The `postbuild` script ensures `dist/src/cli.js` has executable permissions (`chmod +x`)
-- **API Client Pattern**: The `WechatApiClient` class has automatic token injection via request interceptor - never manually add `access_token` to URLs
-- **Storage**: SQLite database at `./data/wechat-mcp.db` (auto-created on first run); the `data/` directory is gitignored
-- **Testing**: No test files exist yet in the codebase; `npm test` will run Jest but finds no tests
+## Adding a Tool
 
-## Testing & Quality
+1. Create `src/mcp-tool/tools/<name>-tool.ts` exporting a `McpTool` (Zod `inputSchema` as `ZodRawShape` + `handler(params, apiClient)`). Reuse schemas from `utils/validation.ts`.
+2. Add it to the `mcpTools` array in `tools/index.ts`.
+3. Bump the expected count in `test-tools.js` (currently hardcoded `=== 15`).
+4. If it needs a new WeChat API endpoint, add a method to `WechatApiClient` — the token interceptor handles auth automatically.
 
-- Run `npm run check` before committing to catch type errors
-- Use `npm run lint` to check code style (ESLint with TypeScript support)
-- Build artifacts go to `dist/` directory and are gitignored
+Tool result shape (errors are auto-wrapped by `registerTools`):
+```typescript
+return { content: [{ type: 'text', text: '...' }] };        // success
+return { content: [...], isError: true };                    // explicit error
+```
+
+## Critical Implementation Rules
+
+- **Official WeChat docs are the only source of truth for API contracts.** Before adding/changing endpoints, request fields, signature logic, or webhook handling, check `WECHAT_OFFICIAL_API_CONTRACT.md` and re-open the linked official WeChat docs. Do not trust historical README claims or existing code if they conflict with official docs.
+- **Known contract mismatches to resolve before production/Workers migration:** `wechat_subscribe_msg` currently calls `/cgi-bin/message/subscribe/send` and uses `templateId`, but verified official contracts are `/cgi-bin/message/subscribe/bizsend` (service-account subscription notifications) or `/cgi-bin/message/template/subscribe` (one-time subscription), with `template_id`; `wechat_permanent_media` has an unreachable/ambiguous `news` branch; `wechat_customer_service.get_records` lacks a verified endpoint implementation.
+- **ES Modules + `.js` import extensions are mandatory.** `"type": "module"` is set; import `./foo.js` even for `foo.ts`. TypeScript will not rewrite these.
+- **Do NOT use the `@/*` path alias in `src/` backend code.** It maps to `./src/*` in tsconfig/vite, but `tsc`-compiled Node code doesn't resolve it. Backend uses relative paths only; the alias is for the Vite frontend.
+- **Never manually add `access_token` to WeChat URLs** — the Axios request interceptor does it. Just call `apiClient.<method>()`.
+- **Two tsconfigs**: `tsconfig.json` (dev, `strict:false`) vs `tsconfig.prod.json` (stricter, excludes test/config files). `npm test` and publish run the prod build.
+- **`npm test` is NOT a unit test runner** — it builds then runs `test-tools.js`, which only checks that 15 tools registered. There are zero `.test.ts`/`.spec.ts` files. Run `npm run check` + `npm run build:prod` before committing.
+- WeChat API errors carry `errcode`/`errmsg`; full response bodies are never logged (data-leak prevention in the response interceptor).
+- SQLite DB at `./data/wechat-mcp.db` (auto-created; `data/` is gitignored). Tables: `config`, `access_tokens`, `media`, `permanent_media`, `drafts`, `publishes`.
+
+## Security
+
+- **`WECHAT_MCP_SECRET_KEY`** → enables AES-256 encryption of `app_secret`/`token`/`encoding_aes_key`/`access_token`; encrypted values stored with `enc:` prefix. Strongly recommended in production.
+- **`CORS_ORIGIN`** → comma-separated allowlist for SSE/REST. **Never `*` in production.**
+- Input validated by Zod at every tool boundary; HTML sanitized via `sanitizeHtmlContent()`.
+- Media uploads validated against `ALLOWED_MEDIA_TYPES` + size limits.
 
 ## Environment Variables
 
-- `NODE_ENV` - Development/production mode (affects some logging behavior)
-- `DEBUG` - Enable debug logging (set to `true` or `1`)
-- `CORS_ORIGIN` - Comma-separated CORS whitelist for SSE mode (e.g., `https://domain1.com,https://domain2.com`)
-- `WECHAT_MCP_SECRET_KEY` - AES encryption key for sensitive data storage (optional but strongly recommended for production)
-- `DB_PATH` - Custom database path (default: `./data/wechat-mcp.db`)
+| Var | Purpose |
+|---|---|
+| `WECHAT_APP_ID` / `WECHAT_APP_SECRET` | Credentials (REST path auto-loads these; MCP path uses CLI flags) |
+| `WECHAT_MCP_SECRET_KEY` | AES-256 key for sensitive-field encryption (optional, recommended) |
+| `CORS_ORIGIN` | Comma-separated allowlist (never `*` in prod) |
+| `DB_PATH` | SQLite path (default `./data/wechat-mcp.db`) |
+| `NODE_ENV` / `DEBUG` | Runtime mode / verbose logging (off in prod) |
 
-## Common Patterns
+## Deployment
 
-### Adding a New Tool
+- **npm package** (primary): `npx wechat-official-account-mcp mcp -a <id> -s <secret>` (`bin: wechat-mcp`).
+- **Vercel**: `api/index.ts` is the serverless entry; `vercel.json` rewrites `/api/* → /api/index` and everything else → `/index.html` (SPA fallback).
+- **Local SSE/REST**: `tsx api/server.ts` (Express on 3001); Vite dev (5173) proxies `/api`.
 
-1. Create a new file in `src/mcp-tool/tools/` (e.g., `new-tool.ts`)
-2. Import necessary types and schemas:
-   ```typescript
-   import { z } from 'zod';
-   import { McpTool, WechatApiClient, WechatToolResult } from '../types.js';
-   import { logger } from '../../utils/logger.js';
-   ```
-3. Define your Zod schema (reuse existing schemas from `utils/validation.ts` when possible)
-4. Export the tool implementing `McpTool` interface
-5. Add to the `mcpTools` array in `src/mcp-tool/tools/index.ts`
+## Related Docs
 
-### Error Response Format
-
-All tool results should follow this format:
-```typescript
-return {
-  content: [{
-    type: 'text',
-    text: 'Your result message here'
-  }]
-};
-```
-
-For errors, the `WechatMcpTool.registerTools()` wrapper automatically catches exceptions and returns:
-```typescript
-{
-  content: [{
-    type: 'text',
-    text: `Error: ${error.message}`
-  }]
-}
-```
-
-### Accessing WeChat API from a Tool
-
-The `apiClient` parameter provides methods like:
-- `uploadMedia()` - Upload temporary media
-- `uploadImg()` - Upload article images (other material)
-- `addPermanentMedia()` - Add permanent material
-- `getPermanentMedia()` - Get permanent material
-- `deletePermanentMedia()` - Delete permanent material
-- `listPermanentMedia()` - List permanent materials
-- `countPermanentMedia()` - Count materials by type
-- `addDraft()` - Create draft
-- `getDraft()` - Get draft details
-- `deleteDraft()` - Delete draft
-- `listDrafts()` - List drafts
-- `countDrafts()` - Count drafts
-- `publishDraft()` - Publish a draft
-- `getPublishStatus()` - Check publish status
+- `WECHAT_OFFICIAL_API_CONTRACT.md` — verified official WeChat API contracts, source URLs, current project coverage, and known mismatches
+- `README.md` — full Chinese user guide (install, config, AI-client integration)
+- `AGENTS.md` — Chinese agent/team guide (broader, includes full tree and naming conventions)
+- `FEATURES_OVERVIEW.md` — v2.0.0 feature comparison
+- `CHANGELOG.md` — version history (v1.0.3 → v1.1.0 → v2.0.0)
