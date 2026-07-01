@@ -22,10 +22,10 @@
 
 ## 3. D1 + Workers executors
 
-- [ ] 3.1 Implement `WorkersHttpExecutor` using `fetch` + Web `FormData` + `Uint8Array`
-- [ ] 3.2 Implement `D1StorageManager` against the `StorageManager` interface, mirroring `SqliteStorageManager` semantics
-- [ ] 3.3 Preserve AES field encryption with `enc:` prefix on D1; source key from a Worker secret binding
-- [ ] 3.4 Add a fixture-based test harness that replays request/response pairs against both executors and asserts identical behavior
+- [x] 3.1 Implement `WorkersHttpExecutor` using `fetch` + Web `FormData` + `Uint8Array`
+- [x] 3.2 Implement `D1StorageManager` against the `StorageManager` interface, mirroring `SqliteStorageManager` semantics
+- [x] 3.3 Preserve AES field encryption with `enc:` prefix on D1; source key from a Worker secret binding
+- [x] 3.4 Add a fixture-based test harness that replays request/response pairs against both executors and asserts identical behavior
 
 ## 4. McpAgent MVP (auth + draft only)
 

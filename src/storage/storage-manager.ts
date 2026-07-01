@@ -37,9 +37,9 @@ export class SqliteStorageManager implements StorageManager {
   private dbPath: string;
   private secretKey: string | undefined;
 
-  constructor() {
-    this.dbPath = path.join(__dirname, '../../data/wechat-mcp.db');
-    this.secretKey = process.env.WECHAT_MCP_SECRET_KEY;
+  constructor(dbPath?: string, secretKey = process.env.WECHAT_MCP_SECRET_KEY) {
+    this.dbPath = dbPath ?? path.join(__dirname, '../../data/wechat-mcp.db');
+    this.secretKey = secretKey;
   }
 
   /**
