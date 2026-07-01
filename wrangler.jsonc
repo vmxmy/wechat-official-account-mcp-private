@@ -1,0 +1,79 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "wechat-official-account-mcp",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WECHAT_MCP_AGENT",
+        "class_name": "WechatMcpAgent"
+      },
+      {
+        "name": "TOKEN_OWNER",
+        "class_name": "TokenOwner"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["WechatMcpAgent", "TokenOwner"]
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wechat-official-account-mcp",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations/d1"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "wechat-official-account-mcp-media"
+    }
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "WECHAT_APP_ID",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "wechat-app-id"
+    },
+    {
+      "binding": "WECHAT_APP_SECRET",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "wechat-app-secret"
+    },
+    {
+      "binding": "WECHAT_MCP_SECRET_KEY",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "wechat-mcp-secret-key"
+    },
+    {
+      "binding": "WECHAT_WEBHOOK_TOKEN",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "wechat-webhook-token"
+    },
+    {
+      "binding": "WECHAT_ENCODING_AES_KEY",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "wechat-encoding-aes-key"
+    },
+    {
+      "binding": "OAUTH_CLIENT_ID",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "oauth-client-id"
+    },
+    {
+      "binding": "OAUTH_CLIENT_SECRET",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "oauth-client-secret"
+    }
+  ]
+}

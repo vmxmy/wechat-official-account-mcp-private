@@ -21,7 +21,7 @@ export const subscribeMsgMcpTool: McpTool = {
     miniprogramState: z.enum(['developer', 'trial', 'formal']).optional(),
     lang: z.enum(['zh_CN', 'en_US', 'zh_HK', 'zh_TW']).optional(),
     clientMsgId: z.string().optional(),
-    data: z.record(z.object({
+    data: z.record(z.string(), z.object({
       value: z.string()
     })),
   },

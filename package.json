@@ -47,10 +47,16 @@
     "pack:dry": "npm pack --dry-run",
     "start": "node dist/src/cli.js",
     "postbuild": "chmod +x dist/src/cli.js",
-    "build:full": "./scripts/build.sh"
+    "build:full": "./scripts/build.sh",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:types": "wrangler types",
+    "d1:migrate:local": "wrangler d1 migrations apply wechat-official-account-mcp --local"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@cloudflare/workers-oauth-provider": "^0.8.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "agents": "^0.17.3",
     "axios": "^1.6.0",
     "commander": "^12.1.0",
     "cors": "^2.8.5",
@@ -61,7 +67,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "sqlite3": "^5.1.6",
-    "zod": "^3.22.0"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
@@ -71,8 +77,8 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/multer": "^1.4.11",
     "@types/node": "^22.18.3",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "@types/sqlite3": "^3.1.11",
     "@vercel/node": "^5.3.6",
     "@vitejs/plugin-react": "^4.4.1",
@@ -87,8 +93,8 @@
     "lucide-react": "^0.511.0",
     "nodemon": "^3.1.10",
     "postcss": "^8.5.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "react-router-dom": "^7.3.0",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^3.4.17",
@@ -98,6 +104,7 @@
     "vite": "^6.3.5",
     "vite-plugin-trae-solo-badge": "^1.0.0",
     "vite-tsconfig-paths": "^5.1.4",
+    "wrangler": "^4.106.0",
     "zustand": "^5.0.3"
   }
 }

@@ -20,7 +20,7 @@ export const templateMsgMcpTool: McpTool = {
     templateId: templateIdSchema.optional(),
     url: z.string().url('URL格式不正确').optional(),
     topColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, '颜色格式不正确，应为#RRGGBB').optional(),
-    data: z.record(z.object({
+    data: z.record(z.string(), z.object({
       value: z.string(),
       color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, '颜色格式不正确').optional()
     })).optional(),

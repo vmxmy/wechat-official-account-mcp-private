@@ -113,9 +113,9 @@ export class WechatMcpTool {
         tool.name,
         {
           description: tool.description,
-          inputSchema: tool.inputSchema
+          inputSchema: tool.inputSchema as any
         },
-        async (params: unknown) => {
+        (async (params: unknown) => {
           try {
             logger.debug(`[WechatMcpTool] Calling tool: ${tool.name}`);
             logger.debug(`[WechatMcpTool] Params type: ${typeof params}`);
@@ -125,7 +125,7 @@ export class WechatMcpTool {
 
             const result = await tool.handler(params, this.apiClient);
             logger.debug(`[WechatMcpTool] Tool ${tool.name} executed successfully`);
-            return result;
+            return result as any;
           } catch (error) {
             logger.error(`[WechatMcpTool] Error in tool ${tool.name}:`, error);
             return {
@@ -133,9 +133,9 @@ export class WechatMcpTool {
                 type: 'text' as const,
                 text: `Error: ${error instanceof Error ? error.message : String(error)}`
               }]
-            };
+            } as any;
           }
-        }
+        }) as any
       );
     }
 

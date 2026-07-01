@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 WeChat Official Account MCP (Model Context Protocol) server exposing **15 MCP tools** for common WeChat Official Account operations (auth, media, drafts, publishing, users, tags, menus, template/customer-service/subscribe messages, statistics, auto-reply, mass-send). Consumed by Claude Desktop, Cursor, Trae AI over stdio/SSE, **and** by web/HTTP clients via a parallel REST API layer. **WeChat API contracts are sourced only from official WeChat developer docs; see `WECHAT_OFFICIAL_API_CONTRACT.md` for verified endpoints and known mismatches.**
 
-**Tech Stack**: Node.js 18+, TypeScript 5.8 (ES Modules), MCP SDK v1, SQLite (sqlite3), Axios, Zod, Express + Multer + JWT, Vercel (`@vercel/node`), crypto-js (AES). A minimal React 18 + Vite + Tailwind frontend scaffold exists but is nearly empty.
+**Tech Stack**: Node.js 18+, TypeScript 5.8 (ES Modules), MCP SDK v1, SQLite (sqlite3), Axios, Zod, Express + Multer + JWT, Vercel (`@vercel/node`), crypto-js (AES). A minimal React 19 + Vite + Tailwind frontend scaffold exists but is nearly empty.
 
 ## Essential Commands
 

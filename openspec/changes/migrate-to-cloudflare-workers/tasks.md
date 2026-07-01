@@ -15,10 +15,10 @@
 
 ## 2. Workers project skeleton
 
-- [ ] 2.1 Add `wrangler.jsonc` with `nodejs_compat`, DO bindings (`WECHAT_MCP_AGENT`, `TOKEN_OWNER`), D1 binding (`DB`), R2 binding (`MEDIA`), Secrets Store references
-- [ ] 2.2 Add DO migration (`new_sqlite_classes` for both DO classes, tag `v1`)
-- [ ] 2.3 Create D1 migration creating the six tables (`config`, `access_tokens`, `media`, `permanent_media`, `drafts`, `publishes`) with existing column definitions
-- [ ] 2.4 Add `agents`, `@cloudflare/workers-oauth-provider` deps; verify `npm run check` still passes
+- [x] 2.1 Add `wrangler.jsonc` with `nodejs_compat`, DO bindings (`WECHAT_MCP_AGENT`, `TOKEN_OWNER`), D1 binding (`DB`), R2 binding (`MEDIA`), Secrets Store references
+- [x] 2.2 Add DO migration (`new_sqlite_classes` for both DO classes, tag `v1`)
+- [x] 2.3 Create D1 migration creating the six tables (`config`, `access_tokens`, `media`, `permanent_media`, `drafts`, `publishes`) with existing column definitions
+- [x] 2.4 Add `agents`, `@cloudflare/workers-oauth-provider` deps; verify `npm run check` still passes
 
 ## 3. D1 + Workers executors
 

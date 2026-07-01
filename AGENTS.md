@@ -27,7 +27,7 @@
 | 语言 | TypeScript 5.8 | 严格模式关闭（开发配置） |
 | 模块系统 | ES Modules (`"type": "module"`) | 所有导入必须使用 `.js` 扩展名 |
 | 协议 | MCP SDK v1.0 | Model Context Protocol |
-| 前端框架 | React 18 + React Router 7 | 最小化脚手架，当前几乎无实际页面 |
+| 前端框架 | React 19 + React Router 7 | 最小化脚手架，当前几乎无实际页面；React 19 用于满足 Cloudflare Agents SDK peer 依赖 |
 | 样式 | Tailwind CSS 3.4 + PostCSS | 工具类优先 CSS |
 | 构建工具 | Vite 6 | 前端开发服务器与打包 |
 | 后端编译 | `tsc` | TypeScript 直接编译到 `dist/`，非 Vite |
@@ -35,7 +35,7 @@
 | HTTP 客户端 | Axios 1.6 | 微信 API 调用，含自动 token 注入 |
 | HTTP 服务器 | Express 4.21 | SSE 传输模式与 API 路由 |
 | 数据库 | SQLite3 | 本地持久化存储 |
-| 参数校验 | Zod 3.22 | 工具输入 schema 定义与校验 |
+| 参数校验 | Zod 4.4 | 工具输入 schema 定义与校验；MCP SDK 1.29 / Agents SDK 采用 Zod 4 peer |
 | 加密 | crypto-js | AES-256 字段级加密（可选） |
 | 文件上传 | Multer + form-data | 媒体素材上传 |
 | 开发执行 | tsx | 开发时直接运行 TypeScript |

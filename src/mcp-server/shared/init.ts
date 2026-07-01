@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WechatMcpTool } from '../../mcp-tool/index.js';
 import { AuthManager } from '../../auth/auth-manager.js';
 import { initStdioServer, initSSEServer } from '../transport/index.js';
-import { McpServerOptions } from './types';
+import { McpServerOptions } from './types.js';
 import { logger } from '../../utils/logger.js';
 import { readFileSync } from 'fs';
 
@@ -36,7 +36,6 @@ export async function initWechatMcpServer(options: McpServerOptions) {
 
   // 创建MCP服务器
   const mcpServer = new McpServer({ 
-    id: 'wechat-mcp-server', 
     name: 'WeChat Official Account MCP Server', 
     version: getVersion() 
   });
