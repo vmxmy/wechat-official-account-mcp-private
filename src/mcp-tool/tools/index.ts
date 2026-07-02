@@ -13,6 +13,12 @@ import { autoReplyMcpTool } from './auto-reply-tool.js';
 import { massSendMcpTool } from './mass-send-tool.js';
 import { subscribeMsgMcpTool } from './subscribe-msg-tool.js';
 import { inboxMcpTool } from './inbox-tool.js';
+import { qrcodeMcpTool } from './qrcode-tool.js';
+import { shortUrlMcpTool } from './short-url-tool.js';
+import { commentMcpTool } from './comment-tool.js';
+import { blacklistMcpTool } from './blacklist-tool.js';
+import { kfAccountMcpTool } from './kf-account-tool.js';
+import { accountMcpTool } from './account-tool.js';
 
 const [mediaUploadTool, uploadImgTool, permanentMediaTool] = createWorkerMediaTools();
 
@@ -58,6 +64,14 @@ export const mcpTools: McpTool[] = [
   autoReplyMcpTool,
   massSendMcpTool,
   inboxMcpTool,
+
+  // v2.2 API 扩展工具
+  qrcodeMcpTool,
+  shortUrlMcpTool,
+  commentMcpTool,
+  blacklistMcpTool,
+  kfAccountMcpTool,
+  accountMcpTool,
 ];
 
 export {
@@ -77,4 +91,10 @@ export {
   massSendMcpTool,
   subscribeMsgMcpTool,
   inboxMcpTool,
+  qrcodeMcpTool,
+  shortUrlMcpTool,
+  commentMcpTool,
+  blacklistMcpTool,
+  kfAccountMcpTool,
+  accountMcpTool,
 };

@@ -1,5 +1,4 @@
 import { WechatToolDefinition, McpTool, WechatApiClient, WechatToolContext, WechatToolResult } from '../types.js';
-import { logger } from '../../utils/logger.js';
 import { z } from 'zod';
 import { draftArticleSchema, mediaIdSchema } from '../../utils/validation.js';
 
@@ -8,14 +7,29 @@ const DEFAULT_DRAFT_BATCHGET_NO_CONTENT = 1;
 
 // 草稿工具参数 Schema
 const draftToolSchema = z.object({
-  action: z.enum(['add', 'get', 'delete', 'list', 'count']),
+  action: z.enum(['add', 'update', 'get', 'delete', 'list', 'count']),
   mediaId: mediaIdSchema.optional(),
+  index: z.number().int().min(0).optional(),
   articles: z.array(draftArticleSchema).optional(),
   offset: z.number().int().min(0).default(0),
   count: z.number().int().min(1).max(20).default(OFFICIAL_DRAFT_BATCHGET_MAX_COUNT),
   noContent: z.number().int().min(0).max(1).optional(),
   no_content: z.number().int().min(0).max(1).default(DEFAULT_DRAFT_BATCHGET_NO_CONTENT),
 });
+
+function formatDraftArticle(article: any) {
+  return {
+    title: article.title,
+    author: article.author || '',
+    digest: article.digest || '',
+    content: article.content,
+    content_source_url: article.contentSourceUrl || '',
+    thumb_media_id: article.thumbMediaId,
+    show_cover_pic: article.showCoverPic || 0,
+    need_open_comment: article.needOpenComment || 0,
+    only_fans_can_comment: article.onlyFansCanComment || 0,
+  };
+}
 
 /**
  * 草稿工具核心处理逻辑
@@ -25,6 +39,7 @@ async function handleDraftOperations(
   action: string,
   params: {
     mediaId?: string;
+    index?: number;
     articles?: any[];
     offset?: number;
     count?: number;
@@ -40,30 +55,45 @@ async function handleDraftOperations(
         throw new Error('文章内容不能为空');
       }
 
-      try {
-        const result = await apiClient.post('/cgi-bin/draft/add', {
-          articles: articles.map((article: any) => ({
-            title: article.title,
-            author: article.author || '',
-            digest: article.digest || '',
-            content: article.content,
-            content_source_url: article.contentSourceUrl || '',
-            thumb_media_id: article.thumbMediaId,
-            show_cover_pic: article.showCoverPic || 0,
-            need_open_comment: article.needOpenComment || 0,
-            only_fans_can_comment: article.onlyFansCanComment || 0,
-          }))
-        }) as any;
+      const result = await apiClient.post('/cgi-bin/draft/add', {
+        articles: articles.map((article: any) => formatDraftArticle(article))
+      }) as any;
 
-        return {
-          content: [{
-            type: 'text',
-            text: `草稿创建成功！\n草稿ID: ${result.media_id}\n包含文章数: ${articles.length}`,
-          }],
-        };
-      } catch (error) {
-        throw new Error(`创建草稿失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      return {
+        content: [{
+          type: 'text',
+          text: `草稿创建成功！\n草稿ID: ${result.media_id}\n包含文章数: ${articles.length}`,
+        }],
+      };
+    }
+
+    case 'update': {
+      const { mediaId, index, articles } = params;
+
+      if (!mediaId) {
+        throw new Error('草稿ID不能为空');
       }
+
+      if (index === undefined) {
+        throw new Error('更新草稿时必须提供文章索引 index');
+      }
+
+      if (!articles || articles.length !== 1) {
+        throw new Error('更新草稿时必须提供且仅提供一篇文章内容');
+      }
+
+      await apiClient.post('/cgi-bin/draft/update', {
+        media_id: mediaId,
+        index,
+        articles: formatDraftArticle(articles[0]),
+      }) as any;
+
+      return {
+        content: [{
+          type: 'text',
+          text: `草稿更新成功！\n草稿ID: ${mediaId}\n更新索引: ${index}`,
+        }],
+      };
     }
 
     case 'get': {
@@ -73,31 +103,27 @@ async function handleDraftOperations(
         throw new Error('草稿ID不能为空');
       }
 
-      try {
-        const result = await apiClient.post('/cgi-bin/draft/get', {
-          media_id: mediaId
-        }) as any;
+      const result = await apiClient.post('/cgi-bin/draft/get', {
+        media_id: mediaId
+      }) as any;
 
-        const articles = result.news_item.map((item: any, index: number) =>
-          `第${index + 1}篇:\n` +
-          `标题: ${item.title}\n` +
-          `作者: ${item.author || '未设置'}\n` +
-          `摘要: ${item.digest || '无'}\n` +
-          `内容: ${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}\n` +
-          `原文链接: ${item.content_source_url || '无'}\n` +
-          `封面图ID: ${item.thumb_media_id}\n` +
-          `显示封面: ${item.show_cover_pic ? '是' : '否'}\n`
-        ).join('\n');
+      const articles = result.news_item.map((item: any, index: number) =>
+        `第${index + 1}篇:\n` +
+        `标题: ${item.title}\n` +
+        `作者: ${item.author || '未设置'}\n` +
+        `摘要: ${item.digest || '无'}\n` +
+        `内容: ${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}\n` +
+        `原文链接: ${item.content_source_url || '无'}\n` +
+        `封面图ID: ${item.thumb_media_id}\n` +
+        `显示封面: ${item.show_cover_pic ? '是' : '否'}\n`
+      ).join('\n');
 
-        return {
-          content: [{
-            type: 'text',
-            text: `获取草稿成功！\n草稿ID: ${mediaId}\n创建时间: ${new Date(result.create_time * 1000).toLocaleString()}\n更新时间: ${new Date(result.update_time * 1000).toLocaleString()}\n\n${articles}`,
-          }],
-        };
-      } catch (error) {
-        throw new Error(`获取草稿失败: ${error instanceof Error ? error.message : '未知错误'}`);
-      }
+      return {
+        content: [{
+          type: 'text',
+          text: `获取草稿成功！\n草稿ID: ${mediaId}\n创建时间: ${new Date(result.create_time * 1000).toLocaleString()}\n更新时间: ${new Date(result.update_time * 1000).toLocaleString()}\n\n${articles}`,
+        }],
+      };
     }
 
     case 'delete': {
@@ -107,20 +133,16 @@ async function handleDraftOperations(
         throw new Error('草稿ID不能为空');
       }
 
-      try {
-        await apiClient.post('/cgi-bin/draft/delete', {
-          media_id: mediaId
-        }) as any;
+      await apiClient.post('/cgi-bin/draft/delete', {
+        media_id: mediaId
+      }) as any;
 
-        return {
-          content: [{
-            type: 'text',
-            text: `草稿删除成功！\n草稿ID: ${mediaId}`,
-          }],
-        };
-      } catch (error) {
-        throw new Error(`删除草稿失败: ${error instanceof Error ? error.message : '未知错误'}`);
-      }
+      return {
+        content: [{
+          type: 'text',
+          text: `草稿删除成功！\n草稿ID: ${mediaId}`,
+        }],
+      };
     }
 
     case 'list': {
@@ -130,57 +152,49 @@ async function handleDraftOperations(
         noContent = DEFAULT_DRAFT_BATCHGET_NO_CONTENT,
       } = params;
 
-      try {
-        const result = await apiClient.post('/cgi-bin/draft/batchget', {
-          offset,
-          count,
-          no_content: noContent,
-        }) as any;
+      const result = await apiClient.post('/cgi-bin/draft/batchget', {
+        offset,
+        count,
+        no_content: noContent,
+      }) as any;
 
-        const draftList = result.item.map((item: any, index: number) => {
-          const newsItems = item.content?.news_item ?? [];
-          const firstArticle = newsItems[0];
-          const articleCount = newsItems.length;
-          const updateTime = item.content?.update_time ?? item.update_time;
+      const draftList = result.item.map((item: any, index: number) => {
+        const newsItems = item.content?.news_item ?? [];
+        const firstArticle = newsItems[0];
+        const articleCount = newsItems.length;
+        const updateTime = item.content?.update_time ?? item.update_time;
 
-          if (!firstArticle) {
-            return `${offset + index + 1}. 草稿ID: ${item.media_id}\n` +
-                   `   标题: 未返回（no_content=${noContent}）\n` +
-                   `   更新时间: ${updateTime ? new Date(updateTime * 1000).toLocaleString() : '未知'}\n` +
-                   `   提示: 如需标题/正文摘要，请显式传 noContent: 0 后重试`;
-          }
-
+        if (!firstArticle) {
           return `${offset + index + 1}. 草稿ID: ${item.media_id}\n` +
-                 `   标题: ${firstArticle.title}${articleCount > 1 ? ` (共${articleCount}篇)` : ''}\n` +
-                 `   作者: ${firstArticle.author || '未设置'}\n` +
-                 `   创建时间: ${item.content?.create_time ? new Date(item.content.create_time * 1000).toLocaleString() : '未知'}\n` +
-                 `   更新时间: ${updateTime ? new Date(updateTime * 1000).toLocaleString() : '未知'}`;
-        }).join('\n\n');
+                 `   标题: 未返回（no_content=${noContent}）\n` +
+                 `   更新时间: ${updateTime ? new Date(updateTime * 1000).toLocaleString() : '未知'}\n` +
+                 `   提示: 如需标题/正文摘要，请显式传 noContent: 0 后重试`;
+        }
 
-        return {
-          content: [{
-            type: 'text',
-            text: `草稿列表 (${offset + 1}-${offset + result.item.length}/${result.total_count}, count=${count}, no_content=${noContent}):\n\n${draftList}`,
-          }],
-        };
-      } catch (error) {
-        throw new Error(`获取草稿列表失败: ${error instanceof Error ? error.message : '未知错误'}`);
-      }
+        return `${offset + index + 1}. 草稿ID: ${item.media_id}\n` +
+               `   标题: ${firstArticle.title}${articleCount > 1 ? ` (共${articleCount}篇)` : ''}\n` +
+               `   作者: ${firstArticle.author || '未设置'}\n` +
+               `   创建时间: ${item.content?.create_time ? new Date(item.content.create_time * 1000).toLocaleString() : '未知'}\n` +
+               `   更新时间: ${updateTime ? new Date(updateTime * 1000).toLocaleString() : '未知'}`;
+      }).join('\n\n');
+
+      return {
+        content: [{
+          type: 'text',
+          text: `草稿列表 (${offset + 1}-${offset + result.item.length}/${result.total_count}, count=${count}, no_content=${noContent}):\n\n${draftList}`,
+        }],
+      };
     }
 
     case 'count': {
-      try {
-        const result = await apiClient.post('/cgi-bin/draft/count') as any;
+      const result = await apiClient.post('/cgi-bin/draft/count') as any;
 
-        return {
-          content: [{
-            type: 'text',
-            text: `草稿统计信息：\n草稿总数: ${result.total_count} 个`,
-          }],
-        };
-      } catch (error) {
-        throw new Error(`获取草稿统计失败: ${error instanceof Error ? error.message : '未知错误'}`);
-      }
+      return {
+        content: [{
+          type: 'text',
+          text: `草稿统计信息：\n草稿总数: ${result.total_count} 个`,
+        }],
+      };
     }
 
     default:
@@ -193,62 +207,34 @@ async function handleDraftOperations(
  */
 async function handleDraftTool(context: WechatToolContext): Promise<WechatToolResult> {
   const { args, apiClient } = context;
+  const validatedArgs = draftToolSchema.parse(args);
+  const { action, mediaId, index, articles, offset, count, noContent, no_content } = validatedArgs;
 
-  try {
-    const validatedArgs = draftToolSchema.parse(args);
-    const { action, mediaId, articles, offset, count, noContent, no_content } = validatedArgs;
-
-    return await handleDraftOperations(action, {
-      mediaId,
-      articles,
-      offset,
-      count,
-      noContent: noContent ?? no_content,
-    }, apiClient);
-  } catch (error) {
-    logger.error('Draft tool error:', error);
-    return {
-      content: [{
-        type: 'text',
-        text: `草稿操作失败: ${error instanceof Error ? error.message : '未知错误'}`,
-      }],
-      isError: true,
-    };
-  }
+  return handleDraftOperations(action, {
+    mediaId,
+    index,
+    articles,
+    offset,
+    count,
+    noContent: noContent ?? no_content,
+  }, apiClient);
 }
 
 /**
  * MCP草稿工具处理器 (直接参数)
  */
 async function handleDraftMcpTool(args: unknown, apiClient: WechatApiClient): Promise<WechatToolResult> {
-  const {
-    action,
-    mediaId,
-    articles,
-    offset = 0,
-    count = OFFICIAL_DRAFT_BATCHGET_MAX_COUNT,
-    noContent,
-    no_content,
-  } = args as any;
+  const validatedArgs = draftToolSchema.parse(args);
+  const { action, mediaId, index, articles, offset, count, noContent, no_content } = validatedArgs;
 
-  try {
-    return await handleDraftOperations(action, {
-      mediaId,
-      articles,
-      offset,
-      count,
-      noContent: noContent ?? no_content ?? DEFAULT_DRAFT_BATCHGET_NO_CONTENT,
-    }, apiClient);
-  } catch (error) {
-    logger.error('Draft MCP tool error:', error);
-    return {
-      content: [{
-        type: 'text',
-        text: `草稿操作失败: ${error instanceof Error ? error.message : '未知错误'}`,
-      }],
-      isError: true,
-    };
-  }
+  return handleDraftOperations(action, {
+    mediaId,
+    index,
+    articles,
+    offset,
+    count,
+    noContent: noContent ?? no_content,
+  }, apiClient);
 }
 
 /**
@@ -262,12 +248,16 @@ export const draftTool: WechatToolDefinition = {
     properties: {
       action: {
         type: 'string',
-        enum: ['add', 'get', 'delete', 'list', 'count'],
+        enum: ['add', 'update', 'get', 'delete', 'list', 'count'],
         description: '操作类型',
       },
       mediaId: {
         type: 'string',
         description: '草稿 Media ID',
+      },
+      index: {
+        type: 'number',
+        description: '草稿文章索引（update 时必需）',
       },
       offset: {
         type: 'number',
@@ -306,8 +296,9 @@ export const draftMcpTool: McpTool = {
   name: 'wechat_draft',
   description: '管理微信公众号草稿',
   inputSchema: {
-    action: z.enum(['add', 'get', 'delete', 'list', 'count']).describe('操作类型：add(创建), get(获取), delete(删除), list(列表), count(统计)'),
-    mediaId: z.string().optional().describe('草稿 Media ID（获取、删除时必需）'),
+    action: z.enum(['add', 'update', 'get', 'delete', 'list', 'count']).describe('操作类型：add(创建), update(更新), get(获取), delete(删除), list(列表), count(统计)'),
+    mediaId: z.string().optional().describe('草稿 Media ID（get、update、delete 时必需）'),
+    index: z.number().int().min(0).optional().describe('草稿中的文章索引（update 时必需）'),
     articles: z.array(z.object({
       title: z.string().describe('文章标题'),
       author: z.string().optional().describe('作者'),
@@ -318,7 +309,7 @@ export const draftMcpTool: McpTool = {
       showCoverPic: z.number().optional().describe('是否显示封面图片'),
       needOpenComment: z.number().optional().describe('是否开启评论'),
       onlyFansCanComment: z.number().optional().describe('是否仅粉丝可评论'),
-    })).optional().describe('文章列表（创建时必需）'),
+    })).optional().describe('文章列表（add 时可传多篇，update 时必须且仅能传一篇）'),
     offset: z.number().int().min(0).default(0).describe('偏移量（列表时使用，默认0）'),
     count: z.number().int().min(1).max(20).default(OFFICIAL_DRAFT_BATCHGET_MAX_COUNT).describe('数量（列表时使用，默认20，官方上限20）'),
     noContent: z.number().int().min(0).max(1).optional().describe('是否不返回 content 字段（列表时使用，默认1；传0可返回正文内容）'),

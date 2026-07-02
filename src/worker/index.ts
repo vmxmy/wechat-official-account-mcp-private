@@ -21,6 +21,12 @@ import { autoReplyMcpTool } from '../mcp-tool/tools/auto-reply-tool.js';
 import { massSendMcpTool } from '../mcp-tool/tools/mass-send-tool.js';
 import { subscribeMsgMcpTool } from '../mcp-tool/tools/subscribe-msg-tool.js';
 import { inboxMcpTool } from '../mcp-tool/tools/inbox-tool.js';
+import { qrcodeMcpTool } from '../mcp-tool/tools/qrcode-tool.js';
+import { shortUrlMcpTool } from '../mcp-tool/tools/short-url-tool.js';
+import { commentMcpTool } from '../mcp-tool/tools/comment-tool.js';
+import { blacklistMcpTool } from '../mcp-tool/tools/blacklist-tool.js';
+import { kfAccountMcpTool } from '../mcp-tool/tools/kf-account-tool.js';
+import { accountMcpTool } from '../mcp-tool/tools/account-tool.js';
 import { D1StorageManager, type D1DatabaseLike } from '../storage/d1-storage-manager.js';
 import { AccessTokenHttpExecutor } from '../wechat/http-executor.js';
 import { WorkersHttpExecutor } from '../wechat/workers-http-executor.js';
@@ -78,6 +84,12 @@ const WORKER_SHARED_MCP_TOOLS = [
   massSendMcpTool,
   inboxMcpTool,
   subscribeMsgMcpTool,
+  qrcodeMcpTool,
+  shortUrlMcpTool,
+  commentMcpTool,
+  blacklistMcpTool,
+  kfAccountMcpTool,
+  accountMcpTool,
 ];
 const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000;
 const TOKEN_OWNER_NAME = 'global';

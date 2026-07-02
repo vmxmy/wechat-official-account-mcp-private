@@ -4,6 +4,7 @@ export enum LogLevel {
   INFO = 2,
   WARN = 3,
   ERROR = 4,
+  SILENT = 5,  // 完全静默模式
 }
 
 /**
@@ -47,7 +48,7 @@ function sanitizeValue(value: unknown): unknown {
         key.toLowerCase().includes(field.toLowerCase())
       );
 
-      sanitized[key] = isSensitive ? sanitizeValue(val) : sanitizeValue(val);
+      sanitized[key] = isSensitive ? sanitizeValue(val) : val;
     }
     return sanitized;
   }
@@ -56,7 +57,17 @@ function sanitizeValue(value: unknown): unknown {
 }
 
 class Logger {
-  private level: LogLevel = LogLevel.INFO;
+  private level: LogLevel;
+
+  constructor() {
+    // 支持通过环境变量设置日志级别
+    const envLevel = process.env.LOG_LEVEL?.toUpperCase();
+    if (envLevel && envLevel in LogLevel) {
+      this.level = LogLevel[envLevel as keyof typeof LogLevel];
+    } else {
+      this.level = LogLevel.INFO;
+    }
+  }
 
   setLevel(level: LogLevel) {
     this.level = level;
@@ -70,7 +81,9 @@ class Logger {
       // 脱敏所有参数
       const sanitizedArgs = args.map(arg => sanitizeValue(arg));
 
-      console.log(`[${timestamp}] [${levelName}] ${message}`, ...sanitizedArgs);
+      // MCP 协议响应流不应混入普通日志。
+      // 普通日志必须写入 stderr，否则严格客户端可能会把日志当协议内容解析并导致工具发现失败。
+      console.error(`[${timestamp}] [${levelName}] ${message}`, ...sanitizedArgs);
     }
   }
 

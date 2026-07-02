@@ -3,15 +3,15 @@
 一个为 AI 应用提供微信公众号 API 集成的 MCP (Model Context Protocol) 服务项目。
 
 **作者**: xwang152-jack <xwang152@163.com>
-**更新日期**: 2026年07月01日
+**更新日期**: 2026年07月02日
 
 ## 🚀 项目概述
 
-本项目基于 MCP 协议，为 AI 应用（如 Claude Desktop、Cursor、Trae AI 等）提供微信公众号 API 工具集。通过标准化的工具接口，AI 应用可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计等常用运营能力。
+本项目基于 MCP 协议，为 AI 应用（如 Claude Desktop、Cursor、Trae AI 等）提供微信公众号 API 工具集。通过标准化的工具接口，AI 应用可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计、二维码、评论、黑名单、入站消息收件箱等常用运营能力。
 
-**当前版本**: `v2.0.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
+**当前版本**: `v2.2.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**重大更新**: 从 6 个工具扩展到 16 个工具，并新增 Cloudflare Workers Remote MCP 部署形态（OAuth 保护的 `/mcp`、D1/R2/Durable Object、微信公众号 `/wx/callback` 入站消息收件箱）。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
+**v2.2.0 + HTTP-only 更新**: 新增二维码、短链接、评论管理、黑名单、客服账号、账号管理等工具，并保留入站消息收件箱；当前共 22 个 MCP 工具。运行时已切换为 Cloudflare Workers Remote MCP（OAuth 保护的 `/mcp`、D1/R2/Durable Object、微信公众号 `/wx/callback`），本地桌面端 stdio/CLI 与 MCP-over-SSE 已移除。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
 
 ## 📖 文档导航
 
@@ -147,6 +147,8 @@ npm run worker:deploy
 
 **支持操作**:
 - `add`: 上传永久素材（图片、语音、视频、缩略图）
+- `add`: 上传永久图文素材（`type: news`）
+- `update`: 更新永久图文素材中的指定文章
 - `get`: 获取永久素材
 - `delete`: 删除永久素材
 - `list`: 获取素材列表（默认 `count=20`，使用官方上限；可显式传 `count` 覆盖）
@@ -158,6 +160,7 @@ npm run worker:deploy
 
 **支持操作**:
 - `add`: 新建草稿
+- `update`: 更新草稿中的指定文章
 - `get`: 获取草稿详情
 - `delete`: 删除草稿
 - `list`: 获取草稿列表（默认 `count=20` 且 `no_content=1`，避免默认拉取正文；如需正文显式传 `noContent: 0`）
@@ -238,6 +241,8 @@ npm run worker:deploy
 
 **支持操作**:
 - `send`: 发送模板消息
+- `set_industry`: 设置账号所属行业
+- `add_template`: 从模板库添加模板
 - `get_all_templates`: 获取所有模板
 - `delete`: 删除模板
 - `get_industry`: 获取账号所属行业
@@ -377,6 +382,107 @@ npm run worker:deploy
 - Worker 不运行 cron、不做 AI 推理、不主动调用微信回复接口
 - 外部 AI Agent 通过 `wechat_inbox` 拉取消息，决策后调用现有客服/自动回复等工具，再标记已处理
 
+### 16. 二维码管理工具 (`wechat_qrcode`)
+
+创建和管理微信公众号二维码。
+
+**支持操作**:
+- `create_temp`: 创建临时二维码（最长30天有效期）
+- `create_permanent`: 创建永久二维码
+- `get_url`: 通过 ticket 获取二维码图片URL
+
+**二维码类型**:
+- 临时二维码：最长30天，适用于活动推广
+- 永久二维码：无过期时间，适用于渠道追踪
+
+**使用场景**:
+- 渠道追踪
+- 线下推广
+- 扫码关注
+- 活动统计
+
+### 17. 短链接工具 (`wechat_short_url`)
+
+将长链接转换为微信短链接。
+
+**支持操作**:
+- `generate`: 生成短链接
+
+**使用场景**:
+- 二维码内容缩短
+- 短信链接
+- 分享链接优化
+
+### 18. 评论管理工具 (`wechat_comment`)
+
+管理已群发文章的评论功能。
+
+**支持操作**:
+- `open`: 打开文章评论
+- `close`: 关闭文章评论
+- `list`: 查看评论列表（支持分页和类型筛选）
+- `mark_elect`: 标记精选评论
+- `unmark_elect`: 取消精选标记
+- `delete`: 删除评论
+- `reply`: 回复评论
+- `delete_reply`: 删除评论回复
+
+**评论类型**:
+- 0: 全部评论
+- 1: 普通评论
+- 2: 精选评论
+
+**使用场景**:
+- 文章互动管理
+- 精选评论展示
+- 用户互动回复
+
+### 19. 黑名单管理工具 (`wechat_blacklist`)
+
+管理公众号用户黑名单。
+
+**支持操作**:
+- `get_list`: 获取黑名单列表（支持分页）
+- `block`: 拉黑用户（最多20个）
+- `unblock`: 取消拉黑用户（最多20个）
+
+**使用场景**:
+- 恶意用户屏蔽
+- 用户行为管理
+
+**注意**: 被拉黑的用户无法收到公众号消息。
+
+### 20. 客服账号管理工具 (`wechat_kf_account`)
+
+管理公众号客服账号。
+
+**支持操作**:
+- `add`: 添加客服账号
+- `update`: 修改客服账号
+- `delete`: 删除客服账号
+- `get_list`: 获取客服列表
+
+**使用场景**:
+- 多客服管理
+- 客服人员配置
+
+**注意**: 客服账号格式为 `账号@公众号昵称`。
+
+### 21. 账号管理工具 (`wechat_account`)
+
+管理公众号 API 调用配额。
+
+**支持操作**:
+- `clear_quota`: 重置 API 调用次数
+- `get_quota`: 查询 API 调用次数配额
+
+**使用场景**:
+- API 调用频率监控
+- 配额管理
+- 调试接口限流
+
+**注意**: 重置 API 调用次数每月只能操作10次。
+
 ## 📁 项目结构
 
 ```
@@ -385,7 +491,7 @@ src/
 ├── mcp-tool/            # MCP 工具定义与共享 handler
 │   ├── types.ts         # 类型定义
 │   ├── inbox-store.ts   # 入站消息 store 接口
-│   └── tools/           # 16 个 MCP 工具（媒体上传使用 Worker-safe wrapper）
+│   └── tools/           # 22 个 MCP 工具（媒体上传使用 Worker-safe wrapper）
 ├── wechat/              # 微信 API 客户端与 HTTP seam
 │   ├── api-client.ts
 │   ├── http-executor.ts
@@ -401,7 +507,8 @@ src/
 │   └── d1-storage-manager.ts
 └── utils/               # 工具函数
     ├── logger.ts
-    └── validation.ts
+    ├── validation.ts
+    └── version.ts
 ```
 
 已移除：本地桌面端 `stdio`/CLI、`src/mcp-server/`、SQLite 存储、Node/Axios executor、基于本地 `filePath` 的媒体上传实现。
@@ -524,7 +631,8 @@ Workers 生产环境不要使用 `.env` 明文提交密钥；使用 `wrangler se
 - 加密存储：设置 `WECHAT_MCP_SECRET_KEY` 后，`app_secret/token/encoding_aes_key/access_token` 以加密形式持久化（带 `enc:` 前缀标识）
 - 日志脱敏：错误日志仅记录状态码或消息，避免泄露响应体与敏感信息
 - 跨域白名单：生产环境务必设置 `CORS_ORIGIN` 为精确域名列表，避免 `*`
-- 参数校验：工具参数使用 Zod 校验，降低不当输入风险
+- 参数校验：22 个 MCP 工具参数使用 Zod 校验，降低不当输入风险
+- 媒体上传：HTTP-only 运行时拒绝本地 `filePath`，仅支持 `fileUrl` / `r2Key` / `fileData`
 - 切勿提交密钥：不要将 AppSecret、Token 等放入代码仓库或构建产物
 - Remote MCP 安全：Workers `/mcp` 必须经 OAuth 访问；旧 `/api/wechat/tools/*` REST 工具执行面已移除
 
