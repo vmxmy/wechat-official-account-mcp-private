@@ -1,6 +1,6 @@
 import CryptoJS from 'crypto-js';
 import type { AccessTokenInfo, MediaInfo, WechatConfig } from '../mcp-tool/types.js';
-import type { StorageManager } from './storage-manager.js';
+import type { StorageManager } from './types.js';
 
 export type D1Value = string | number | boolean | null | ArrayBuffer | Uint8Array;
 
@@ -38,7 +38,7 @@ export type D1SecretKeySource =
 /**
  * Cloudflare D1 存储管理器。
  *
- * 表结构由 D1 migration 管理；本类只实现与 SqliteStorageManager 一致的 CRUD 语义。
+ * 表结构由 D1 migration 管理；本类实现 HTTP-only Workers 运行时所需的 CRUD 语义。
  */
 export class D1StorageManager implements StorageManager {
   private secretKey: string | null = null;

@@ -3,7 +3,7 @@
 一个为 AI 应用提供微信公众号 API 集成的 MCP (Model Context Protocol) 服务项目。
 
 **作者**: xwang152-jack <xwang152@163.com>
-**更新日期**: 2025年02月16日
+**更新日期**: 2026年07月01日
 
 ## 🚀 项目概述
 
@@ -11,7 +11,7 @@
 
 **当前版本**: `v2.0.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**重大更新**: 从 6 个工具扩展到 15 个工具。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
+**重大更新**: 从 6 个工具扩展到 16 个工具，并新增 Cloudflare Workers Remote MCP 部署形态（OAuth 保护的 `/mcp`、D1/R2/Durable Object、微信公众号 `/wx/callback` 入站消息收件箱）。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
 
 ## 📖 文档导航
 
@@ -32,74 +32,72 @@
 - **📁 素材管理**: 上传、获取、管理临时和永久素材
 - **📝 草稿管理**: 创建、编辑、管理图文草稿
 - **📢 发布管理**: 发布草稿到微信公众号
-- **💾 本地存储**: 使用 SQLite 本地存储配置和数据
+- **📥 入站消息收件箱**: 接收并查询微信公众号回调消息/事件，外部 AI Agent 可拉取待处理消息
+- **💾 云端存储**: 使用 Cloudflare D1/R2/Durable Objects 持久化配置、素材和会话状态
+- **☁️ Remote MCP**: Cloudflare Workers + Agents SDK + OAuth + D1/R2/DO，适合远程 MCP 客户端
 - **🔧 MCP 集成**: 完全兼容 MCP 协议标准
- - **🛡️ 安全增强（v1.1.0）**: 支持敏感字段加密存储与日志脱敏，跨域来源白名单配置
+- **🛡️ 安全增强（v1.1.0）**: 支持敏感字段加密存储与日志脱敏，跨域来源白名单配置
 
 ## 🛠️ 技术栈
 
 - **运行时**: Node.js 18+
 - **语言**: TypeScript
 - **协议**: MCP (Model Context Protocol)
-- **数据库**: SQLite
-- **HTTP 客户端**: Axios
+- **数据库**: Cloudflare D1、R2、Durable Objects
+- **HTTP 客户端**: Workers `fetch`
+- **远程运行时**: Cloudflare Workers、Agents SDK `McpAgent`、Workers OAuth Provider
 - **参数验证**: Zod
 - **构建工具**: Vite
 
 ## 📦 快速开始
 
-### 方式一：使用 npx（推荐）
+本项目现在是 **HTTP-only Remote MCP**：
 
-直接使用 npx 运行，无需安装：
+- MCP 入口：Cloudflare Workers `/mcp`（Streamable HTTP + OAuth）
+- 微信回调：`/wx/callback`
+- 本地桌面端 stdio CLI 与 MCP-over-SSE 均已移除
 
-```bash
-# 启动 MCP 服务器
-npx wechat-official-account-mcp mcp -a <your_app_id> -s <your_app_secret>
-
-# 示例
-npx wechat-official-account-mcp mcp -a wx1234567890abcdef -s your_app_secret_here
-```
-
-> 提示：如使用 SSE 模式，请设置 `CORS_ORIGIN` 为允许访问的域名白名单。
-
-### 方式二：全局安装
+### Cloudflare Workers Remote MCP（推荐）
 
 ```bash
-# 全局安装
-npm install -g wechat-official-account-mcp
-
-# 启动服务
-wechat-mcp mcp -a <your_app_id> -s <your_app_secret>
-```
-
-### 方式三：本地开发
-
-```bash
-# 1. 克隆项目
-git clone https://github.com/xwang152-jack/wechat-official-account-mcp.git
-cd wechat-official-account-mcp
-
-# 2. 安装依赖
+# 安装依赖
 npm install
 
-# 3. 构建项目
-npm run build
+# 本地 Workers 开发
+npm run dev
+# 或
+npm run worker:dev
 
-# 4. 启动服务
-node dist/src/cli.js mcp -a <your_app_id> -s <your_app_secret>
+# 本地 D1 迁移
+npm run d1:migrate:local
+
+# 部署前 dry-run
+npx wrangler deploy --dry-run
+
+# 部署
+npm run worker:deploy
 ```
 
-### CLI 参数说明
+部署后使用：
 
-- `-a, --app-id <appId>`: 微信公众号 AppID（必需）
-- `-s, --app-secret <appSecret>`: 微信公众号 AppSecret（必需）
-- `-m, --mode <mode>`: 传输模式，支持 `stdio`（默认）和 `sse`
-- `-p, --port <port>`: SSE 模式下的端口号（默认 3000）
-- `-h, --help`: 显示帮助信息
+- MCP endpoint：`https://<your-worker-domain>/mcp`
+- 微信回调 endpoint：`https://<your-worker-domain>/wx/callback`
+- 旧 REST 工具调用：`/api/wechat/tools/*` 在 Workers 中已移除，只返回迁移说明，不会执行工具
 
-环境变量（常用）：
-- `CORS_ORIGIN`: 逗号分隔的跨域来源白名单（示例：`https://a.example.com,https://b.example.com`）
-- `WECHAT_MCP_SECRET_KEY`: 开启敏感字段加密存储（AES），设置即启用
+`wrangler.jsonc` 只引用 Secrets Store / Worker Secret 绑定，不应提交真实密钥。生产部署前至少设置：
+
+| Secret binding | 用途 |
+|---|---|
+| `WECHAT_APP_ID` / `WECHAT_APP_SECRET` | 公众号凭证 |
+| `WECHAT_MCP_SECRET_KEY` | D1 敏感字段 AES 加密密钥 |
+| `WECHAT_WEBHOOK_TOKEN` | 微信服务器配置 Token，用于 `/wx/callback` 验签 |
+| `WECHAT_ENCODING_AES_KEY` | 微信安全模式 EncodingAESKey |
+| `WECHAT_PROXY_URL` | 可选：微信 API 出站 HTTPS relay 代理地址（固定出口 IP） |
+| `WECHAT_PROXY_TOKEN` | 可选：relay 代理鉴权 token |
+| `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` | Remote MCP OAuth 客户端凭证 |
+
+> 生产注意：微信公众号 API 通常要求在公众号后台配置服务器 IP 白名单。Cloudflare Workers 默认出口 IP 不固定，正式切流前请配置固定出口代理。Workers 不支持传统 HTTP CONNECT forward proxy，本项目支持 `WECHAT_PROXY_URL` HTTPS relay：所有发往 `api.weixin.qq.com` 的 token/API/上传请求会改发到 relay，并通过 `x-wechat-proxy-target-url` header 传递目标 URL（默认不放 query，避免 access_token/AppSecret 进入代理访问日志）；relay 服务需在白名单 IP 机器上按原 method/body/headers 转发到该 target，并原样返回微信响应。
+> relay 运维要求：relay 必须校验 `x-wechat-proxy-token`（如启用），限制只转发到 `https://api.weixin.qq.com/*`，并在 access log 中禁用或脱敏 `x-wechat-proxy-target-url` 与 `x-wechat-proxy-token` header，避免目标 URL 中的 `access_token` 或 AppSecret 落盘。
 
 ## 🔧 MCP 工具列表
 
@@ -151,7 +149,7 @@ node dist/src/cli.js mcp -a <your_app_id> -s <your_app_secret>
 - `add`: 上传永久素材（图片、语音、视频、缩略图）
 - `get`: 获取永久素材
 - `delete`: 删除永久素材
-- `list`: 获取素材列表
+- `list`: 获取素材列表（默认 `count=20`，使用官方上限；可显式传 `count` 覆盖）
 - `count`: 获取素材总数统计
 
 ### 5. 草稿管理工具 (`wechat_draft`)
@@ -162,7 +160,7 @@ node dist/src/cli.js mcp -a <your_app_id> -s <your_app_secret>
 - `add`: 新建草稿
 - `get`: 获取草稿详情
 - `delete`: 删除草稿
-- `list`: 获取草稿列表
+- `list`: 获取草稿列表（默认 `count=20` 且 `no_content=1`，避免默认拉取正文；如需正文显式传 `noContent: 0`）
 - `count`: 获取草稿总数
 
 ### 6. 发布工具 (`wechat_publish`)
@@ -173,7 +171,7 @@ node dist/src/cli.js mcp -a <your_app_id> -s <your_app_secret>
 - `submit`: 发布草稿
 - `get`: 获取发布状态
 - `delete`: 删除发布
-- `list`: 获取发布列表
+- `list`: 获取发布列表（默认 `count=20` 且 `no_content=1`，避免默认拉取正文；如需正文显式传 `noContent: 0` 或 `no_content: 0`）
 
 ### 7. 用户管理工具 (`wechat_user`)
 
@@ -351,7 +349,7 @@ node dist/src/cli.js mcp -a <your_app_id> -s <your_app_secret>
 **官方 contract 状态**:
 - 服务号订阅通知官方接口为 `/cgi-bin/message/subscribe/bizsend`，字段使用 `template_id`。
 - 公众号一次性订阅消息官方接口为 `/cgi-bin/message/template/subscribe`。
-- 当前代码中的 `/cgi-bin/message/subscribe/send` 和 `templateId` 字段与已核验官方 contract 不一致，迁移或生产使用前必须修正。详见 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md)。
+- 当前实现按已核验的服务号订阅通知 `bizsend` contract 映射请求字段；详见 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md)。
 
 **特点**:
 - 需要用户主动订阅或授权
@@ -364,40 +362,65 @@ node dist/src/cli.js mcp -a <your_app_id> -s <your_app_secret>
 
 **注意**: 订阅通知能力以微信官方文档和账号实际开通权限为准。
 
+### 16. 入站消息收件箱工具 (`wechat_inbox`)
+
+查询 Cloudflare Workers `/wx/callback` 写入的微信公众号入站消息/事件。
+
+**支持操作**:
+- `list_pending`: 查询待处理消息，支持分页、类型和 OpenID 过滤
+- `list_all`: 查询全部消息，支持分页、类型和 OpenID 过滤
+- `get`: 获取单条消息详情
+- `mark_processed`: 将单条或批量消息标记为已处理，可附加备注
+
+**处理模型**:
+- Webhook 只做验签、必要时 AES 解密、写入 D1、快速返回 `success`
+- Worker 不运行 cron、不做 AI 推理、不主动调用微信回复接口
+- 外部 AI Agent 通过 `wechat_inbox` 拉取消息，决策后调用现有客服/自动回复等工具，再标记已处理
+
 ## 📁 项目结构
 
 ```
 src/
-├── cli.ts               # CLI 入口文件
-├── index.ts             # 模块导出入口
-├── mcp-server/          # MCP 服务器实现
-│   ├── shared/          # 共享组件
-│   │   ├── init.ts      # 服务器初始化
-│   │   └── types.ts     # 类型定义
-│   └── transport/       # 传输层实现
-│       ├── stdio.ts     # stdio 传输
-│       └── sse.ts       # SSE 传输
-├── mcp-tool/            # MCP 工具实现
-│   ├── index.ts         # 工具管理器
+├── index.ts             # HTTP-only 库导出入口
+├── mcp-tool/            # MCP 工具定义与共享 handler
 │   ├── types.ts         # 类型定义
-│   └── tools/           # 15 个具体工具实现（详见 src/mcp-tool/tools/index.ts）
-│       └── *.ts          # 具体工具文件：auth/media/draft/publish/user/tag/menu/message/statistics 等
-├── auth/                # 认证管理
-│   └── auth-manager.ts
-├── wechat/              # 微信 API 客户端
-│   └── api-client.ts
-├── storage/             # 数据存储
-│   └── storage-manager.ts
+│   ├── inbox-store.ts   # 入站消息 store 接口
+│   └── tools/           # 16 个 MCP 工具（媒体上传使用 Worker-safe wrapper）
+├── wechat/              # 微信 API 客户端与 HTTP seam
+│   ├── api-client.ts
+│   ├── http-executor.ts
+│   ├── workers-http-executor.ts
+│   └── proxy.ts
+├── worker/              # Cloudflare Workers Remote MCP、TokenOwner DO、Webhook
+│   ├── index.ts
+│   ├── media-tools.ts   # fileUrl / R2 / fileData 媒体上传；filePath 已移除
+│   ├── inbox-store.ts
+│   └── wechat-webhook.ts
+├── storage/             # Workers D1 数据存储
+│   ├── types.ts
+│   └── d1-storage-manager.ts
 └── utils/               # 工具函数
     ├── logger.ts
-    └── db-init.ts
+    └── validation.ts
 ```
+
+已移除：本地桌面端 `stdio`/CLI、`src/mcp-server/`、SQLite 存储、Node/Axios executor、基于本地 `filePath` 的媒体上传实现。
 
 ## 🔗 在 AI 应用中使用
 
-### Claude Desktop
+支持 Streamable HTTP 的客户端可直接连接 Workers `/mcp`，并按 OAuth 授权流程登录：
 
-在 `claude_desktop_config.json` 中添加：
+```json
+{
+  "mcpServers": {
+    "wechat-official-account": {
+      "url": "https://<your-worker-domain>/mcp"
+    }
+  }
+}
+```
+
+如果客户端暂不支持原生 Remote MCP，可使用 `mcp-remote` 作为本地桥接；这只是桥接远程 HTTP MCP，不是本项目的本地 stdio 服务器：
 
 ```json
 {
@@ -405,71 +428,18 @@ src/
     "wechat-official-account": {
       "command": "npx",
       "args": [
-        "wechat-official-account-mcp",
-        "mcp",
-        "-a", "your_wechat_app_id",
-        "-s", "your_wechat_app_secret"
+        "mcp-remote",
+        "https://<your-worker-domain>/mcp"
       ]
     }
   }
 }
 ```
 
-或者使用全局安装的版本：
-
-```json
-{
-  "mcpServers": {
-    "wechat-official-account": {
-      "command": "wechat-mcp",
-      "args": [
-        "mcp",
-        "-a", "your_wechat_app_id",
-        "-s", "your_wechat_app_secret"
-      ]
-    }
-  }
-}
-```
-
-### Cursor / Trae AI
-
-在 MCP 配置中添加服务器配置：
-
-```json
-{
-  "mcpServers": {
-    "wechat-official-account": {
-      "command": "npx",
-      "args": [
-        "wechat-official-account-mcp",
-        "mcp",
-        "-a", "your_wechat_app_id",
-        "-s", "your_wechat_app_secret"
-      ]
-    }
-  }
-}
-```
-
-或者使用全局安装的版本：
-
-```json
-{
-  "mcpServers": {
-    "wechat-official-account": {
-      "command": "wechat-mcp",
-      "args": [
-        "mcp",
-        "-a", "your_wechat_app_id",
-        "-s", "your_wechat_app_secret"
-      ]
-    }
-  }
-}
-```
-
-
+迁移提示：
+- 原本调用 `POST /api/wechat/tools/:toolName` 的 HTTP 消费者，应迁移为 OAuth 后的 MCP `tools/list` / `tools/call`。
+- 原本使用本地桌面 stdio CLI 的客户端，应迁移到远程 `/mcp` 或 `mcp-remote https://<your-worker-domain>/mcp`。
+- `wechat_inbox` 用于查询 `/wx/callback` 写入的入站消息；Webhook 本身不会主动回复或调度任务。
 
 ## 🧪 开发指南
 
@@ -482,14 +452,18 @@ npm install
 # 构建项目
 npm run build
 
-# 本地测试 CLI
-node dist/src/cli.js mcp -a test_app_id -s test_app_secret
-
 # 类型检查
 npm run check
 
 # 代码检查
 npm run lint
+
+# 运行测试
+npm test
+
+# Workers 本地开发 / dry-run
+npm run worker:dev
+npx wrangler deploy --dry-run
 ```
 
 ### 构建和发布
@@ -498,21 +472,17 @@ npm run lint
 # 构建项目
 npm run build
 
-# 本地测试包
-npm pack
+# 预览 npm 包内容
+npm run pack:dry
 
 # 发布到 npm
 npm publish
 ```
 
-### 测试
+### OpenSpec 验证
 
 ```bash
-# 运行测试
-npm test
-
-# 测试 CLI 功能
-node dist/src/cli.js --help
+openspec validate migrate-to-cloudflare-workers
 ```
 
 ## 📝 配置说明
@@ -534,9 +504,13 @@ CORS_ORIGIN=https://your-domain.com,https://another-domain.com
 # 开启敏感字段加密（设置后启用 AES 加密存储）
 WECHAT_MCP_SECRET_KEY=your-strong-secret-key
 
-# 数据库路径（可选，默认为 ./data/wechat-mcp.db）
-DB_PATH=./data/wechat-mcp.db
+# 微信 API 出站代理（可选；用于公众号 IP 白名单/固定出口）
+WECHAT_PROXY_URL=https://proxy.example.com/wechat-relay
+WECHAT_PROXY_TOKEN=optional-relay-token
+
 ```
+
+Workers 生产环境不要使用 `.env` 明文提交密钥；使用 `wrangler secret` 或 Cloudflare Secrets Store 绑定上文列出的 `WECHAT_*` / `OAUTH_*` secrets。
 
 ### 微信公众号配置
 
@@ -552,6 +526,7 @@ DB_PATH=./data/wechat-mcp.db
 - 跨域白名单：生产环境务必设置 `CORS_ORIGIN` 为精确域名列表，避免 `*`
 - 参数校验：工具参数使用 Zod 校验，降低不当输入风险
 - 切勿提交密钥：不要将 AppSecret、Token 等放入代码仓库或构建产物
+- Remote MCP 安全：Workers `/mcp` 必须经 OAuth 访问；旧 `/api/wechat/tools/*` REST 工具执行面已移除
 
 ## 🤝 贡献指南
 

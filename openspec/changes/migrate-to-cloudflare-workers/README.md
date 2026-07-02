@@ -1,3 +1,3 @@
 # migrate-to-cloudflare-workers
 
-Migrate the remote MCP + REST surface to Cloudflare Workers via Agents SDK McpAgent + Durable Object; keep stdio npm package. Resolve sqlite3->D1, axios->fetch, in-memory token lock->shared DO singleton.
+Migrate and cut over the MCP runtime to Cloudflare Workers Streamable HTTP `/mcp` via Agents SDK McpAgent + Durable Object. The final runtime is HTTP-only: local desktop stdio/CLI, MCP-over-SSE, native sqlite3, axios/Node form-data, and local filePath media upload code are removed.

@@ -117,6 +117,8 @@ GET  /cgi-bin/material/get_materialcount?access_token=ACCESS_TOKEN
 
 修正状态（2026-07-01）：`wechat_permanent_media` 已暴露 `news` 类型，`add` 操作通过 `articles` 参数调用官方 `material/add_news`，并将工具层 camelCase 字段映射为官方 snake_case 请求字段。
 
+分页约束（2026-07-02 复核）：`POST /cgi-bin/material/batchget_material` 请求体 `count` 为必填，官方取值范围 `1~20`。工具层默认使用官方上限 `20`。
+
 ### 草稿与发布
 
 ```http
@@ -130,6 +132,11 @@ POST /cgi-bin/freepublish/get?access_token=ACCESS_TOKEN
 ```
 
 当前覆盖：`wechat_draft` 对应草稿 add/get/delete/list/count；`wechat_publish` 的 submit/get/list/delete 需逐项复核 raw `apiClient.get/post` 调用。
+
+分页约束（2026-07-02 复核）：
+
+- `POST /cgi-bin/draft/batchget` 请求体 `count` 为必填，官方取值范围 `1~20`；`no_content` 可选，`1` 表示不返回 `content` 字段，`0` 表示正常返回，官方默认 `0`。工具层默认使用官方上限 `count=20`，并默认发送 `no_content=1`，避免用户未指定参数时拉取多篇完整正文导致 MCP 响应过大。
+- `POST /cgi-bin/freepublish/batchget` 请求体 `count` 为必填，官方取值范围 `1~20`；`no_content` 可选，`1` 表示不返回 `content` 字段，`0` 表示正常返回，官方默认 `0`。工具层默认使用官方上限 `count=20`，并默认发送 `no_content=1`。
 
 ### 用户与标签
 

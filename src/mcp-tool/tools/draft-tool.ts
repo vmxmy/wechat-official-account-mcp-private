@@ -3,13 +3,18 @@ import { logger } from '../../utils/logger.js';
 import { z } from 'zod';
 import { draftArticleSchema, mediaIdSchema } from '../../utils/validation.js';
 
+const OFFICIAL_DRAFT_BATCHGET_MAX_COUNT = 20;
+const DEFAULT_DRAFT_BATCHGET_NO_CONTENT = 1;
+
 // 草稿工具参数 Schema
 const draftToolSchema = z.object({
   action: z.enum(['add', 'get', 'delete', 'list', 'count']),
   mediaId: mediaIdSchema.optional(),
   articles: z.array(draftArticleSchema).optional(),
-  offset: z.number().int().min(0).optional(),
-  count: z.number().int().min(1).max(20).optional(),
+  offset: z.number().int().min(0).default(0),
+  count: z.number().int().min(1).max(20).default(OFFICIAL_DRAFT_BATCHGET_MAX_COUNT),
+  noContent: z.number().int().min(0).max(1).optional(),
+  no_content: z.number().int().min(0).max(1).default(DEFAULT_DRAFT_BATCHGET_NO_CONTENT),
 });
 
 /**
@@ -23,6 +28,7 @@ async function handleDraftOperations(
     articles?: any[];
     offset?: number;
     count?: number;
+    noContent?: number;
   },
   apiClient: WechatApiClient
 ): Promise<WechatToolResult> {
@@ -118,29 +124,43 @@ async function handleDraftOperations(
     }
 
     case 'list': {
-      const { offset = 0, count = 20 } = params;
+      const {
+        offset = 0,
+        count = OFFICIAL_DRAFT_BATCHGET_MAX_COUNT,
+        noContent = DEFAULT_DRAFT_BATCHGET_NO_CONTENT,
+      } = params;
 
       try {
         const result = await apiClient.post('/cgi-bin/draft/batchget', {
           offset,
-          count
+          count,
+          no_content: noContent,
         }) as any;
 
         const draftList = result.item.map((item: any, index: number) => {
-          const firstArticle = item.content.news_item[0];
-          const articleCount = item.content.news_item.length;
+          const newsItems = item.content?.news_item ?? [];
+          const firstArticle = newsItems[0];
+          const articleCount = newsItems.length;
+          const updateTime = item.content?.update_time ?? item.update_time;
+
+          if (!firstArticle) {
+            return `${offset + index + 1}. 草稿ID: ${item.media_id}\n` +
+                   `   标题: 未返回（no_content=${noContent}）\n` +
+                   `   更新时间: ${updateTime ? new Date(updateTime * 1000).toLocaleString() : '未知'}\n` +
+                   `   提示: 如需标题/正文摘要，请显式传 noContent: 0 后重试`;
+          }
 
           return `${offset + index + 1}. 草稿ID: ${item.media_id}\n` +
                  `   标题: ${firstArticle.title}${articleCount > 1 ? ` (共${articleCount}篇)` : ''}\n` +
                  `   作者: ${firstArticle.author || '未设置'}\n` +
-                 `   创建时间: ${new Date(item.content.create_time * 1000).toLocaleString()}\n` +
-                 `   更新时间: ${new Date(item.content.update_time * 1000).toLocaleString()}`;
+                 `   创建时间: ${item.content?.create_time ? new Date(item.content.create_time * 1000).toLocaleString() : '未知'}\n` +
+                 `   更新时间: ${updateTime ? new Date(updateTime * 1000).toLocaleString() : '未知'}`;
         }).join('\n\n');
 
         return {
           content: [{
             type: 'text',
-            text: `草稿列表 (${offset + 1}-${offset + result.item.length}/${result.total_count}):\n\n${draftList}`,
+            text: `草稿列表 (${offset + 1}-${offset + result.item.length}/${result.total_count}, count=${count}, no_content=${noContent}):\n\n${draftList}`,
           }],
         };
       } catch (error) {
@@ -176,9 +196,15 @@ async function handleDraftTool(context: WechatToolContext): Promise<WechatToolRe
 
   try {
     const validatedArgs = draftToolSchema.parse(args);
-    const { action, mediaId, articles, offset, count } = validatedArgs;
+    const { action, mediaId, articles, offset, count, noContent, no_content } = validatedArgs;
 
-    return await handleDraftOperations(action, { mediaId, articles, offset, count }, apiClient);
+    return await handleDraftOperations(action, {
+      mediaId,
+      articles,
+      offset,
+      count,
+      noContent: noContent ?? no_content,
+    }, apiClient);
   } catch (error) {
     logger.error('Draft tool error:', error);
     return {
@@ -195,10 +221,24 @@ async function handleDraftTool(context: WechatToolContext): Promise<WechatToolRe
  * MCP草稿工具处理器 (直接参数)
  */
 async function handleDraftMcpTool(args: unknown, apiClient: WechatApiClient): Promise<WechatToolResult> {
-  const { action, mediaId, articles, offset = 0, count = 20 } = args as any;
+  const {
+    action,
+    mediaId,
+    articles,
+    offset = 0,
+    count = OFFICIAL_DRAFT_BATCHGET_MAX_COUNT,
+    noContent,
+    no_content,
+  } = args as any;
 
   try {
-    return await handleDraftOperations(action, { mediaId, articles, offset, count }, apiClient);
+    return await handleDraftOperations(action, {
+      mediaId,
+      articles,
+      offset,
+      count,
+      noContent: noContent ?? no_content ?? DEFAULT_DRAFT_BATCHGET_NO_CONTENT,
+    }, apiClient);
   } catch (error) {
     logger.error('Draft MCP tool error:', error);
     return {
@@ -229,6 +269,30 @@ export const draftTool: WechatToolDefinition = {
         type: 'string',
         description: '草稿 Media ID',
       },
+      offset: {
+        type: 'number',
+        minimum: 0,
+        default: 0,
+        description: '偏移量（list 时使用，默认0）',
+      },
+      count: {
+        type: 'number',
+        minimum: 1,
+        maximum: OFFICIAL_DRAFT_BATCHGET_MAX_COUNT,
+        default: OFFICIAL_DRAFT_BATCHGET_MAX_COUNT,
+        description: '数量（list 时使用，默认20，官方上限20）',
+      },
+      noContent: {
+        type: 'number',
+        enum: [0, 1],
+        description: '是否不返回 content 字段（list 时使用，默认1；传0可返回正文内容）',
+      },
+      no_content: {
+        type: 'number',
+        enum: [0, 1],
+        default: DEFAULT_DRAFT_BATCHGET_NO_CONTENT,
+        description: 'noContent 的官方字段别名（list 时使用，默认1）',
+      },
     },
     required: ['action'],
   },
@@ -255,8 +319,10 @@ export const draftMcpTool: McpTool = {
       needOpenComment: z.number().optional().describe('是否开启评论'),
       onlyFansCanComment: z.number().optional().describe('是否仅粉丝可评论'),
     })).optional().describe('文章列表（创建时必需）'),
-    offset: z.number().optional().describe('偏移量（列表时使用）'),
-    count: z.number().optional().describe('数量（列表时使用）'),
+    offset: z.number().int().min(0).default(0).describe('偏移量（列表时使用，默认0）'),
+    count: z.number().int().min(1).max(20).default(OFFICIAL_DRAFT_BATCHGET_MAX_COUNT).describe('数量（列表时使用，默认20，官方上限20）'),
+    noContent: z.number().int().min(0).max(1).optional().describe('是否不返回 content 字段（列表时使用，默认1；传0可返回正文内容）'),
+    no_content: z.number().int().min(0).max(1).default(DEFAULT_DRAFT_BATCHGET_NO_CONTENT).describe('noContent 的官方字段别名（列表时使用，默认1）'),
   },
   handler: handleDraftMcpTool,
 };

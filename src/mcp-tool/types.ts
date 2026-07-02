@@ -1,9 +1,8 @@
-import { WechatApiClient } from '../wechat/api-client.js';
-import { AuthManager } from '../auth/auth-manager.js';
+import type { WechatApiClient, WechatAuthManagerLike } from '../wechat/api-client.js';
 import { ZodRawShape } from 'zod';
 
 // 重新导出 WechatApiClient 类型
-export { WechatApiClient };
+export type { WechatApiClient };
 
 /**
  * 微信工具参数类型
@@ -33,7 +32,7 @@ export interface WechatToolResult {
 export interface WechatToolContext {
   args: WechatToolArgs;
   apiClient: WechatApiClient;
-  authManager: AuthManager;
+  authManager: WechatAuthManagerLike;
 }
 
 /**

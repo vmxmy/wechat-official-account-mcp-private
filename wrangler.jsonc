@@ -3,7 +3,7 @@
   "name": "wechat-official-account-mcp",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-07-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "observability": {
     "enabled": true
   },
@@ -31,6 +31,12 @@
       "database_name": "wechat-official-account-mcp",
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations/d1"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "00000000000000000000000000000000"
     }
   ],
   "r2_buckets": [
@@ -64,6 +70,16 @@
       "binding": "WECHAT_ENCODING_AES_KEY",
       "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
       "secret_name": "wechat-encoding-aes-key"
+    },
+    {
+      "binding": "WECHAT_PROXY_URL",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "wechat-proxy-url"
+    },
+    {
+      "binding": "WECHAT_PROXY_TOKEN",
+      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
+      "secret_name": "wechat-proxy-token"
     },
     {
       "binding": "OAUTH_CLIENT_ID",

@@ -1,8 +1,6 @@
 import { WechatToolDefinition, McpTool } from '../types.js';
 import { authTool, authMcpTool } from './auth-tool.js';
-import { mediaUploadTool } from './media-upload-tool.js';
-import { uploadImgTool } from './upload-img-tool.js';
-import { permanentMediaTool } from './permanent-media-tool.js';
+import { createWorkerMediaTools } from '../../worker/media-tools.js';
 import { draftTool, draftMcpTool } from './draft-tool.js';
 import { publishTool, publishMcpTool } from './publish-tool.js';
 import { userMcpTool } from './user-tool.js';
@@ -14,6 +12,9 @@ import { statisticsMcpTool } from './statistics-tool.js';
 import { autoReplyMcpTool } from './auto-reply-tool.js';
 import { massSendMcpTool } from './mass-send-tool.js';
 import { subscribeMsgMcpTool } from './subscribe-msg-tool.js';
+import { inboxMcpTool } from './inbox-tool.js';
+
+const [mediaUploadTool, uploadImgTool, permanentMediaTool] = createWorkerMediaTools();
 
 /**
  * 所有微信公众号 MCP 工具
@@ -56,6 +57,7 @@ export const mcpTools: McpTool[] = [
   // 高级功能
   autoReplyMcpTool,
   massSendMcpTool,
+  inboxMcpTool,
 ];
 
 export {
@@ -74,4 +76,5 @@ export {
   autoReplyMcpTool,
   massSendMcpTool,
   subscribeMsgMcpTool,
+  inboxMcpTool,
 };

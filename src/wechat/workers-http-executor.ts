@@ -1,9 +1,17 @@
 import type { HttpExecutor, HttpRequestConfig, HttpResponse } from './http-executor.js';
+import {
+  applyRelayProxyHeaders,
+  assertRelayProxy,
+  buildRelayProxyUrl,
+  type OutboundProxyConfig,
+  type RelayProxyConfig,
+} from './proxy.js';
 
 export interface WorkersHttpExecutorOptions {
   baseURL?: string;
   timeout?: number;
   fetch?: typeof fetch;
+  proxy?: OutboundProxyConfig | null;
 }
 
 /**
@@ -15,11 +23,13 @@ export class WorkersHttpExecutor implements HttpExecutor {
   private readonly baseURL: string;
   private readonly timeout: number;
   private readonly fetchImpl: typeof fetch;
+  private readonly proxy?: RelayProxyConfig;
 
   constructor(options: WorkersHttpExecutorOptions = {}) {
     this.baseURL = options.baseURL ?? 'https://api.weixin.qq.com';
     this.timeout = options.timeout ?? 30000;
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
+    this.proxy = assertRelayProxy(options.proxy ?? undefined);
   }
 
   async get<T = any>(path: string, config?: HttpRequestConfig): Promise<HttpResponse<T>> {
@@ -46,9 +56,16 @@ export class WorkersHttpExecutor implements HttpExecutor {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await this.fetchImpl(this.buildURL(path, config?.params), {
+      const targetUrl = this.buildURL(path, config?.params);
+      const requestUrl = this.proxy ? buildRelayProxyUrl(this.proxy, targetUrl) : targetUrl;
+      const headers = this.toHeaders(config?.headers);
+      if (this.proxy) {
+        applyRelayProxyHeaders(headers, this.proxy, targetUrl);
+      }
+
+      const response = await this.fetchImpl(requestUrl, {
         method,
-        headers: this.toHeaders(config?.headers),
+        headers,
         body,
         signal: controller.signal,
       });

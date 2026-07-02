@@ -17,7 +17,7 @@ export interface HttpResponse<T = any> {
 
 /**
  * 运行时无关 HTTP 执行器。
- * Node 当前实现由 axios 提供；Workers 后续会以 fetch 实现同一接口。
+ * HTTP-only runtime uses WorkersHttpExecutor (fetch/Web FormData).
  */
 export interface HttpExecutor {
   get<T = any>(path: string, config?: HttpRequestConfig): Promise<HttpResponse<T>>;

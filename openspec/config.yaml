@@ -2,32 +2,20 @@ schema: spec-driven
 
 context: |
   Project: wechat-official-account-mcp
-  WeChat Official Account MCP server (15 tools: auth, media, drafts, publish,
+  WeChat Official Account MCP server (16 tools: auth, media, drafts, publish,
   users, tags, menu, template/customer-service/subscribe messages, statistics,
-  auto-reply, mass-send). Consumed by AI clients over stdio (npm package) and
-  REST (Express).
+  auto-reply, mass-send, inbound inbox). Consumed by AI clients over standard
+  MCP Streamable HTTP at Cloudflare Workers `/mcp` with OAuth.
 
-  Current stack: Node.js 18+, TypeScript 5.8 (ES Modules, .js import extensions
-  mandatory), @modelcontextprotocol/sdk v1, sqlite3 (native), axios + Node
-  form-data, Express, Zod, crypto-js AES. React 18 + Vite frontend scaffold
-  (nearly empty).
+  Current stack: TypeScript 5.8 (ES Modules, .js import extensions mandatory),
+  @modelcontextprotocol/sdk v1.29, Cloudflare Workers + Agents SDK McpAgent,
+  D1/R2/Durable Objects, Workers fetch/Web FormData/Uint8Array, Express only as
+  a non-MCP local/API scaffold, Zod, crypto-js AES, React/Vite frontend scaffold.
 
-  Goal: migrate the remote/HTTP surface to Cloudflare Workers using the official
-  Agents SDK McpAgent + Durable Object pattern, keeping the local stdio npm
-  package working. Core blockers to resolve: sqlite3 native module -> D1,
-  axios/Node FormData -> fetch/Web FormData/Uint8Array, in-memory token lock ->
-  shared Durable Object singleton.
+  Runtime stance: HTTP-only. Local desktop stdio/CLI, MCP-over-SSE, native
+  sqlite3, axios/Node form-data, Node forward proxy, and local filePath media
+  upload implementations have been removed.
 
   Conventions: kebab-case files, no @/ path alias in backend tsc code (use
   relative paths), tool handlers receive (params, apiClient) and return
   WechatToolResult { content: [...] }.
-
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours

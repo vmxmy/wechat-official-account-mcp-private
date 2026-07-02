@@ -1,27 +1,103 @@
-import FormData from 'form-data';
-import { AuthManager } from '../auth/auth-manager.js';
 import { logger } from '../utils/logger.js';
-import { AccessTokenHttpExecutor, type HttpExecutor } from './http-executor.js';
-import { NodeHttpExecutor } from './node-http-executor.js';
+import type { HttpExecutor } from './http-executor.js';
+import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
+import type { InboxStore } from '../mcp-tool/inbox-store.js';
+
+export interface WechatAuthManagerLike {
+  setConfig(config: WechatConfig): Promise<void>;
+  getConfig(): Promise<WechatConfig | null>;
+  getAccessToken(): Promise<AccessTokenInfo>;
+  refreshAccessToken(): Promise<AccessTokenInfo>;
+  isConfigured(): boolean;
+  clearAuth(): Promise<void>;
+}
+
+export interface WechatApiClientOptions {
+  httpExecutor?: HttpExecutor;
+  inboxStore?: InboxStore;
+}
+
+function normalizeClientOptions(optionsOrExecutor?: HttpExecutor | WechatApiClientOptions): WechatApiClientOptions {
+  if (!optionsOrExecutor) {
+    return {};
+  }
+
+  if (
+    typeof (optionsOrExecutor as HttpExecutor).get === 'function' &&
+    typeof (optionsOrExecutor as HttpExecutor).post === 'function' &&
+    typeof (optionsOrExecutor as HttpExecutor).postForm === 'function'
+  ) {
+    return { httpExecutor: optionsOrExecutor as HttpExecutor };
+  }
+
+  return optionsOrExecutor as WechatApiClientOptions;
+}
+
+function formHeadersConfig(formData: unknown): { headers?: Record<string, unknown> } | undefined {
+  const getHeaders = (formData as { getHeaders?: () => Record<string, unknown> })?.getHeaders;
+  if (typeof getHeaders !== 'function') {
+    return undefined;
+  }
+
+  return {
+    headers: {
+      ...getHeaders.call(formData),
+    },
+  };
+}
+
+function toBlobPart(media: Blob | ArrayBuffer | Uint8Array): Blob {
+  if (media instanceof Blob) {
+    return media;
+  }
+
+  const body = media instanceof ArrayBuffer
+    ? media
+    : media.buffer.slice(media.byteOffset, media.byteOffset + media.byteLength) as ArrayBuffer;
+  return new Blob([body]);
+}
+
+function normalizeArrayBuffer(data: unknown): ArrayBuffer {
+  if (data instanceof ArrayBuffer) {
+    return data;
+  }
+
+  if (data instanceof Uint8Array) {
+    return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+  }
+
+  if (typeof data === 'string') {
+    return new TextEncoder().encode(data).buffer as ArrayBuffer;
+  }
+
+  throw new Error('Unexpected media response type from HTTP executor');
+}
 
 /**
  * 微信公众号 API 客户端
  * 封装微信公众号 API 调用
  */
 export class WechatApiClient {
-  private authManager: AuthManager;
+  private authManager: WechatAuthManagerLike;
   private httpClient: HttpExecutor;
+  private inboxStore?: InboxStore;
 
-  constructor(authManager: AuthManager, httpExecutor?: HttpExecutor) {
+  constructor(authManager: WechatAuthManagerLike, optionsOrExecutor?: HttpExecutor | WechatApiClientOptions) {
     this.authManager = authManager;
-    this.httpClient = httpExecutor ?? new AccessTokenHttpExecutor(
-      new NodeHttpExecutor(),
-      async () => (await this.authManager.getAccessToken()).accessToken
-    );
+    const options = normalizeClientOptions(optionsOrExecutor);
+    this.inboxStore = options.inboxStore;
+    if (!options.httpExecutor) {
+      throw new Error('HTTP-only WechatApiClient requires an explicit HttpExecutor (WorkersHttpExecutor wrapped with AccessTokenHttpExecutor).');
+    }
+    this.httpClient = options.httpExecutor;
   }
 
-  getAuthManager(): AuthManager {
+  getAuthManager(): WechatAuthManagerLike {
     return this.authManager;
+  }
+
+  getInboxStore(): InboxStore | undefined {
+    return this.inboxStore;
   }
 
   /**
@@ -29,14 +105,14 @@ export class WechatApiClient {
    */
   async uploadMedia(params: {
     type: 'image' | 'voice' | 'video' | 'thumb';
-    media: Buffer;
+    media: Blob | ArrayBuffer | Uint8Array;
     fileName: string;
     title?: string;
     introduction?: string;
   }): Promise<{ mediaId: string; type: string; createdAt: number; url?: string }> {
     try {
       const formData = new FormData();
-      formData.append('media', params.media, params.fileName);
+      formData.append('media', toBlobPart(params.media), params.fileName);
       
       if (params.type === 'video') {
         const description = {
@@ -49,11 +125,7 @@ export class WechatApiClient {
       const response = await this.httpClient.postForm(
         `/cgi-bin/media/upload?type=${params.type}`,
         formData,
-        {
-          headers: {
-            ...formData.getHeaders(),
-          },
-        }
+        formHeadersConfig(formData)
       );
 
       if (response.data.errcode) {
@@ -75,7 +147,7 @@ export class WechatApiClient {
   /**
    * 获取临时素材
    */
-  async getMedia(mediaId: string): Promise<Buffer> {
+  async getMedia(mediaId: string): Promise<ArrayBuffer> {
     try {
       const response = await this.httpClient.get(
         `/cgi-bin/media/get?media_id=${mediaId}`,
@@ -84,7 +156,7 @@ export class WechatApiClient {
         }
       );
 
-      return Buffer.from(response.data);
+      return normalizeArrayBuffer(response.data);
     } catch (error) {
       logger.error('Failed to get media:', (error as any)?.message ?? String(error));
       throw error;
@@ -191,16 +263,12 @@ export class WechatApiClient {
   /**
    * 上传图文消息图片
    */
-  async uploadImg(formData: FormData): Promise<{ url: string; errcode?: number; errmsg?: string }> {
+  async uploadImg(formData: unknown): Promise<{ url: string; errcode?: number; errmsg?: string }> {
     try {
       const response = await this.httpClient.postForm(
         '/cgi-bin/media/uploadimg',
         formData,
-        {
-          headers: {
-            ...formData.getHeaders(),
-          },
-        }
+        formHeadersConfig(formData)
       );
 
       return response.data;
@@ -249,13 +317,9 @@ export class WechatApiClient {
   /**
    * 通用 multipart/form-data POST 请求
    */
-  async postForm(path: string, formData: FormData): Promise<unknown> {
+  async postForm(path: string, formData: unknown): Promise<unknown> {
     try {
-      const response = await this.httpClient.postForm(path, formData, {
-        headers: {
-          ...formData.getHeaders(),
-        },
-      });
+      const response = await this.httpClient.postForm(path, formData, formHeadersConfig(formData));
 
       if (response.data.errcode && response.data.errcode !== 0) {
         throw new Error(`API Error: ${response.data.errmsg} (${response.data.errcode})`);

@@ -26,16 +26,12 @@ echo "⚠️  Skipping lint check to focus on packaging test"
 echo "📦 编译TypeScript代码..."
 npm run build:prod
 
-# 设置CLI可执行权限
-echo "⚙️ 设置CLI可执行权限..."
-chmod +x dist/src/cli.js
-
 # 验证构建结果
 echo "✅ 验证构建结果..."
-if [ -f "dist/src/cli.js" ] && [ -f "dist/src/index.js" ]; then
+if [ -f "dist/src/index.js" ] && [ -f "dist/src/worker/index.js" ]; then
     echo "✅ 构建成功！"
     echo "📁 构建文件位置: ./dist/"
-    echo "🎯 CLI入口: ./dist/src/cli.js"
+    echo "🌐 Workers HTTP入口: ./dist/src/worker/index.js"
     echo "📚 库入口: ./dist/src/index.js"
 else
     echo "❌ 构建失败！缺少必要文件"
