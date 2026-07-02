@@ -3,7 +3,10 @@
   "name": "wechat-official-account-mcp",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-07-01",
-  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
   "observability": {
     "enabled": true
   },
@@ -22,21 +25,24 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["WechatMcpAgent", "TokenOwner"]
+      "new_sqlite_classes": [
+        "WechatMcpAgent",
+        "TokenOwner"
+      ]
     }
   ],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "wechat-official-account-mcp",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_name": "wechat-official-account-mcp-prod",
+      "database_id": "eae1f9f4-ae0f-4d74-9aa4-7cdb5e7e7a7e",
       "migrations_dir": "migrations/d1"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
-      "id": "00000000000000000000000000000000"
+      "id": "fa5dac7781cb4ff7a3fd389c0a1207b6"
     }
   ],
   "r2_buckets": [
@@ -45,51 +51,7 @@
       "bucket_name": "wechat-official-account-mcp-media"
     }
   ],
-  "secrets_store_secrets": [
-    {
-      "binding": "WECHAT_APP_ID",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "wechat-app-id"
-    },
-    {
-      "binding": "WECHAT_APP_SECRET",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "wechat-app-secret"
-    },
-    {
-      "binding": "WECHAT_MCP_SECRET_KEY",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "wechat-mcp-secret-key"
-    },
-    {
-      "binding": "WECHAT_WEBHOOK_TOKEN",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "wechat-webhook-token"
-    },
-    {
-      "binding": "WECHAT_ENCODING_AES_KEY",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "wechat-encoding-aes-key"
-    },
-    {
-      "binding": "WECHAT_PROXY_URL",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "wechat-proxy-url"
-    },
-    {
-      "binding": "WECHAT_PROXY_TOKEN",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "wechat-proxy-token"
-    },
-    {
-      "binding": "OAUTH_CLIENT_ID",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "oauth-client-id"
-    },
-    {
-      "binding": "OAUTH_CLIENT_SECRET",
-      "store_id": "REPLACE_WITH_SECRETS_STORE_ID",
-      "secret_name": "oauth-client-secret"
-    }
-  ]
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
 }

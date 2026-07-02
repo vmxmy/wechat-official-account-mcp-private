@@ -31,3 +31,4 @@ data/
 .env
 .env.*
 !.env.example
+.tmp-cf/

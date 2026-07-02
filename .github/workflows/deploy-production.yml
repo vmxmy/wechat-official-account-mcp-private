@@ -1,0 +1,62 @@
+name: Deploy production Worker
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, test, migrate, deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run check
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check Cloudflare CI credentials
+        id: cf-creds
+        run: |
+          if [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping production deploy because CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN is missing."
+          fi
+
+      - name: Apply D1 migrations
+        if: steps.cf-creds.outputs.ready == 'true'
+        run: npx wrangler d1 migrations apply wechat-official-account-mcp-prod --remote
+
+      - name: Deploy Worker
+        if: steps.cf-creds.outputs.ready == 'true'
+        run: npx wrangler deploy --minify --keep-vars
