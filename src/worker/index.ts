@@ -26,6 +26,13 @@ import { D1InboxStore } from './inbox-store.js';
 import { createWorkerMediaTools } from './media-tools.js';
 import { handleWechatWebhook } from './wechat-webhook.js';
 import { D1AuditLogWriter } from './audit-log.js';
+import { handleManagementApiRequest } from './management-api.js';
+import {
+  attachTenantMetadata,
+  createDefaultTenantContext,
+  enrichMcpToolParams,
+  type TenantRequestContext,
+} from './tenant-context.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
