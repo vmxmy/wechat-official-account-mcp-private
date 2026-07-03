@@ -25,13 +25,7 @@ import { WechatApiClientFactory } from '../wechat/api-client-factory.js';
 import { D1InboxStore } from './inbox-store.js';
 import { createWorkerMediaTools } from './media-tools.js';
 import { handleWechatWebhook } from './wechat-webhook.js';
-import {
-  attachTenantMetadata,
-  createDefaultTenantContext,
-  enrichMcpToolParams,
-  type TenantRequestContext,
-} from './tenant-context.js';
-import { handleManagementApiRequest } from './management-api.js';
+import { D1AuditLogWriter } from './audit-log.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -956,15 +950,6 @@ const defaultHandler = {
         mcpEndpoint: '/mcp',
         webhookEndpoint: '/wx/callback/{accountId}',
         legacyWebhookEndpoint: '/wx/callback',
-      });
-    }
-
-    if (url.pathname.startsWith('/api/v1')) {
-      return await handleManagementApiRequest(request, {
-        appId: await resolveSecret(env.WECHAT_APP_ID),
-        defaultUserId: await resolveSecret(env.OAUTH_CLIENT_ID),
-        defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
-        createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
       });
     }
 
