@@ -8,6 +8,7 @@ import { logger } from './dist/src/utils/logger.js';
 import { AccessTokenHttpExecutor } from './dist/src/wechat/http-executor.js';
 import { WorkersHttpExecutor } from './dist/src/wechat/workers-http-executor.js';
 import { D1StorageManager } from './dist/src/storage/d1-storage-manager.js';
+import { DEFAULT_ACCOUNT_ID, DEFAULT_TENANT_ID } from './dist/src/storage/types.js';
 import { D1InboxStore } from './dist/src/worker/inbox-store.js';
 import { createWorkerMediaTools } from './dist/src/worker/media-tools.js';
 import {
@@ -270,6 +271,12 @@ class MemoryD1Database {
   config = null;
   accessTokens = [];
   media = new Map();
+  tenants = new Map();
+  users = new Map();
+  memberships = [];
+  accounts = new Map();
+  accountTokens = new Map();
+  accountMedia = new Map();
 
   prepare(query) {
     return new MemoryD1Statement(this, query);
@@ -341,6 +348,99 @@ class MemoryD1Statement {
       return { success: true, meta: { changes: 1 } };
     }
 
+    if (q.startsWith('INSERT OR IGNORE INTO tenants')) {
+      const [id, slug, name, defaultAccountId, createdAt, updatedAt] = this.values;
+      if (!this.db.tenants.has(id)) {
+        this.db.tenants.set(id, { id, slug, name, default_account_id: defaultAccountId, created_at: createdAt, updated_at: updatedAt });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT OR IGNORE INTO users')) {
+      const [createdAt, updatedAt] = this.values;
+      if (!this.db.users.has('user_default_admin')) {
+        this.db.users.set('user_default_admin', { id: 'user_default_admin', display_name: 'Default Admin', created_at: createdAt, updated_at: updatedAt });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT OR IGNORE INTO tenant_memberships')) {
+      const [tenantId, defaultAccountId, createdAt, updatedAt] = this.values;
+      if (!this.db.memberships.some(row => row.tenant_id === tenantId && row.user_id === 'user_default_admin')) {
+        this.db.memberships.push({ tenant_id: tenantId, user_id: 'user_default_admin', role: 'owner', default_account_id: defaultAccountId, created_at: createdAt, updated_at: updatedAt });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO wechat_accounts')) {
+      const [accountId, tenantId, accountSlug, accountName, appId, appSecret, webhookToken, encodingAESKey, status, isDefault, createdAt, updatedAt] = this.values;
+      const existing = this.db.accounts.get(accountId);
+      this.db.accounts.set(accountId, {
+        id: accountId,
+        tenant_id: tenantId,
+        slug: accountSlug,
+        name: accountName,
+        app_id: appId,
+        app_secret: appSecret,
+        webhook_token: webhookToken,
+        encoding_aes_key: encodingAESKey,
+        status,
+        is_default: isDefault,
+        created_at: existing?.created_at ?? createdAt,
+        updated_at: updatedAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE wechat_accounts SET app_id = NULL')) {
+      const [, tenantId, accountId] = this.values;
+      const account = this.db.accounts.get(accountId);
+      if (account && account.tenant_id === tenantId) {
+        account.app_id = null;
+        account.app_secret = null;
+        account.webhook_token = null;
+        account.encoding_aes_key = null;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO wechat_access_tokens')) {
+      const [tenantId, accountId, accessToken, expiresIn, expiresAt, createdAt, updatedAt] = this.values;
+      this.db.accountTokens.set(`${tenantId}:${accountId}`, {
+        tenant_id: tenantId,
+        account_id: accountId,
+        access_token: accessToken,
+        expires_in: expiresIn,
+        expires_at: expiresAt,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q === 'DELETE FROM wechat_access_tokens WHERE tenant_id = ? AND account_id = ?') {
+      const [tenantId, accountId] = this.values;
+      const changed = this.db.accountTokens.delete(`${tenantId}:${accountId}`) ? 1 : 0;
+      return { success: true, meta: { changes: changed } };
+    }
+
+    if (q.startsWith('INSERT OR REPLACE INTO account_media')) {
+      const [tenantId, accountId, mediaId, type, createdAt, url] = this.values;
+      this.db.accountMedia.set(`${tenantId}:${accountId}:${mediaId}`, {
+        tenant_id: tenantId,
+        account_id: accountId,
+        media_id: mediaId,
+        type,
+        created_at: createdAt,
+        url,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
     throw new Error(`Unsupported D1 run query: ${q}`);
   }
 
@@ -359,6 +459,52 @@ class MemoryD1Statement {
       return this.db.media.get(this.values[0]) ?? null;
     }
 
+    if (q.startsWith('SELECT a.id AS account_id')) {
+      let account;
+      if (this.values.length >= 2) {
+        const [tenantId, accountId] = this.values;
+        account = [...this.db.accounts.values()].find(row => row.tenant_id === tenantId && row.id === accountId && row.status !== 'disabled');
+      } else {
+        account = [...this.db.accounts.values()]
+          .filter(row => row.status !== 'disabled')
+          .sort((a, b) => Number(b.is_default) - Number(a.is_default) || Number(a.created_at) - Number(b.created_at))[0];
+      }
+      if (!account) return null;
+      const tenant = this.db.tenants.get(account.tenant_id) ?? { id: account.tenant_id, slug: account.tenant_id, name: account.tenant_id };
+      return {
+        account_id: account.id,
+        account_slug: account.slug,
+        account_name: account.name,
+        app_id: account.app_id,
+        account_status: account.status,
+        tenant_id: tenant.id,
+        tenant_slug: tenant.slug,
+        tenant_name: tenant.name,
+      };
+    }
+
+    if (q.startsWith('SELECT app_id, app_secret, webhook_token, encoding_aes_key FROM wechat_accounts')) {
+      const [tenantId, accountId] = this.values;
+      const account = this.db.accounts.get(accountId);
+      if (!account || account.tenant_id !== tenantId || account.status === 'disabled') return null;
+      return {
+        app_id: account.app_id,
+        app_secret: account.app_secret,
+        webhook_token: account.webhook_token,
+        encoding_aes_key: account.encoding_aes_key,
+      };
+    }
+
+    if (q.startsWith('SELECT access_token, expires_in, expires_at FROM wechat_access_tokens')) {
+      const [tenantId, accountId] = this.values;
+      return this.db.accountTokens.get(`${tenantId}:${accountId}`) ?? null;
+    }
+
+    if (q.startsWith('SELECT media_id, type, created_at, url FROM account_media') && q.includes('media_id = ?')) {
+      const [tenantId, accountId, mediaId] = this.values;
+      return this.db.accountMedia.get(`${tenantId}:${accountId}:${mediaId}`) ?? null;
+    }
+
     throw new Error(`Unsupported D1 first query: ${q}`);
   }
 
@@ -370,6 +516,41 @@ class MemoryD1Statement {
 
     if (q === 'SELECT * FROM media ORDER BY created_at DESC' || q === 'SELECT * FROM media WHERE type = ? ORDER BY created_at DESC') {
       return { success: true, results: rows };
+    }
+
+    if (q.startsWith('SELECT media_id, type, created_at, url FROM account_media')) {
+      const [tenantId, accountId, maybeType] = this.values;
+      const accountRows = [...this.db.accountMedia.values()]
+        .filter(row => row.tenant_id === tenantId && row.account_id === accountId)
+        .filter(row => q.includes('AND type = ?') ? row.type === maybeType : true)
+        .sort((a, b) => b.created_at - a.created_at);
+      return { success: true, results: accountRows };
+    }
+
+    if (q.startsWith('SELECT a.id AS account_id')) {
+      const [tenantId] = this.values;
+      const accountRows = [...this.db.accounts.values()]
+        .filter(account => account.tenant_id === tenantId)
+        .map(account => {
+          const tenant = this.db.tenants.get(account.tenant_id) ?? { id: account.tenant_id, slug: account.tenant_id, name: account.tenant_id };
+          return {
+            account_id: account.id,
+            account_slug: account.slug,
+            account_name: account.name,
+            app_id: account.app_id,
+            app_secret: account.app_secret,
+            webhook_token: account.webhook_token,
+            encoding_aes_key: account.encoding_aes_key,
+            account_status: account.status,
+            is_default: account.is_default,
+            created_at: account.created_at,
+            updated_at: account.updated_at,
+            tenant_id: tenant.id,
+            tenant_slug: tenant.slug,
+            tenant_name: tenant.name,
+          };
+        });
+      return { success: true, results: accountRows };
     }
 
     throw new Error(`Unsupported D1 all query: ${q}`);
