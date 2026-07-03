@@ -706,7 +706,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
     }
 
     if (this.isUsable(current)) {
-      await this.schedulePreExpiryRefresh(current);
+      await this.schedulePreExpiryRefresh(current, accountContext);
       return;
     }
 
@@ -767,7 +767,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
     await storage.saveAccountAccessToken(accountContext, tokenInfo);
     await this.incrementMetric('refreshSuccesses');
     await this.setMetric('lastRefreshAt', Date.now());
-    await this.schedulePreExpiryRefresh(tokenInfo);
+    await this.schedulePreExpiryRefresh(tokenInfo, accountContext);
 
     return tokenInfo;
   }
@@ -778,7 +778,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
   ): Promise<AccessTokenInfo> {
     const current = await this.readStoredToken();
     if (!options.forceRefresh && this.isUsable(current)) {
-      await this.schedulePreExpiryRefresh(current);
+      await this.schedulePreExpiryRefresh(current, accountContext);
       return current;
     }
 
@@ -870,14 +870,14 @@ export class TokenOwner extends Agent<WorkerEnv> {
     return !!token && token.expiresAt > Date.now() + REFRESH_BEFORE_EXPIRY_MS;
   }
 
-  private async schedulePreExpiryRefresh(tokenInfo: AccessTokenInfo): Promise<void> {
+  private async schedulePreExpiryRefresh(tokenInfo: AccessTokenInfo, accountContext?: AccountContext): Promise<void> {
     const refreshAt = tokenInfo.expiresAt - REFRESH_BEFORE_EXPIRY_MS;
     const delaySeconds = Math.max(1, Math.floor((refreshAt - Date.now()) / 1000));
 
     await this.schedule(
       delaySeconds,
       'refreshBeforeExpiry',
-      { expiresAt: tokenInfo.expiresAt },
+      { expiresAt: tokenInfo.expiresAt, accountContext },
       { idempotent: true },
     );
   }
