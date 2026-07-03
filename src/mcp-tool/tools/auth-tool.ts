@@ -5,7 +5,8 @@ import { appIdSchema, appSecretSchema } from '../../utils/validation.js';
 
 // 认证工具参数 Schema
 const authToolSchema = z.object({
-  action: z.enum(['configure', 'get_token', 'refresh_token', 'get_config']),
+  action: z.enum(['configure', 'get_token', 'refresh_token', 'get_config', 'clear']),
+  accountId: z.string().min(1).max(128).optional(),
   appId: appIdSchema.optional(),
   appSecret: appSecretSchema.optional(),
   token: z.string().max(128, 'Token长度不能超过128个字符').optional(),
@@ -27,7 +28,8 @@ function maskToken(accessToken: string): string {
  */
 async function handleAuthCore(args: unknown, authManager: WechatAuthManagerLike): Promise<WechatToolResult> {
   const validatedArgs = authToolSchema.parse(args);
-  const { action, appId, appSecret, token, encodingAESKey } = validatedArgs;
+  const { action, accountId, appId, appSecret, token, encodingAESKey } = validatedArgs;
+  const accountLine = accountId ? `\n- AccountID: ${accountId}` : '';
 
   switch (action) {
     case 'configure': {
@@ -45,7 +47,7 @@ async function handleAuthCore(args: unknown, authManager: WechatAuthManagerLike)
       return {
         content: [{
           type: 'text',
-          text: `微信公众号配置已成功保存\n- AppID: ${appId}\n- Token: ${token || '未设置'}\n- EncodingAESKey: ${encodingAESKey || '未设置'}`,
+          text: `微信公众号配置已成功保存${accountLine}\n- AppID: ${appId}\n- Token: ${token || '未设置'}\n- EncodingAESKey: ${encodingAESKey || '未设置'}`,
         }],
       };
     }
@@ -57,7 +59,7 @@ async function handleAuthCore(args: unknown, authManager: WechatAuthManagerLike)
       return {
         content: [{
           type: 'text',
-          text: `Access Token 信息:\n- Token: ${maskToken(tokenInfo.accessToken)}\n- 剩余有效时间: ${expiresIn} 秒\n- 过期时间: ${new Date(tokenInfo.expiresAt).toLocaleString()}`,
+          text: `Access Token 信息:${accountLine}\n- Token: ${maskToken(tokenInfo.accessToken)}\n- 剩余有效时间: ${expiresIn} 秒\n- 过期时间: ${new Date(tokenInfo.expiresAt).toLocaleString()}`,
         }],
       };
     }
@@ -69,7 +71,7 @@ async function handleAuthCore(args: unknown, authManager: WechatAuthManagerLike)
       return {
         content: [{
           type: 'text',
-          text: `Access Token 已刷新:\n- 新 Token: ${maskToken(tokenInfo.accessToken)}\n- 有效时间: ${expiresIn} 秒\n- 过期时间: ${new Date(tokenInfo.expiresAt).toLocaleString()}`,
+          text: `Access Token 已刷新:${accountLine}\n- 新 Token: ${maskToken(tokenInfo.accessToken)}\n- 有效时间: ${expiresIn} 秒\n- 过期时间: ${new Date(tokenInfo.expiresAt).toLocaleString()}`,
         }],
       };
     }
@@ -88,7 +90,17 @@ async function handleAuthCore(args: unknown, authManager: WechatAuthManagerLike)
       return {
         content: [{
           type: 'text',
-          text: `当前微信公众号配置:\n- AppID: ${config.appId}\n- AppSecret: ***\n- Token: ${config.token || '未设置'}\n- EncodingAESKey: ${config.encodingAESKey || '未设置'}`,
+          text: `当前微信公众号配置:${accountLine}\n- AppID: ${config.appId}\n- AppSecret: ***\n- Token: ${config.token || '未设置'}\n- EncodingAESKey: ${config.encodingAESKey || '未设置'}`,
+        }],
+      };
+    }
+
+    case 'clear': {
+      await authManager.clearAuth();
+      return {
+        content: [{
+          type: 'text',
+          text: `微信公众号账号配置和 Access Token 已清除${accountLine}`,
         }],
       };
     }
@@ -123,8 +135,12 @@ export const authTool: WechatToolDefinition = {
     properties: {
       action: {
         type: 'string',
-        enum: ['configure', 'get_token', 'refresh_token', 'get_config'],
-        description: '操作类型：configure(配置), get_token(获取令牌), refresh_token(刷新令牌), get_config(获取配置)',
+        enum: ['configure', 'get_token', 'refresh_token', 'get_config', 'clear'],
+        description: '操作类型：configure(配置), get_token(获取令牌), refresh_token(刷新令牌), get_config(获取配置), clear(清除账号配置)',
+      },
+      accountId: {
+        type: 'string',
+        description: '公众号账号 ID（多租户模式可选；省略时使用默认/唯一账号）',
       },
       appId: {
         type: 'string',
@@ -155,7 +171,8 @@ export const authMcpTool: McpTool = {
   name: 'wechat_auth',
   description: '管理微信公众号认证配置和 Access Token',
   inputSchema: {
-    action: z.enum(['configure', 'get_token', 'refresh_token', 'get_config']).describe('操作类型：configure(配置), get_token(获取令牌), refresh_token(刷新令牌), get_config(获取配置)'),
+    action: z.enum(['configure', 'get_token', 'refresh_token', 'get_config', 'clear']).describe('操作类型：configure(配置), get_token(获取令牌), refresh_token(刷新令牌), get_config(获取配置), clear(清除账号配置)'),
+    accountId: z.string().min(1).max(128).optional().describe('公众号账号 ID（多租户模式可选；省略时使用默认/唯一账号）'),
     appId: z.string().optional().describe('微信公众号 AppID（配置时必需）'),
     appSecret: z.string().optional().describe('微信公众号 AppSecret（配置时必需）'),
     token: z.string().optional().describe('微信公众号 Token（可选，用于消息验证）'),
