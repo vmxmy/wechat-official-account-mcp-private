@@ -678,6 +678,10 @@ const defaultHandler = {
       return legacyRestToolRemovedResponse();
     }
 
+    if (url.pathname === '/admin/material/batch-delete-images') {
+      return await handleBatchDeleteImages(request, env);
+    }
+
     if (url.pathname === '/health' || url.pathname === '/api/health') {
       return json({
         success: true,
@@ -703,6 +707,90 @@ const defaultHandler = {
     return new Response('Not Found', { status: 404 });
   },
 };
+
+async function handleBatchDeleteImages(request: Request, env: WorkerEnv): Promise<Response> {
+  if (request.method !== 'POST') {
+    return json({ success: false, error: 'Method Not Allowed' }, { status: 405, headers: { allow: 'POST' } });
+  }
+
+  const expectedToken = await resolveSecret(env.OAUTH_CLIENT_SECRET);
+  if (!expectedToken) {
+    return json({ success: false, error: 'Server misconfigured: missing OAUTH_CLIENT_SECRET.' }, { status: 500 });
+  }
+  const providedToken = request.headers.get('x-admin-token') ?? '';
+  if (providedToken !== expectedToken) {
+    return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let body: { max?: number } = {};
+  try {
+    const text = await request.text();
+    if (text) body = JSON.parse(text) as { max?: number };
+  } catch {
+    return json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  // Workers 子请求上限约束：每轮限制删除数量，客户端循环调用直到 remaining=0。
+  const maxPerCall = Math.min(Math.max(1, Math.trunc(body.max ?? 40)), 40);
+
+  const { apiClient } = await createWorkerToolContext(env);
+
+  const deleted: string[] = [];
+  const failed: Array<{ mediaId: string; error: string }> = [];
+  let offset = 0;
+
+  while (deleted.length < maxPerCall) {
+    let listResult: { item?: Array<{ media_id: string }>; total_count?: number };
+    try {
+      listResult = await apiClient.post('/cgi-bin/material/batchget_material', {
+        type: 'image',
+        offset,
+        count: 20,
+      }) as { item?: Array<{ media_id: string }>; total_count?: number };
+    } catch (error) {
+      failed.push({ mediaId: `list@offset${offset}`, error: error instanceof Error ? error.message : String(error) });
+      break;
+    }
+
+    const items = listResult.item ?? [];
+    if (items.length === 0) break;
+
+    const remainingSlots = maxPerCall - deleted.length;
+    const batch = items.slice(0, remainingSlots).map(item => item.media_id);
+    if (batch.length === 0) break;
+
+    // 并发删除当前批次
+    const results = await Promise.allSettled(
+      batch.map(mediaId =>
+        apiClient.post('/cgi-bin/material/del_material', { media_id: mediaId })
+          .then(() => mediaId),
+      ),
+    );
+    for (let i = 0; i < results.length; i += 1) {
+      const result = results[i];
+      if (result.status === 'fulfilled') {
+        deleted.push(result.value);
+      } else {
+        failed.push({
+          mediaId: batch[i],
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    }
+
+    offset += batch.length;
+    // 列表已耗尽
+    if (items.length < 20) break;
+  }
+
+  return json({
+    success: true,
+    deletedCount: deleted.length,
+    failedCount: failed.length,
+    nextOffset: offset,
+    failed,
+  });
+}
 
 async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Response> {
   const url = new URL(request.url);
@@ -820,7 +908,8 @@ export default {
     if (
       url.pathname === '/health' ||
       url.pathname === '/api/health' ||
-      url.pathname === '/wx/callback'
+      url.pathname === '/wx/callback' ||
+      url.pathname === '/admin/material/batch-delete-images'
     ) {
       if (url.pathname === '/wx/callback') {
         return await handleWechatCallbackRequest(request, env);
