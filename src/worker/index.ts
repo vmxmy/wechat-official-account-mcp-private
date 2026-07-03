@@ -778,7 +778,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
   ): Promise<AccessTokenInfo> {
     const current = await this.readStoredToken();
     if (!options.forceRefresh && this.isUsable(current)) {
-      await this.schedulePreExpiryRefresh(current, accountContext);
+      await this.schedulePreExpiryRefresh(current, options.accountContext);
       return current;
     }
 
