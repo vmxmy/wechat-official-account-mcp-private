@@ -11,7 +11,7 @@
 
 **当前版本**: `v2.2.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**v2.2.0 + HTTP-only 更新**: 新增二维码、短链接、评论管理、黑名单、客服账号、账号管理等工具，并保留入站消息收件箱；当前共 22 个 MCP 工具。运行时已切换为 Cloudflare Workers Remote MCP（OAuth 保护的 `/mcp`、D1/R2/Durable Object、微信公众号 `/wx/callback`），本地桌面端 stdio/CLI 与 MCP-over-SSE 已移除。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
+**v2.2.0 + HTTP-only 更新**: 新增二维码、短链接、评论管理、黑名单、客服账号、账号管理等工具，并保留入站消息收件箱；当前共 22 个 MCP 工具。运行时已切换为 Cloudflare Workers Remote MCP（OAuth 保护的 `/mcp`、D1/R2/Durable Object、微信公众号 `/wx/callback/{accountId}`），本地桌面端 stdio/CLI 与 MCP-over-SSE 已移除。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
 
 ## 📖 文档导航
 
@@ -54,7 +54,7 @@
 本项目现在是 **HTTP-only Remote MCP**：
 
 - MCP 入口：Cloudflare Workers `/mcp`（Streamable HTTP + OAuth）
-- 微信回调：`/wx/callback`
+- 微信回调：`/wx/callback/{accountId}`（推荐，accountId 为管理面生成的不透明账号 ID）；旧 `/wx/callback` 仅在安全的单账号兼容模式下处理，否则返回迁移提示
 - 本地桌面端 stdio CLI 与 MCP-over-SSE 均已移除
 
 ### Cloudflare Workers Remote MCP（推荐）
@@ -81,7 +81,8 @@ npm run worker:deploy
 部署后使用：
 
 - MCP endpoint：`https://<your-worker-domain>/mcp`
-- 微信回调 endpoint：`https://<your-worker-domain>/wx/callback`
+- 微信回调 endpoint：`https://<your-worker-domain>/wx/callback/{accountId}`
+- 单账号兼容 endpoint：`https://<your-worker-domain>/wx/callback`（多账号或无法安全推断账号时会拒绝并提示迁移）
 - 旧 REST 工具调用：`/api/wechat/tools/*` 在 Workers 中已移除，只返回迁移说明，不会执行工具
 
 `wrangler.jsonc` 只引用 Secrets Store / Worker Secret 绑定，不应提交真实密钥。生产部署前至少设置：
@@ -90,8 +91,9 @@ npm run worker:deploy
 |---|---|
 | `WECHAT_APP_ID` / `WECHAT_APP_SECRET` | 公众号凭证 |
 | `WECHAT_MCP_SECRET_KEY` | D1 敏感字段 AES 加密密钥 |
-| `WECHAT_WEBHOOK_TOKEN` | 微信服务器配置 Token，用于 `/wx/callback` 验签 |
+| `WECHAT_WEBHOOK_TOKEN` | 单账号兼容模式下的微信服务器配置 Token；多账号应使用账号配置中的 webhook token |
 | `WECHAT_ENCODING_AES_KEY` | 微信安全模式 EncodingAESKey |
+| `WECHAT_DEFAULT_WEBHOOK_ACCOUNT_ID` | 可选：旧 `/wx/callback` 的显式默认账号 ID；未配置且存在多个账号时旧路由会拒绝处理 |
 | `WECHAT_PROXY_URL` | 可选：微信 API 出站 HTTPS relay 代理地址（固定出口 IP） |
 | `WECHAT_PROXY_TOKEN` | 可选：relay 代理鉴权 token |
 | `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` | Remote MCP OAuth 客户端凭证 |
@@ -369,7 +371,7 @@ npm run worker:deploy
 
 ### 16. 入站消息收件箱工具 (`wechat_inbox`)
 
-查询 Cloudflare Workers `/wx/callback` 写入的微信公众号入站消息/事件。
+查询 Cloudflare Workers `/wx/callback/{accountId}` 写入的微信公众号入站消息/事件。
 
 **支持操作**:
 - `list_pending`: 查询待处理消息，支持分页、类型和 OpenID 过滤
@@ -379,6 +381,7 @@ npm run worker:deploy
 
 **处理模型**:
 - Webhook 只做验签、必要时 AES 解密、写入 D1、快速返回 `success`
+- 多账号部署中，Webhook 会先通过 URL 中的不透明 `accountId` 解析账号配置，再使用该账号的 Token / EncodingAESKey 验签解密；入站消息按 tenant/account 写入并按账号生成去重键
 - Worker 不运行 cron、不做 AI 推理、不主动调用微信回复接口
 - 外部 AI Agent 通过 `wechat_inbox` 拉取消息，决策后调用现有客服/自动回复等工具，再标记已处理
 
@@ -546,7 +549,8 @@ src/
 迁移提示：
 - 原本调用 `POST /api/wechat/tools/:toolName` 的 HTTP 消费者，应迁移为 OAuth 后的 MCP `tools/list` / `tools/call`。
 - 原本使用本地桌面 stdio CLI 的客户端，应迁移到远程 `/mcp` 或 `mcp-remote https://<your-worker-domain>/mcp`。
-- `wechat_inbox` 用于查询 `/wx/callback` 写入的入站消息；Webhook 本身不会主动回复或调度任务。
+- 微信公众号后台的服务器地址建议迁移为 `https://<your-worker-domain>/wx/callback/{accountId}`；旧 `/wx/callback` 只在显式或可安全推断单账号时兼容处理，多账号部署会返回迁移提示。
+- `wechat_inbox` 用于查询 `/wx/callback/{accountId}` 写入的入站消息；Webhook 本身不会主动回复或调度任务。
 
 ## 🧪 开发指南
 

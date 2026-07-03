@@ -8,33 +8,31 @@ import {
 import CryptoJS from 'crypto-js';
 import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
 import type { McpTool } from '../mcp-tool/types.js';
-import { authMcpTool } from '../mcp-tool/tools/auth-tool.js';
-import { draftMcpTool } from '../mcp-tool/tools/draft-tool.js';
-import { publishMcpTool } from '../mcp-tool/tools/publish-tool.js';
-import { userMcpTool } from '../mcp-tool/tools/user-tool.js';
-import { tagMcpTool } from '../mcp-tool/tools/tag-tool.js';
-import { menuMcpTool } from '../mcp-tool/tools/menu-tool.js';
-import { templateMsgMcpTool } from '../mcp-tool/tools/template-msg-tool.js';
-import { customerServiceMcpTool } from '../mcp-tool/tools/customer-service-tool.js';
-import { statisticsMcpTool } from '../mcp-tool/tools/statistics-tool.js';
-import { autoReplyMcpTool } from '../mcp-tool/tools/auto-reply-tool.js';
-import { massSendMcpTool } from '../mcp-tool/tools/mass-send-tool.js';
-import { subscribeMsgMcpTool } from '../mcp-tool/tools/subscribe-msg-tool.js';
-import { inboxMcpTool } from '../mcp-tool/tools/inbox-tool.js';
-import { qrcodeMcpTool } from '../mcp-tool/tools/qrcode-tool.js';
-import { shortUrlMcpTool } from '../mcp-tool/tools/short-url-tool.js';
-import { commentMcpTool } from '../mcp-tool/tools/comment-tool.js';
-import { blacklistMcpTool } from '../mcp-tool/tools/blacklist-tool.js';
-import { kfAccountMcpTool } from '../mcp-tool/tools/kf-account-tool.js';
-import { accountMcpTool } from '../mcp-tool/tools/account-tool.js';
+import { workerSharedMcpTools, withOptionalAccountId } from '../mcp-tool/tools/index.js';
 import { D1StorageManager, type D1DatabaseLike } from '../storage/d1-storage-manager.js';
+import {
+  DEFAULT_ACCOUNT_ID,
+  DEFAULT_ACCOUNT_SLUG,
+  DEFAULT_TENANT_ID,
+  DEFAULT_TENANT_SLUG,
+  type AccountContext,
+} from '../storage/types.js';
 import { AccessTokenHttpExecutor } from '../wechat/http-executor.js';
 import { WorkersHttpExecutor } from '../wechat/workers-http-executor.js';
 import type { OutboundProxyConfig } from '../wechat/proxy.js';
 import { WechatApiClient } from '../wechat/api-client.js';
+import { WechatApiClientFactory } from '../wechat/api-client-factory.js';
 import { D1InboxStore } from './inbox-store.js';
 import { createWorkerMediaTools } from './media-tools.js';
 import { handleWechatWebhook } from './wechat-webhook.js';
+import { D1AuditLogWriter } from './audit-log.js';
+import { handleManagementApiRequest } from './management-api.js';
+import {
+  attachTenantMetadata,
+  createDefaultTenantContext,
+  enrichMcpToolParams,
+  type TenantRequestContext,
+} from './tenant-context.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -52,16 +50,22 @@ export interface WorkerEnv {
   WECHAT_MCP_SECRET_KEY: SecretBinding;
   WECHAT_WEBHOOK_TOKEN: SecretBinding;
   WECHAT_ENCODING_AES_KEY: SecretBinding;
+  WECHAT_DEFAULT_WEBHOOK_ACCOUNT_ID?: SecretBinding;
   WECHAT_PROXY_URL?: SecretBinding;
   WECHAT_PROXY_TOKEN?: SecretBinding;
   OAUTH_CLIENT_ID: SecretBinding;
   OAUTH_CLIENT_SECRET: SecretBinding;
 }
 
+type TokenOwnerRequestOptions = {
+  forceRefresh?: boolean;
+  accountContext?: AccountContext;
+};
+
 type TokenOwnerStub = {
-  getAccessToken(options?: { forceRefresh?: boolean }): Promise<AccessTokenInfo>;
-  refreshAccessToken(): Promise<AccessTokenInfo>;
-  clearAccessToken(): Promise<void>;
+  getAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
+  refreshAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
+  clearAccessToken(options?: { accountContext?: AccountContext }): Promise<void>;
   getDebugStatus(): Promise<Record<string, unknown>>;
   runCoalescingSelfTest(): Promise<Record<string, unknown>>;
 };
@@ -70,29 +74,12 @@ type WechatMcpAgentStub = {
   runEventStoreSelfTest(): Promise<Record<string, unknown>>;
 };
 
-const WORKER_SHARED_MCP_TOOLS = [
-  authMcpTool,
-  draftMcpTool,
-  publishMcpTool,
-  userMcpTool,
-  tagMcpTool,
-  menuMcpTool,
-  templateMsgMcpTool,
-  customerServiceMcpTool,
-  statisticsMcpTool,
-  autoReplyMcpTool,
-  massSendMcpTool,
-  inboxMcpTool,
-  subscribeMsgMcpTool,
-  qrcodeMcpTool,
-  shortUrlMcpTool,
-  commentMcpTool,
-  blacklistMcpTool,
-  kfAccountMcpTool,
-  accountMcpTool,
-];
+const WORKER_SHARED_MCP_TOOLS = workerSharedMcpTools;
 const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000;
-const TOKEN_OWNER_NAME = 'global';
+
+export function tokenOwnerNameForAccount(accountContext: AccountContext): string {
+  return `token:${accountContext.tenantId}:${accountContext.accountId}`;
+}
 
 function json(data: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(data), {
@@ -135,10 +122,10 @@ function legacyRestToolRemovedResponse(): Response {
   );
 }
 
-async function getTokenOwner(env: WorkerEnv): Promise<TokenOwnerStub> {
+async function getTokenOwner(env: WorkerEnv, accountContext?: AccountContext): Promise<TokenOwnerStub> {
   return await getAgentByName(
     env.TOKEN_OWNER as any,
-    TOKEN_OWNER_NAME,
+    tokenOwnerNameForAccount(accountContext ?? defaultAccountContext()),
   ) as unknown as TokenOwnerStub;
 }
 
@@ -159,38 +146,61 @@ function getAgentEnv(agent: unknown): WorkerEnv {
   return (agent as { env: WorkerEnv }).env;
 }
 
+function defaultAccountContext(appId?: string): AccountContext {
+  return {
+    tenantId: DEFAULT_TENANT_ID,
+    tenantSlug: DEFAULT_TENANT_SLUG,
+    tenantName: 'Default Tenant',
+    accountId: DEFAULT_ACCOUNT_ID,
+    accountSlug: DEFAULT_ACCOUNT_SLUG,
+    accountName: 'Default WeChat Official Account',
+    appId,
+    status: 'active',
+    role: 'owner',
+    scopes: ['woa:*'],
+  };
+}
+
 class WorkersAuthManager {
   private config: WechatConfig | null = null;
 
   constructor(
     private readonly storage: D1StorageManager,
     private readonly tokenOwner: TokenOwnerStub,
+    private readonly accountContext: AccountContext,
   ) {}
 
   async initialize(): Promise<void> {
-    this.config = await this.storage.getConfig();
+    this.config = await this.storage.getAccountConfig(this.accountContext);
   }
 
   async setConfig(config: WechatConfig): Promise<void> {
     this.config = config;
-    await this.storage.saveConfig(config);
-    await this.storage.clearAccessToken();
-    await this.tokenOwner.clearAccessToken();
+    await this.storage.saveAccountConfig({
+      tenantId: this.accountContext.tenantId,
+      accountId: this.accountContext.accountId,
+      accountSlug: this.accountContext.accountSlug,
+      accountName: this.accountContext.accountName,
+      config,
+      isDefault: this.accountContext.tenantId === DEFAULT_TENANT_ID && this.accountContext.accountId === DEFAULT_ACCOUNT_ID,
+    });
+    await this.storage.clearAccountAccessToken(this.accountContext);
+    await this.tokenOwner.clearAccessToken({ accountContext: this.accountContext });
   }
 
   async getConfig(): Promise<WechatConfig | null> {
     if (!this.config) {
-      this.config = await this.storage.getConfig();
+      this.config = await this.storage.getAccountConfig(this.accountContext);
     }
     return this.config;
   }
 
   async getAccessToken(): Promise<AccessTokenInfo> {
-    return await this.tokenOwner.getAccessToken();
+    return await this.tokenOwner.getAccessToken({ accountContext: this.accountContext });
   }
 
   async refreshAccessToken(): Promise<AccessTokenInfo> {
-    return await this.tokenOwner.refreshAccessToken();
+    return await this.tokenOwner.refreshAccessToken({ accountContext: this.accountContext });
   }
 
   isConfigured(): boolean {
@@ -199,34 +209,43 @@ class WorkersAuthManager {
 
   async clearAuth(): Promise<void> {
     this.config = null;
-    await this.storage.clearConfig();
-    await this.storage.clearAccessToken();
-    await this.tokenOwner.clearAccessToken();
+    await this.storage.clearAccountConfig(this.accountContext);
+    await this.storage.clearAccountAccessToken(this.accountContext);
+    await this.tokenOwner.clearAccessToken({ accountContext: this.accountContext });
   }
 }
 
-async function createWorkerToolContext(env: WorkerEnv): Promise<{
+async function createWorkerToolContext(env: WorkerEnv, requestedAccountContext?: AccountContext): Promise<{
   apiClient: WechatApiClient;
   storage: D1StorageManager;
   inboxStore: D1InboxStore;
+  accountContext: AccountContext;
 }> {
   const storage = await createD1Storage(env);
   const inboxStore = new D1InboxStore(env.DB);
   await inboxStore.ensureSchema();
-  const tokenOwner = await getTokenOwner(env);
-  const authManager = new WorkersAuthManager(storage, tokenOwner);
-  await authManager.initialize();
+  const accountContext = requestedAccountContext
+    ?? (await storage.getDefaultAccountContext())
+    ?? defaultAccountContext();
+  const tokenOwner = await getTokenOwner(env, accountContext);
   const proxy = await resolveWorkerProxyConfig(env);
 
-  const apiClient = new WechatApiClient(authManager, {
-    httpExecutor: new AccessTokenHttpExecutor(
+  const factory = new WechatApiClientFactory({
+    createAuthManager: async context => {
+      const authManager = new WorkersAuthManager(storage, tokenOwner, context);
+      await authManager.initialize();
+      return authManager;
+    },
+    createHttpExecutor: async context => new AccessTokenHttpExecutor(
       await createWechatWorkersHttpExecutor(env, proxy),
-      async () => (await tokenOwner.getAccessToken()).accessToken,
+      async () => (await tokenOwner.getAccessToken({ accountContext: context })).accessToken,
     ),
-    inboxStore,
+    createInboxStore: () => inboxStore,
   });
 
-  return { apiClient, storage, inboxStore };
+  const apiClient = await factory.create(accountContext);
+
+  return { apiClient, storage, inboxStore, accountContext };
 }
 
 async function resolveWorkerProxyConfig(env: WorkerEnv): Promise<OutboundProxyConfig | undefined> {
@@ -257,6 +276,7 @@ function registerWorkerMcpTool(
   server: McpServer,
   tool: McpTool,
   apiClient: WechatApiClient,
+  tenantContext: TenantRequestContext,
 ): void {
   server.tool(
     tool.name,
@@ -264,7 +284,9 @@ function registerWorkerMcpTool(
     tool.inputSchema as any,
     async (params: unknown) => {
       try {
-        return await tool.handler(params, apiClient) as any;
+        const scoped = enrichMcpToolParams(params, tenantContext, tool.name);
+        const result = await tool.handler(scoped.params, apiClient);
+        return attachTenantMetadata(result, tenantContext, scoped.account) as any;
       } catch (error) {
         return {
           content: [{
@@ -279,17 +301,246 @@ function registerWorkerMcpTool(
 }
 
 async function handleWechatCallbackRequest(request: Request, env: WorkerEnv): Promise<Response> {
-  const storage = await createD1Storage(env);
-  const config = await storage.getConfig();
+  const url = new URL(request.url);
+  const routeAccountId = getWechatCallbackAccountId(url.pathname);
+  const resolved = routeAccountId
+    ? await resolveAccountWebhookConfig(env, routeAccountId)
+    : await resolveLegacyWebhookConfig(env);
+
+  if (resolved.kind === 'ambiguous') {
+    await safeWriteAudit(env, {
+      action: 'webhook.legacy_route_rejected',
+      targetType: 'wechat_webhook',
+      requestId: request.headers.get('cf-ray') ?? crypto.randomUUID(),
+      metadata: {
+        path: url.pathname,
+        reason: 'multiple_active_accounts',
+        migration: '/wx/callback/{accountId}',
+      },
+    });
+    return json(
+      {
+        success: false,
+        error: 'Ambiguous WeChat callback route. Configure the account-addressable callback URL for this account.',
+        migration: 'Use /wx/callback/{accountId}; accountId is the opaque WeChat account id from the management surface.',
+      },
+      { status: 409 },
+    );
+  }
+
+  if (resolved.kind === 'missing') {
+    await safeWriteAudit(env, {
+      action: 'webhook.account_route_rejected',
+      targetType: 'wechat_webhook',
+      targetId: routeAccountId,
+      requestId: request.headers.get('cf-ray') ?? crypto.randomUUID(),
+      metadata: {
+        path: url.pathname,
+        reason: routeAccountId ? 'unknown_or_disabled_account' : 'missing_single_account_config',
+      },
+    });
+    return new Response(
+      routeAccountId
+        ? 'Unknown or disabled WeChat account callback route.'
+        : 'Webhook account is not configured. Use /wx/callback/{accountId} after account setup.',
+      { status: routeAccountId ? 404 : 500 },
+    );
+  }
+
   const inboxStore = new D1InboxStore(env.DB);
   await inboxStore.ensureSchema();
 
-  return await handleWechatWebhook(request, {
-    token: config?.token ?? await resolveSecret(env.WECHAT_WEBHOOK_TOKEN),
-    appId: config?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
-    encodingAESKey: config?.encodingAESKey ?? await resolveSecret(env.WECHAT_ENCODING_AES_KEY),
+  const response = await handleWechatWebhook(request, {
+    token: resolved.config.token,
+    appId: resolved.config.appId,
+    encodingAESKey: resolved.config.encodingAESKey,
+    tenantId: resolved.config.tenantId,
+    accountId: resolved.config.accountId,
     inboxStore,
   });
+  await safeWriteAudit(env, {
+    action: response.status < 400 ? 'webhook.accepted' : 'webhook.rejected',
+    tenantId: resolved.config.tenantId,
+    accountId: resolved.config.accountId,
+    targetType: 'wechat_webhook',
+    targetId: resolved.config.accountId ?? routeAccountId,
+    requestId: request.headers.get('cf-ray') ?? crypto.randomUUID(),
+    metadata: {
+      path: url.pathname,
+      method: request.method,
+      status: response.status,
+      source: resolved.config.source,
+      encrypted: url.searchParams.get('encrypt_type') === 'aes',
+    },
+  });
+  return response;
+}
+
+type WebhookConfigResolution =
+  | { kind: 'configured'; config: ResolvedWebhookConfig }
+  | { kind: 'ambiguous' }
+  | { kind: 'missing' };
+
+type ResolvedWebhookConfig = {
+  tenantId?: string | null;
+  accountId?: string | null;
+  appId: string | null;
+  token: string | null;
+  encodingAESKey?: string | null;
+  source: 'account' | 'legacy';
+};
+
+function isWechatCallbackPath(pathname: string): boolean {
+  return pathname === '/wx/callback' || pathname.startsWith('/wx/callback/');
+}
+
+export function getWechatCallbackAccountId(pathname: string): string | null {
+  const prefix = '/wx/callback/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const accountId = decodeURIComponent(pathname.slice(prefix.length)).trim();
+  if (!accountId || accountId.includes('/')) {
+    return null;
+  }
+  return accountId;
+}
+
+async function resolveLegacyWebhookConfig(env: WorkerEnv): Promise<WebhookConfigResolution> {
+  const explicitDefaultAccountId = await resolveSecret(env.WECHAT_DEFAULT_WEBHOOK_ACCOUNT_ID);
+  if (explicitDefaultAccountId) {
+    const explicit = await resolveAccountWebhookConfig(env, explicitDefaultAccountId);
+    return explicit.kind === 'configured' ? explicit : { kind: 'missing' };
+  }
+
+  const accounts = await listActiveWebhookAccounts(env, 20);
+  if (accounts && accounts.length > 1) {
+    return { kind: 'ambiguous' };
+  }
+  if (accounts && accounts.length === 1) {
+    return { kind: 'configured', config: await rowToWebhookConfig(accounts[0], env) };
+  }
+
+  const legacy = await resolveLegacySingleAccountConfig(env);
+  return legacy ? { kind: 'configured', config: legacy } : { kind: 'missing' };
+}
+
+async function resolveAccountWebhookConfig(
+  env: WorkerEnv,
+  accountId: string,
+): Promise<WebhookConfigResolution> {
+  const row = await readWebhookAccountRow(env, accountId);
+  if (!row || !isWebhookAccountEnabled(row)) {
+    return { kind: 'missing' };
+  }
+
+  return { kind: 'configured', config: await rowToWebhookConfig(row, env) };
+}
+
+async function readWebhookAccountRow(
+  env: WorkerEnv,
+  accountId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await env.DB.prepare('SELECT * FROM wechat_accounts WHERE id = ? LIMIT 1')
+      .bind(accountId)
+      .first<Record<string, unknown>>();
+  } catch (error) {
+    if (isMissingTenantTableError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function listActiveWebhookAccounts(
+  env: WorkerEnv,
+  limit: number,
+): Promise<Array<Record<string, unknown>> | null> {
+  try {
+    const result = await env.DB.prepare('SELECT * FROM wechat_accounts LIMIT ?')
+      .bind(limit)
+      .all<Record<string, unknown>>();
+    return (result.results ?? []).filter(isWebhookAccountEnabled).slice(0, limit);
+  } catch (error) {
+    if (isMissingTenantTableError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function rowToWebhookConfig(
+  row: Record<string, unknown>,
+  env: WorkerEnv,
+): Promise<ResolvedWebhookConfig> {
+  return {
+    tenantId: getString(row.tenant_id ?? row.tenantId),
+    accountId: getString(row.id ?? row.account_id ?? row.accountId),
+    appId: getString(row.app_id ?? row.appId),
+    token: await decryptStoredSecret(getString(row.webhook_token ?? row.token), env),
+    encodingAESKey: await decryptStoredSecret(getString(row.encoding_aes_key ?? row.encodingAESKey), env),
+    source: 'account',
+  };
+}
+
+async function resolveLegacySingleAccountConfig(env: WorkerEnv): Promise<ResolvedWebhookConfig | null> {
+  const storage = await createD1Storage(env);
+  const config = await storage.getConfig();
+  const token = config?.token ?? await resolveSecret(env.WECHAT_WEBHOOK_TOKEN);
+  const appId = config?.appId ?? await resolveSecret(env.WECHAT_APP_ID);
+  const encodingAESKey = config?.encodingAESKey ?? await resolveSecret(env.WECHAT_ENCODING_AES_KEY);
+
+  if (!token && !appId && !encodingAESKey) {
+    return null;
+  }
+
+  return {
+    token,
+    appId,
+    encodingAESKey,
+    source: 'legacy',
+  };
+}
+
+function isWebhookAccountEnabled(row: Record<string, unknown>): boolean {
+  const status = getString(row.status)?.toLowerCase();
+  return !status || ['active', 'enabled', 'configured'].includes(status);
+}
+
+function getString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+async function decryptStoredSecret(value: string | null, env: WorkerEnv): Promise<string | null> {
+  if (!value || !value.startsWith('enc:')) {
+    return value;
+  }
+  const secretKey = await resolveSecret(env.WECHAT_MCP_SECRET_KEY);
+  if (!secretKey) {
+    return null;
+  }
+  try {
+    const bytes = CryptoJS.AES.decrypt(value.slice(4), secretKey);
+    const text = bytes.toString(CryptoJS.enc.Utf8);
+    return text || null;
+  } catch {
+    return null;
+  }
+}
+
+function isMissingTenantTableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such table|no such column|D1_ERROR/i.test(message) && /wechat_accounts|tenant|account/i.test(message);
+}
+
+async function safeWriteAudit(env: WorkerEnv, event: Parameters<D1AuditLogWriter['write']>[0]): Promise<void> {
+  try {
+    await new D1AuditLogWriter(env.DB).write(event);
+  } catch {
+    // Webhook ack/reject semantics must not depend on best-effort audit persistence.
+  }
 }
 
 export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number }, { userId?: string }> {
@@ -305,13 +556,21 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
   async init(): Promise<void> {
     const env = getAgentEnv(this);
     const { apiClient, storage } = await createWorkerToolContext(env);
+    const currentConfig = await apiClient.getAuthManager().getConfig();
+    const tenantContext = createDefaultTenantContext({
+      source: 'mcp',
+      userId: this.props?.userId ?? await resolveSecret(env.OAUTH_CLIENT_ID),
+      oauthClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+      scopes: ['wechat.mcp', 'woa:context:read', 'woa:tenant:read', 'woa:account:read', 'woa:account:write', 'woa:content:read', 'woa:content:write', 'woa:content:publish', 'woa:inbox:read', 'woa:audit:read'],
+      appId: currentConfig?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
+    });
     const mediaTools = createWorkerMediaTools({
       mediaBucket: env.MEDIA,
       saveMedia: media => storage.saveMedia(media),
-    });
+    }).map(withOptionalAccountId);
 
     for (const tool of [...WORKER_SHARED_MCP_TOOLS, ...mediaTools]) {
-      registerWorkerMcpTool(this.server, tool, apiClient);
+      registerWorkerMcpTool(this.server, tool, apiClient, tenantContext);
     }
   }
 
@@ -367,20 +626,25 @@ export class TokenOwner extends Agent<WorkerEnv> {
   private refreshPromise: Promise<AccessTokenInfo> | null = null;
   private tokenTableReady = false;
 
-  async getAccessToken(options: { forceRefresh?: boolean } = {}): Promise<AccessTokenInfo> {
+  async getAccessToken(options: TokenOwnerRequestOptions = {}): Promise<AccessTokenInfo> {
     await this.ensureTokenTables();
-    return await this.getAccessTokenWithRefresh(options, () => this.refreshAndPersist());
+    const accountContext = await this.resolveAccountContext(options.accountContext);
+    return await this.getAccessTokenWithRefresh(
+      { ...options, accountContext },
+      () => this.refreshAndPersist(accountContext),
+    );
   }
 
-  async refreshAccessToken(): Promise<AccessTokenInfo> {
-    return await this.getAccessToken({ forceRefresh: true });
+  async refreshAccessToken(options: TokenOwnerRequestOptions = {}): Promise<AccessTokenInfo> {
+    return await this.getAccessToken({ ...options, forceRefresh: true });
   }
 
-  async clearAccessToken(): Promise<void> {
+  async clearAccessToken(options: { accountContext?: AccountContext } = {}): Promise<void> {
     await this.ensureTokenTables();
+    const accountContext = await this.resolveAccountContext(options.accountContext);
     void this.sql`DELETE FROM wechat_access_token`;
     const storage = await createD1Storage(getAgentEnv(this));
-    await storage.clearAccessToken();
+    await storage.clearAccountAccessToken(accountContext);
   }
 
   async getDebugStatus(): Promise<Record<string, unknown>> {
@@ -426,15 +690,16 @@ export class TokenOwner extends Agent<WorkerEnv> {
         refreshCalls,
         uniqueTokenCount: uniqueTokens.size,
         singleWriter: refreshCalls === 1 && uniqueTokens.size === 1,
-        singletonName: TOKEN_OWNER_NAME,
+        tokenOwnerName: tokenOwnerNameForAccount(defaultAccountContext()),
       };
     } finally {
       this.refreshPromise = previousRefreshPromise;
     }
   }
 
-  async refreshBeforeExpiry(payload?: { expiresAt?: number }): Promise<void> {
+  async refreshBeforeExpiry(payload?: { expiresAt?: number; accountContext?: AccountContext }): Promise<void> {
     await this.ensureTokenTables();
+    const accountContext = await this.resolveAccountContext(payload?.accountContext);
     const current = await this.readStoredToken();
 
     if (payload?.expiresAt && current && current.expiresAt !== payload.expiresAt) {
@@ -442,11 +707,11 @@ export class TokenOwner extends Agent<WorkerEnv> {
     }
 
     if (this.isUsable(current)) {
-      await this.schedulePreExpiryRefresh(current);
+      await this.schedulePreExpiryRefresh(current, accountContext);
       return;
     }
 
-    await this.getAccessToken({ forceRefresh: true });
+    await this.getAccessToken({ forceRefresh: true, accountContext });
   }
 
   async onRequest(request: Request): Promise<Response> {
@@ -465,10 +730,10 @@ export class TokenOwner extends Agent<WorkerEnv> {
     );
   }
 
-  private async refreshAndPersist(): Promise<AccessTokenInfo> {
+  private async refreshAndPersist(accountContext: AccountContext): Promise<AccessTokenInfo> {
     await this.incrementMetric('refreshAttempts');
 
-    const config = await this.resolveWechatConfig();
+    const config = await this.resolveWechatConfig(accountContext);
     const env = getAgentEnv(this);
     const executor = await createWechatWorkersHttpExecutor(env);
     const response = await executor.get<{
@@ -500,21 +765,21 @@ export class TokenOwner extends Agent<WorkerEnv> {
     await this.writeStoredToken(tokenInfo);
 
     const storage = await createD1Storage(env);
-    await storage.saveAccessToken(tokenInfo);
+    await storage.saveAccountAccessToken(accountContext, tokenInfo);
     await this.incrementMetric('refreshSuccesses');
     await this.setMetric('lastRefreshAt', Date.now());
-    await this.schedulePreExpiryRefresh(tokenInfo);
+    await this.schedulePreExpiryRefresh(tokenInfo, accountContext);
 
     return tokenInfo;
   }
 
   private async getAccessTokenWithRefresh(
-    options: { forceRefresh?: boolean },
+    options: TokenOwnerRequestOptions,
     refresher: () => Promise<AccessTokenInfo>,
   ): Promise<AccessTokenInfo> {
     const current = await this.readStoredToken();
     if (!options.forceRefresh && this.isUsable(current)) {
-      await this.schedulePreExpiryRefresh(current);
+      await this.schedulePreExpiryRefresh(current, options.accountContext);
       return current;
     }
 
@@ -531,9 +796,16 @@ export class TokenOwner extends Agent<WorkerEnv> {
     }
   }
 
-  private async resolveWechatConfig(): Promise<WechatConfig> {
+  private async resolveAccountContext(accountContext?: AccountContext): Promise<AccountContext> {
+    if (accountContext) return accountContext;
+
     const storage = await createD1Storage(getAgentEnv(this));
-    const stored = await storage.getConfig();
+    return (await storage.getDefaultAccountContext()) ?? defaultAccountContext();
+  }
+
+  private async resolveWechatConfig(accountContext: AccountContext): Promise<WechatConfig> {
+    const storage = await createD1Storage(getAgentEnv(this));
+    const stored = await storage.getAccountConfig(accountContext);
     if (stored?.appId && stored?.appSecret) {
       return stored;
     }
@@ -543,7 +815,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
     const appSecret = await resolveSecret(env.WECHAT_APP_SECRET);
 
     if (!appId || !appSecret) {
-      throw new Error('Wechat config not found. Configure D1 config or WECHAT_APP_ID/WECHAT_APP_SECRET secrets first.');
+      throw new Error('Wechat config not found. Configure an account in D1 or WECHAT_APP_ID/WECHAT_APP_SECRET secrets first.');
     }
 
     return { appId, appSecret };
@@ -599,14 +871,14 @@ export class TokenOwner extends Agent<WorkerEnv> {
     return !!token && token.expiresAt > Date.now() + REFRESH_BEFORE_EXPIRY_MS;
   }
 
-  private async schedulePreExpiryRefresh(tokenInfo: AccessTokenInfo): Promise<void> {
+  private async schedulePreExpiryRefresh(tokenInfo: AccessTokenInfo, accountContext?: AccountContext): Promise<void> {
     const refreshAt = tokenInfo.expiresAt - REFRESH_BEFORE_EXPIRY_MS;
     const delaySeconds = Math.max(1, Math.floor((refreshAt - Date.now()) / 1000));
 
     await this.schedule(
       delaySeconds,
       'refreshBeforeExpiry',
-      { expiresAt: tokenInfo.expiresAt },
+      { expiresAt: tokenInfo.expiresAt, accountContext },
       { idempotent: true },
     );
   }
@@ -683,7 +955,8 @@ const defaultHandler = {
         success: true,
         runtime: 'cloudflare-workers',
         mcpEndpoint: '/mcp',
-        webhookEndpoint: '/wx/callback',
+        webhookEndpoint: '/wx/callback/{accountId}',
+        legacyWebhookEndpoint: '/wx/callback',
       });
     }
 
@@ -804,7 +1077,19 @@ function createOAuthProvider(): OAuthProvider<WorkerEnv> {
       '/mcp': mcpHandler,
     },
     defaultHandler,
-    scopesSupported: ['wechat.mcp'],
+    scopesSupported: [
+      'wechat.mcp',
+      'woa:context:read',
+      'woa:tenant:read',
+      'woa:tenant:write',
+      'woa:account:read',
+      'woa:account:write',
+      'woa:content:read',
+      'woa:content:write',
+      'woa:content:publish',
+      'woa:inbox:read',
+      'woa:audit:read',
+    ],
     allowPlainPKCE: false,
   });
 }
@@ -817,12 +1102,21 @@ export default {
       return legacyRestToolRemovedResponse();
     }
 
+    if (url.pathname.startsWith('/api/v1')) {
+      return await handleManagementApiRequest(request, {
+        appId: await resolveSecret(env.WECHAT_APP_ID),
+        defaultUserId: await resolveSecret(env.OAUTH_CLIENT_ID),
+        defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+        createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
+      });
+    }
+
     if (
       url.pathname === '/health' ||
       url.pathname === '/api/health' ||
-      url.pathname === '/wx/callback'
+      isWechatCallbackPath(url.pathname)
     ) {
-      if (url.pathname === '/wx/callback') {
+      if (isWechatCallbackPath(url.pathname)) {
         return await handleWechatCallbackRequest(request, env);
       }
       return await defaultHandler.fetch(request, env);

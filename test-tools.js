@@ -1,6 +1,7 @@
 // 简单测试脚本验证工具注册与运行时 seam
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'fs';
+import { execFileSync } from 'node:child_process';
 import CryptoJS from 'crypto-js';
 import { mcpTools, wechatTools } from './dist/src/mcp-tool/tools/index.js';
 import { inboxMcpTool } from './dist/src/mcp-tool/tools/inbox-tool.js';
@@ -8,13 +9,21 @@ import { logger } from './dist/src/utils/logger.js';
 import { AccessTokenHttpExecutor } from './dist/src/wechat/http-executor.js';
 import { WorkersHttpExecutor } from './dist/src/wechat/workers-http-executor.js';
 import { D1StorageManager } from './dist/src/storage/d1-storage-manager.js';
+import { DEFAULT_ACCOUNT_ID, DEFAULT_TENANT_ID } from './dist/src/storage/types.js';
 import { D1InboxStore } from './dist/src/worker/inbox-store.js';
 import { createWorkerMediaTools } from './dist/src/worker/media-tools.js';
+import { handleManagementApiRequest } from './dist/src/worker/management-api.js';
 import {
+  createInboundDedupKey,
   createWechatSignature,
   decryptWechatMessage,
   handleWechatWebhook,
 } from './dist/src/worker/wechat-webhook.js';
+import {
+  D1AuditLogWriter,
+  requireConfirmationMarker,
+  sanitizeAuditMetadata,
+} from './dist/src/worker/audit-log.js';
 
 let failed = false;
 
@@ -32,15 +41,26 @@ mcpTools.forEach((tool, index) => {
 });
 
 console.log('\n=== 验证结果 ===');
-check(mcpTools.length === 22, mcpTools.length === 22
-  ? '成功！所有22个工具都已正确注册为MCP工具'
-  : `失败！期望22个工具，实际注册了${mcpTools.length}个工具`);
+check(mcpTools.length === 26, mcpTools.length === 26
+  ? '成功！所有22个既有工具 + 4个多租户管理工具都已正确注册为MCP工具'
+  : `失败！期望26个工具，实际注册了${mcpTools.length}个工具`);
+
+const managementToolNames = ['woa_context', 'woa_tenant', 'woa_account', 'woa_audit'];
+check(
+  managementToolNames.every(name => mcpTools.some(tool => tool.name === name)),
+  '多租户管理 MCP 工具 woa_context/woa_tenant/woa_account/woa_audit 已注册',
+);
+check(
+  mcpTools.filter(tool => tool.name.startsWith('wechat_')).every(tool => tool.inputSchema.accountId?.safeParse(undefined).success === true),
+  '既有 WeChat MCP 工具均接受可选 accountId 以支持账号解析',
+);
 
 check(
   !existsSync('./dist/src/cli.js') &&
+    existsSync('./dist/src/cli/woa.js') &&
     !existsSync('./dist/src/mcp-server') &&
     readFileSync('./dist/src/worker/index.js', 'utf8').includes("serve('/mcp'"),
-  '本地桌面 stdio/CLI 构建产物已移除，仅保留 Workers /mcp Streamable HTTP',
+  '旧本地桌面 stdio CLI 构建产物未恢复；仅新增 remote-only woa CLI，Workers /mcp Streamable HTTP 保持',
 );
 
 console.log('\n=== HTTP/Storage Seam 验证 ===');
@@ -170,6 +190,54 @@ check(!existsSync('./dist/src/wechat/node-http-executor.js'), 'NodeHttpExecutor 
 check(!existsSync('./dist/src/storage/storage-manager.js'), 'SQLite StorageManager 构建产物已移除');
 check(!existsSync('./dist/src/auth/auth-manager.js'), '本地 AuthManager 构建产物已移除');
 
+console.log('\n=== Multi-tenant surface fixture 验证 ===');
+
+const anonymousRestResponse = await handleManagementApiRequest(
+  new Request('https://worker.example.test/api/v1/me'),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    createApiClient: async () => { throw new Error('anonymous request must not construct api client'); },
+  },
+);
+check(anonymousRestResponse.status === 401, 'REST /api/v1/me 匿名请求返回 401');
+
+const authorizedRestResponse = await handleManagementApiRequest(
+  new Request('https://worker.example.test/api/v1/me', {
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'x-woa-scopes': 'woa:context:read woa:tenant:read woa:account:read',
+    },
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    createApiClient: async () => { throw new Error('/me must not construct api client'); },
+  },
+);
+const authorizedRestBody = await authorizedRestResponse.json();
+check(
+  authorizedRestResponse.status === 200 &&
+    authorizedRestBody.success === true &&
+    authorizedRestBody.data?.accounts?.[0]?.accountId === 'default-account',
+  'REST /api/v1/me 授权请求返回用户/租户/默认账号上下文',
+);
+
+const woaHelp = execFileSync(process.execPath, ['./dist/src/cli/woa.js', '--help'], { encoding: 'utf8' });
+check(
+  woaHelp.includes('remote-only') &&
+    !woaHelp.includes('wechat-mcp mcp -a -s'),
+  'woa CLI 帮助只宣传 remote-only 工作流，不恢复旧本地 MCP server 命令',
+);
+const woaConfig = execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'mcp', 'config', 'codex', '--server', 'https://worker.example.test'], { encoding: 'utf8' });
+check(
+  woaConfig.includes('https://worker.example.test/mcp') &&
+    !/appSecret|WECHAT_APP_SECRET|app_secret/i.test(woaConfig),
+  'woa mcp config 生成远程 /mcp 配置且不包含微信凭据',
+);
+
 console.log('\n=== WeChat list default fixture 验证 ===');
 
 class CapturingWechatApiClient {
@@ -264,6 +332,12 @@ class MemoryD1Database {
   config = null;
   accessTokens = [];
   media = new Map();
+  tenants = new Map();
+  users = new Map();
+  memberships = [];
+  accounts = new Map();
+  accountTokens = new Map();
+  accountMedia = new Map();
 
   prepare(query) {
     return new MemoryD1Statement(this, query);
@@ -335,6 +409,99 @@ class MemoryD1Statement {
       return { success: true, meta: { changes: 1 } };
     }
 
+    if (q.startsWith('INSERT OR IGNORE INTO tenants')) {
+      const [id, slug, name, defaultAccountId, createdAt, updatedAt] = this.values;
+      if (!this.db.tenants.has(id)) {
+        this.db.tenants.set(id, { id, slug, name, default_account_id: defaultAccountId, created_at: createdAt, updated_at: updatedAt });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT OR IGNORE INTO users')) {
+      const [createdAt, updatedAt] = this.values;
+      if (!this.db.users.has('user_default_admin')) {
+        this.db.users.set('user_default_admin', { id: 'user_default_admin', display_name: 'Default Admin', created_at: createdAt, updated_at: updatedAt });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT OR IGNORE INTO tenant_memberships')) {
+      const [tenantId, defaultAccountId, createdAt, updatedAt] = this.values;
+      if (!this.db.memberships.some(row => row.tenant_id === tenantId && row.user_id === 'user_default_admin')) {
+        this.db.memberships.push({ tenant_id: tenantId, user_id: 'user_default_admin', role: 'owner', default_account_id: defaultAccountId, created_at: createdAt, updated_at: updatedAt });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO wechat_accounts')) {
+      const [accountId, tenantId, accountSlug, accountName, appId, appSecret, webhookToken, encodingAESKey, status, isDefault, createdAt, updatedAt] = this.values;
+      const existing = this.db.accounts.get(accountId);
+      this.db.accounts.set(accountId, {
+        id: accountId,
+        tenant_id: tenantId,
+        slug: accountSlug,
+        name: accountName,
+        app_id: appId,
+        app_secret: appSecret,
+        webhook_token: webhookToken,
+        encoding_aes_key: encodingAESKey,
+        status,
+        is_default: isDefault,
+        created_at: existing?.created_at ?? createdAt,
+        updated_at: updatedAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE wechat_accounts SET app_id = NULL')) {
+      const [, tenantId, accountId] = this.values;
+      const account = this.db.accounts.get(accountId);
+      if (account && account.tenant_id === tenantId) {
+        account.app_id = null;
+        account.app_secret = null;
+        account.webhook_token = null;
+        account.encoding_aes_key = null;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO wechat_access_tokens')) {
+      const [tenantId, accountId, accessToken, expiresIn, expiresAt, createdAt, updatedAt] = this.values;
+      this.db.accountTokens.set(`${tenantId}:${accountId}`, {
+        tenant_id: tenantId,
+        account_id: accountId,
+        access_token: accessToken,
+        expires_in: expiresIn,
+        expires_at: expiresAt,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q === 'DELETE FROM wechat_access_tokens WHERE tenant_id = ? AND account_id = ?') {
+      const [tenantId, accountId] = this.values;
+      const changed = this.db.accountTokens.delete(`${tenantId}:${accountId}`) ? 1 : 0;
+      return { success: true, meta: { changes: changed } };
+    }
+
+    if (q.startsWith('INSERT OR REPLACE INTO account_media')) {
+      const [tenantId, accountId, mediaId, type, createdAt, url] = this.values;
+      this.db.accountMedia.set(`${tenantId}:${accountId}:${mediaId}`, {
+        tenant_id: tenantId,
+        account_id: accountId,
+        media_id: mediaId,
+        type,
+        created_at: createdAt,
+        url,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
     throw new Error(`Unsupported D1 run query: ${q}`);
   }
 
@@ -353,6 +520,52 @@ class MemoryD1Statement {
       return this.db.media.get(this.values[0]) ?? null;
     }
 
+    if (q.startsWith('SELECT a.id AS account_id')) {
+      let account;
+      if (this.values.length >= 2) {
+        const [tenantId, accountId] = this.values;
+        account = [...this.db.accounts.values()].find(row => row.tenant_id === tenantId && row.id === accountId && row.status !== 'disabled');
+      } else {
+        account = [...this.db.accounts.values()]
+          .filter(row => row.status !== 'disabled')
+          .sort((a, b) => Number(b.is_default) - Number(a.is_default) || Number(a.created_at) - Number(b.created_at))[0];
+      }
+      if (!account) return null;
+      const tenant = this.db.tenants.get(account.tenant_id) ?? { id: account.tenant_id, slug: account.tenant_id, name: account.tenant_id };
+      return {
+        account_id: account.id,
+        account_slug: account.slug,
+        account_name: account.name,
+        app_id: account.app_id,
+        account_status: account.status,
+        tenant_id: tenant.id,
+        tenant_slug: tenant.slug,
+        tenant_name: tenant.name,
+      };
+    }
+
+    if (q.startsWith('SELECT app_id, app_secret, webhook_token, encoding_aes_key FROM wechat_accounts')) {
+      const [tenantId, accountId] = this.values;
+      const account = this.db.accounts.get(accountId);
+      if (!account || account.tenant_id !== tenantId || account.status === 'disabled') return null;
+      return {
+        app_id: account.app_id,
+        app_secret: account.app_secret,
+        webhook_token: account.webhook_token,
+        encoding_aes_key: account.encoding_aes_key,
+      };
+    }
+
+    if (q.startsWith('SELECT access_token, expires_in, expires_at FROM wechat_access_tokens')) {
+      const [tenantId, accountId] = this.values;
+      return this.db.accountTokens.get(`${tenantId}:${accountId}`) ?? null;
+    }
+
+    if (q.startsWith('SELECT media_id, type, created_at, url FROM account_media') && q.includes('media_id = ?')) {
+      const [tenantId, accountId, mediaId] = this.values;
+      return this.db.accountMedia.get(`${tenantId}:${accountId}:${mediaId}`) ?? null;
+    }
+
     throw new Error(`Unsupported D1 first query: ${q}`);
   }
 
@@ -364,6 +577,41 @@ class MemoryD1Statement {
 
     if (q === 'SELECT * FROM media ORDER BY created_at DESC' || q === 'SELECT * FROM media WHERE type = ? ORDER BY created_at DESC') {
       return { success: true, results: rows };
+    }
+
+    if (q.startsWith('SELECT media_id, type, created_at, url FROM account_media')) {
+      const [tenantId, accountId, maybeType] = this.values;
+      const accountRows = [...this.db.accountMedia.values()]
+        .filter(row => row.tenant_id === tenantId && row.account_id === accountId)
+        .filter(row => q.includes('AND type = ?') ? row.type === maybeType : true)
+        .sort((a, b) => b.created_at - a.created_at);
+      return { success: true, results: accountRows };
+    }
+
+    if (q.startsWith('SELECT a.id AS account_id')) {
+      const [tenantId] = this.values;
+      const accountRows = [...this.db.accounts.values()]
+        .filter(account => account.tenant_id === tenantId)
+        .map(account => {
+          const tenant = this.db.tenants.get(account.tenant_id) ?? { id: account.tenant_id, slug: account.tenant_id, name: account.tenant_id };
+          return {
+            account_id: account.id,
+            account_slug: account.slug,
+            account_name: account.name,
+            app_id: account.app_id,
+            app_secret: account.app_secret,
+            webhook_token: account.webhook_token,
+            encoding_aes_key: account.encoding_aes_key,
+            account_status: account.status,
+            is_default: account.is_default,
+            created_at: account.created_at,
+            updated_at: account.updated_at,
+            tenant_id: tenant.id,
+            tenant_slug: tenant.slug,
+            tenant_name: tenant.name,
+          };
+        });
+      return { success: true, results: accountRows };
     }
 
     throw new Error(`Unsupported D1 all query: ${q}`);
@@ -435,6 +683,89 @@ check(encryptionProbe.config?.token?.startsWith('enc:'), 'D1StorageManager webho
 check(encryptionProbe.config?.encoding_aes_key?.startsWith('enc:'), 'D1StorageManager encoding_aes_key 使用 enc: 加密存储');
 check(encryptionProbe.accessTokens[0]?.access_token?.startsWith('enc:'), 'D1StorageManager access_token 使用 enc: 加密存储');
 
+console.log('\n=== Multi-tenant D1 foundation fixture 验证 ===');
+
+const migrationSql = readFileSync('./migrations/d1/0002_multi_tenant_foundation.sql', 'utf8');
+const requiredMultiTenantTables = [
+  'tenants',
+  'users',
+  'oauth_identities',
+  'tenant_memberships',
+  'oauth_clients',
+  'wechat_accounts',
+  'wechat_access_tokens',
+  'audit_logs',
+  'operation_jobs',
+  'account_media',
+  'account_permanent_media',
+  'account_drafts',
+  'account_publishes',
+  'account_inbound_messages',
+];
+check(
+  requiredMultiTenantTables.every(table => migrationSql.includes(`CREATE TABLE IF NOT EXISTS ${table}`)),
+  '0002 additive migration 声明多租户身份、账号、token、审计、任务与账号资源表',
+);
+check(
+  /UNIQUE\(tenant_id, slug\)/.test(migrationSql) &&
+    /client_id TEXT PRIMARY KEY/.test(migrationSql) &&
+    /PRIMARY KEY \(tenant_id, account_id\)/.test(migrationSql),
+  '0002 migration 包含 tenant slug、OAuth client id、账号 token 唯一约束',
+);
+check(
+  !/DROP TABLE|ALTER TABLE\s+(config|access_tokens|media|permanent_media|drafts|publishes|inbound_messages)/i.test(migrationSql),
+  '0002 migration 不破坏旧单租户表，保留回滚窗口',
+);
+check(
+  /INSERT OR IGNORE INTO wechat_accounts/.test(migrationSql) && /FROM config\s+WHERE id = 1/.test(migrationSql),
+  '0002 migration 包含从旧 config row 回填默认 tenant/account 的 fixture',
+);
+
+const tenantProbe = new MemoryD1Database();
+const tenantStorage = new D1StorageManager(tenantProbe, 'STORAGE_SECRET');
+await tenantStorage.initialize();
+await tenantStorage.saveConfig({ appId: 'APP_ID', appSecret: 'APP_SECRET', token: 'TOKEN', encodingAESKey: 'AES_KEY' });
+const backfillResult = await tenantStorage.backfillDefaultTenantAndAccount();
+const defaultContext = await tenantStorage.getDefaultAccountContext();
+const defaultAccountConfig = await tenantStorage.getAccountConfig(defaultContext);
+await tenantStorage.saveAccountAccessToken(defaultContext, { accessToken: 'ACCOUNT_TOKEN', expiresIn: 7200, expiresAt: 1893456000000 });
+const loadedAccountToken = await tenantStorage.getAccountAccessToken(defaultContext);
+await tenantStorage.saveAccountMedia(defaultContext, { mediaId: 'COLLIDE_MEDIA', type: 'image', createdAt: 1000 });
+await tenantStorage.saveAccountConfig({
+  tenantId: 'tenant_two',
+  accountId: 'acct_two',
+  accountSlug: 'second',
+  accountName: 'Second Account',
+  config: { appId: 'APP_ID_2', appSecret: 'APP_SECRET_2' },
+});
+const secondContext = await tenantStorage.getAccountContext('tenant_two', 'acct_two');
+await tenantStorage.saveAccountMedia(secondContext, { mediaId: 'COLLIDE_MEDIA', type: 'image', createdAt: 2000 });
+const defaultMedia = await tenantStorage.listAccountMedia(defaultContext);
+const secondMedia = await tenantStorage.listAccountMedia(secondContext);
+check(
+  backfillResult.hasLegacyConfig === true &&
+    defaultContext?.tenantId === DEFAULT_TENANT_ID &&
+    defaultContext?.accountId === DEFAULT_ACCOUNT_ID &&
+    tenantProbe.config?.app_id === 'APP_ID',
+  'D1StorageManager 默认 tenant/account 回填成功且旧 config row 保持存在',
+);
+check(
+  defaultAccountConfig?.appSecret === 'APP_SECRET' && tenantProbe.accounts.get(DEFAULT_ACCOUNT_ID)?.app_secret?.startsWith('enc:'),
+  'D1StorageManager account config 读取解密且新 app_secret 使用 enc: 加密',
+);
+check(
+  loadedAccountToken?.accessToken === 'ACCOUNT_TOKEN' && tenantProbe.accountTokens.get(`${DEFAULT_TENANT_ID}:${DEFAULT_ACCOUNT_ID}`)?.access_token?.startsWith('enc:'),
+  'D1StorageManager account token 按 tenant/account 保存并加密',
+);
+check(
+  defaultMedia.length === 1 && secondMedia.length === 1 && defaultMedia[0].createdAt !== secondMedia[0].createdAt,
+  'D1StorageManager account_media 支持跨账号 media_id 碰撞隔离',
+);
+check(
+  tenantStorage.namespaceR2Key(defaultContext, '/uploads/a.png') === `tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/uploads/a.png`,
+  'D1StorageManager R2 key 按 tenant/account 命名空间隔离',
+);
+
 console.log('\n=== WeChat webhook / inbox fixture 验证 ===');
 
 class MemoryInboxStore {
@@ -447,6 +778,8 @@ class MemoryInboxStore {
     }
     this.records.push({
       id: this.nextId++,
+      tenantId: message.tenantId ?? null,
+      accountId: message.accountId ?? null,
       dedupKey: message.dedupKey,
       toUserName: message.toUserName,
       fromUserName: message.fromUserName,
@@ -465,6 +798,8 @@ class MemoryInboxStore {
   async listMessages(options = {}) {
     let items = [...this.records];
     if (options.pendingOnly) items = items.filter(item => item.processedAt === null);
+    if (options.tenantId) items = items.filter(item => item.tenantId === options.tenantId);
+    if (options.accountId) items = items.filter(item => item.accountId === options.accountId);
     if (options.type) items = items.filter(item => item.type === options.type);
     if (options.openid) items = items.filter(item => item.fromUserName === options.openid);
     items.sort((a, b) => b.receivedAt - a.receivedAt || b.id - a.id);
@@ -591,6 +926,40 @@ await handleWechatWebhook(
 );
 check(webhookStore.records.length === 1, 'Webhook 重试同一 MsgId 时保持幂等去重');
 
+const scopedWebhookStore = new MemoryInboxStore();
+await handleWechatWebhook(
+  new Request(`https://worker.test/wx/callback/account_A?signature=${validSignature}&timestamp=${timestamp}&nonce=${nonce}`, {
+    method: 'POST',
+    body: plaintextXml,
+  }),
+  {
+    token: webhookToken,
+    appId: 'wx1234567890abcdef',
+    tenantId: 'tenant_1',
+    accountId: 'account_A',
+    inboxStore: scopedWebhookStore,
+  },
+);
+await handleWechatWebhook(
+  new Request(`https://worker.test/wx/callback/account_B?signature=${validSignature}&timestamp=${timestamp}&nonce=${nonce}`, {
+    method: 'POST',
+    body: plaintextXml,
+  }),
+  {
+    token: webhookToken,
+    appId: 'wx1234567890abcdef',
+    tenantId: 'tenant_1',
+    accountId: 'account_B',
+    inboxStore: scopedWebhookStore,
+  },
+);
+check(
+  scopedWebhookStore.records.length === 2 &&
+    scopedWebhookStore.records[0]?.dedupKey === createInboundDedupKey({ MsgId: '1234567890' }, { tenantId: 'tenant_1', accountId: 'account_A' }) &&
+    scopedWebhookStore.records[1]?.dedupKey === createInboundDedupKey({ MsgId: '1234567890' }, { tenantId: 'tenant_1', accountId: 'account_B' }),
+  'Webhook 按 accountId 生成去重键，同一 MsgId 在不同账号下互不抑制',
+);
+
 const encodingAESKey = Buffer.from(Uint8Array.from({ length: 32 }, (_, index) => index + 1)).toString('base64').replace(/=/g, '');
 const eventXml = '<xml>' +
   '<ToUserName><![CDATA[gh_test]]></ToUserName>' +
@@ -621,8 +990,32 @@ const encryptedResponse = await handleWechatWebhook(
 check(decryptedXml === eventXml, 'Webhook AES-CBC-256/PKCS#7 解密并校验 appid');
 check(encryptedResponse.status === 200 && encryptedStore.records[0]?.eventType === 'subscribe', 'Webhook 加密消息验签解密后入库 event');
 
+const mismatchedEncryptedPayload = encryptWechatMessageForFixture(eventXml, 'wx_other_appid', encodingAESKey);
+const mismatchedEncryptedSignature = createWechatSignature([webhookToken, timestamp, nonce, mismatchedEncryptedPayload]);
+const mismatchedEncryptedXml = `<xml><ToUserName><![CDATA[gh_test]]></ToUserName><Encrypt><![CDATA[${mismatchedEncryptedPayload}]]></Encrypt></xml>`;
+const mismatchedEncryptedStore = new MemoryInboxStore();
+const mismatchedEncryptedResponse = await handleWechatWebhook(
+  new Request(`https://worker.test/wx/callback/account_A?encrypt_type=aes&msg_signature=${mismatchedEncryptedSignature}&timestamp=${timestamp}&nonce=${nonce}`, {
+    method: 'POST',
+    body: mismatchedEncryptedXml,
+  }),
+  {
+    token: webhookToken,
+    appId: 'wx1234567890abcdef',
+    encodingAESKey,
+    tenantId: 'tenant_1',
+    accountId: 'account_A',
+    inboxStore: mismatchedEncryptedStore,
+  },
+);
+check(
+  mismatchedEncryptedResponse.status === 403 && mismatchedEncryptedStore.records.length === 0,
+  'Webhook 加密消息 appid 不匹配时返回 403 且不入库',
+);
+
 class MemoryInboxD1Database {
   rows = [];
+  auditRows = [];
   nextId = 1;
 
   prepare(query) {
@@ -650,6 +1043,8 @@ class MemoryInboxD1Statement {
   async run() {
     if (this.query.startsWith('INSERT OR IGNORE INTO inbound_messages')) {
       const [
+        tenantId,
+        accountId,
         dedupKey,
         toUserName,
         fromUserName,
@@ -665,6 +1060,8 @@ class MemoryInboxD1Statement {
       }
       this.db.rows.push({
         id: this.db.nextId++,
+        tenant_id: tenantId,
+        account_id: accountId,
         dedup_key: dedupKey,
         to_user_name: toUserName,
         from_user_name: fromUserName,
@@ -680,11 +1077,50 @@ class MemoryInboxD1Statement {
       return { success: true, meta: { changes: 1 } };
     }
 
+    if (this.query.startsWith('INSERT INTO audit_logs')) {
+      const [
+        userId,
+        oauthClientId,
+        tenantId,
+        accountId,
+        action,
+        targetType,
+        targetId,
+        requestId,
+        metadataJson,
+        occurredAt,
+      ] = this.values;
+      this.db.auditRows.push({
+        id: this.db.auditRows.length + 1,
+        user_id: userId,
+        oauth_client_id: oauthClientId,
+        tenant_id: tenantId,
+        account_id: accountId,
+        action,
+        target_type: targetType,
+        target_id: targetId,
+        request_id: requestId,
+        metadata_json: metadataJson,
+        occurred_at: occurredAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
     if (this.query.startsWith('UPDATE inbound_messages SET processed_at = ?')) {
-      const [processedAt, note, ...ids] = this.values;
+      const [processedAt, note] = this.values;
+      const scopeValueCount = this.scopeValueCount();
+      const ids = this.values.slice(2, this.values.length - scopeValueCount);
+      const scopeValues = this.values.slice(this.values.length - scopeValueCount);
+      let scopeIndex = 0;
+      const tenantId = this.query.includes('tenant_id = ?') ? scopeValues[scopeIndex++] : undefined;
+      const accountId = this.query.includes('account_id = ?') ? scopeValues[scopeIndex++] : undefined;
       let changes = 0;
       for (const row of this.db.rows) {
-        if (ids.includes(row.id)) {
+        if (
+          ids.includes(row.id) &&
+          (tenantId === undefined || row.tenant_id === tenantId) &&
+          (accountId === undefined || row.account_id === accountId)
+        ) {
           row.processed_at = processedAt;
           row.processing_note = note;
           changes += 1;
@@ -728,6 +1164,14 @@ class MemoryInboxD1Statement {
     if (this.query.includes('processed_at IS NULL')) {
       rows = rows.filter(row => row.processed_at === null);
     }
+    if (this.query.includes('tenant_id = ?')) {
+      const tenantId = this.values[index++];
+      rows = rows.filter(row => row.tenant_id === tenantId);
+    }
+    if (this.query.includes('account_id = ?')) {
+      const accountId = this.values[index++];
+      rows = rows.filter(row => row.account_id === accountId);
+    }
     if (this.query.includes('type = ?')) {
       const type = this.values[index++];
       rows = rows.filter(row => row.type === type);
@@ -741,8 +1185,17 @@ class MemoryInboxD1Statement {
 
   filterValueCount() {
     let count = 0;
+    if (this.query.includes('tenant_id = ?')) count += 1;
+    if (this.query.includes('account_id = ?')) count += 1;
     if (this.query.includes('type = ?')) count += 1;
     if (this.query.includes('from_user_name = ?')) count += 1;
+    return count;
+  }
+
+  scopeValueCount() {
+    let count = 0;
+    if (this.query.includes('tenant_id = ?')) count += 1;
+    if (this.query.includes('account_id = ?')) count += 1;
     return count;
   }
 }
@@ -782,11 +1235,84 @@ await d1InboxStore.insertMessage({
   createTime: 1710000000,
   receivedAt: 1710000000999,
 });
+await d1InboxStore.insertMessage({
+  tenantId: 'tenant_1',
+  accountId: 'account_A',
+  dedupKey: createInboundDedupKey({ MsgId: 'D1_SHARED' }, { tenantId: 'tenant_1', accountId: 'account_A' }),
+  toUserName: 'gh_test_a',
+  fromUserName: 'openid_shared',
+  type: 'text',
+  eventType: null,
+  rawXml: plaintextXml,
+  parsedPayload: { MsgType: 'text', Content: 'hello A' },
+  createTime: 1710000300,
+  receivedAt: 1710000300123,
+});
+await d1InboxStore.insertMessage({
+  tenantId: 'tenant_1',
+  accountId: 'account_B',
+  dedupKey: createInboundDedupKey({ MsgId: 'D1_SHARED' }, { tenantId: 'tenant_1', accountId: 'account_B' }),
+  toUserName: 'gh_test_b',
+  fromUserName: 'openid_shared',
+  type: 'text',
+  eventType: null,
+  rawXml: plaintextXml,
+  parsedPayload: { MsgType: 'text', Content: 'hello B' },
+  createTime: 1710000300,
+  receivedAt: 1710000300456,
+});
 const textList = await d1InboxStore.listMessages({ pendingOnly: true, type: 'text', openid: 'openid_1' });
 const markCount = await d1InboxStore.markProcessed({ ids: [1], note: 'done', processedAt: 1710000200000 });
 const pendingAfterMark = await d1InboxStore.listMessages({ pendingOnly: true });
-check(inboxD1.rows.length === 2 && textList.total === 1, 'D1InboxStore 入库去重并支持 type/openid/pending 过滤');
-check(markCount === 1 && pendingAfterMark.total === 1, 'D1InboxStore mark_processed 更新 processed_at');
+const accountAList = await d1InboxStore.listMessages({ tenantId: 'tenant_1', accountId: 'account_A', pendingOnly: true });
+const accountBMarkAttempt = await d1InboxStore.markProcessed({
+  ids: [accountAList.items[0].id],
+  tenantId: 'tenant_1',
+  accountId: 'account_B',
+  note: 'wrong account',
+});
+check(inboxD1.rows.length === 4 && textList.total === 1, 'D1InboxStore 入库去重并支持 type/openid/pending 过滤');
+check(markCount === 1 && pendingAfterMark.total === 3, 'D1InboxStore mark_processed 更新 processed_at');
+check(
+  inboxD1.rows.length === 4 &&
+    accountAList.total === 1 &&
+    accountAList.items[0]?.accountId === 'account_A' &&
+    accountBMarkAttempt === 0,
+  'D1InboxStore 支持 accountId/tenantId 过滤且跨账号 mark_processed 不会误更新',
+);
+
+const auditWriter = new D1AuditLogWriter(inboxD1);
+await auditWriter.write({
+  userId: 'user_1',
+  oauthClientId: 'client_1',
+  tenantId: 'tenant_1',
+  accountId: 'account_A',
+  action: 'account.configure',
+  targetType: 'wechat_account',
+  targetId: 'account_A',
+  metadata: {
+    appSecret: 'SUPERSECRET_APP_SECRET',
+    nested: { accessToken: 'ACCESS_TOKEN_SHOULD_NOT_APPEAR' },
+    safeValue: 'kept',
+  },
+  occurredAt: 1710000400000,
+});
+const auditMetadata = JSON.parse(inboxD1.auditRows[0]?.metadata_json ?? '{}');
+const directSanitizedMetadata = sanitizeAuditMetadata({ encodingAESKey: 'ENCODING_AES_KEY_SECRET', label: 'safe' });
+let missingConfirmationRejected = false;
+try {
+  requireConfirmationMarker('wechat_publish.submit', undefined);
+} catch {
+  missingConfirmationRejected = true;
+}
+check(
+  auditMetadata.appSecret !== 'SUPERSECRET_APP_SECRET' &&
+    auditMetadata.nested?.accessToken !== 'ACCESS_TOKEN_SHOULD_NOT_APPEAR' &&
+    auditMetadata.safeValue === 'kept' &&
+    directSanitizedMetadata.label === 'safe',
+  'AuditLogWriter/sanitizeAuditMetadata 写入审计元数据时脱敏 secret/token 字段',
+);
+check(missingConfirmationRejected, '高风险操作 confirmation marker 缺失时会被 guardrail 拒绝');
 
 const inboxToolList = await inboxMcpTool.handler({
   action: 'list_pending',

@@ -3,6 +3,8 @@ export const MAX_PROCESSING_NOTE_LENGTH = 500;
 
 export interface InboundMessageRecord {
   id: number;
+  tenantId?: string | null;
+  accountId?: string | null;
   dedupKey: string;
   toUserName: string;
   fromUserName: string;
@@ -17,6 +19,8 @@ export interface InboundMessageRecord {
 }
 
 export interface InboxListOptions {
+  tenantId?: string;
+  accountId?: string;
   pendingOnly?: boolean;
   type?: string;
   openid?: string;
@@ -33,6 +37,8 @@ export interface InboxListResult {
 
 export interface MarkProcessedOptions {
   ids: number[];
+  tenantId?: string;
+  accountId?: string;
   processedAt?: number;
   note?: string;
 }

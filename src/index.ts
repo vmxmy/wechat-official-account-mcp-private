@@ -10,6 +10,28 @@ export * from './worker/index';
 export * from './worker/media-tools';
 export * from './worker/inbox-store';
 export * from './worker/wechat-webhook';
+export {
+  AccountResolutionError,
+  ApiError,
+  accountFromParams,
+  apiErrorToResponse,
+  attachTenantMetadata,
+  contextFromParams,
+  createDefaultTenantContext,
+  createRestTenantContext,
+  enrichMcpToolParams,
+  jsonResponse,
+  publicAccounts,
+  publicContext,
+  requireScope,
+  resolveAccountContext,
+  resolveRestAuthorization,
+  type AccountSummary,
+  type TenantAwareParams,
+  type TenantRequestContext,
+  type TenantSummary,
+} from './worker/tenant-context';
+export * from './worker/management-api';
 
 // Storage and WeChat runtime seams
 export * from './storage/types';

@@ -10,6 +10,8 @@ export interface WechatWebhookOptions {
   appId: string | null | undefined;
   encodingAESKey?: string | null;
   inboxStore: InboundMessageWriter;
+  tenantId?: string | null;
+  accountId?: string | null;
   now?: () => number;
   maxBodyBytes?: number;
 }
@@ -48,7 +50,10 @@ export async function handleWechatWebhook(
       ? await verifyAndDecryptEncryptedMessage(url, outerXml, options, maxBodyBytes)
       : verifyPlaintextMessage(url, outerXml, token);
 
-    const inboundMessage = toInboundMessageInsert(parsedPayload, rawXml, receivedAt);
+    const inboundMessage = toInboundMessageInsert(parsedPayload, rawXml, receivedAt, {
+      tenantId: options.tenantId,
+      accountId: options.accountId,
+    });
     await options.inboxStore.insertMessage(inboundMessage);
 
     return new Response('success', {
@@ -137,11 +142,27 @@ export function decryptWechatMessage(
   return messageXml;
 }
 
-export function createInboundDedupKey(payload: Record<string, string>): string {
-  if (payload.MsgId) {
-    return payload.MsgId;
+export function createInboundDedupKey(
+  payload: Record<string, string>,
+  scope: { tenantId?: string | null; accountId?: string | null } = {},
+): string {
+  const baseKey = payload.MsgId
+    ? payload.MsgId
+    : createEventDedupKey(payload);
+
+  if (!scope.accountId) {
+    return baseKey;
   }
 
+  return [
+    'account',
+    scope.tenantId || 'default',
+    scope.accountId,
+    baseKey,
+  ].join(':');
+}
+
+function createEventDedupKey(payload: Record<string, string>): string {
   const stableParts = [
     payload.FromUserName,
     payload.ToUserName,
@@ -238,13 +259,16 @@ function toInboundMessageInsert(
   payload: Record<string, string>,
   rawXml: string,
   receivedAt: number,
+  scope: { tenantId?: string | null; accountId?: string | null } = {},
 ): InboundMessageInsert {
   if (!payload.ToUserName || !payload.FromUserName || !payload.MsgType) {
     throw new Error('Invalid WeChat XML payload: missing required fields');
   }
 
   return {
-    dedupKey: createInboundDedupKey(payload),
+    tenantId: scope.tenantId ?? null,
+    accountId: scope.accountId ?? null,
+    dedupKey: createInboundDedupKey(payload, scope),
     toUserName: payload.ToUserName,
     fromUserName: payload.FromUserName,
     type: payload.MsgType,
