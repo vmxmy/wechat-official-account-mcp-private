@@ -910,11 +910,84 @@ await d1InboxStore.insertMessage({
   createTime: 1710000000,
   receivedAt: 1710000000999,
 });
+await d1InboxStore.insertMessage({
+  tenantId: 'tenant_1',
+  accountId: 'account_A',
+  dedupKey: createInboundDedupKey({ MsgId: 'D1_SHARED' }, { tenantId: 'tenant_1', accountId: 'account_A' }),
+  toUserName: 'gh_test_a',
+  fromUserName: 'openid_shared',
+  type: 'text',
+  eventType: null,
+  rawXml: plaintextXml,
+  parsedPayload: { MsgType: 'text', Content: 'hello A' },
+  createTime: 1710000300,
+  receivedAt: 1710000300123,
+});
+await d1InboxStore.insertMessage({
+  tenantId: 'tenant_1',
+  accountId: 'account_B',
+  dedupKey: createInboundDedupKey({ MsgId: 'D1_SHARED' }, { tenantId: 'tenant_1', accountId: 'account_B' }),
+  toUserName: 'gh_test_b',
+  fromUserName: 'openid_shared',
+  type: 'text',
+  eventType: null,
+  rawXml: plaintextXml,
+  parsedPayload: { MsgType: 'text', Content: 'hello B' },
+  createTime: 1710000300,
+  receivedAt: 1710000300456,
+});
 const textList = await d1InboxStore.listMessages({ pendingOnly: true, type: 'text', openid: 'openid_1' });
 const markCount = await d1InboxStore.markProcessed({ ids: [1], note: 'done', processedAt: 1710000200000 });
 const pendingAfterMark = await d1InboxStore.listMessages({ pendingOnly: true });
+const accountAList = await d1InboxStore.listMessages({ tenantId: 'tenant_1', accountId: 'account_A', pendingOnly: true });
+const accountBMarkAttempt = await d1InboxStore.markProcessed({
+  ids: [accountAList.items[0].id],
+  tenantId: 'tenant_1',
+  accountId: 'account_B',
+  note: 'wrong account',
+});
 check(inboxD1.rows.length === 2 && textList.total === 1, 'D1InboxStore 入库去重并支持 type/openid/pending 过滤');
 check(markCount === 1 && pendingAfterMark.total === 1, 'D1InboxStore mark_processed 更新 processed_at');
+check(
+  inboxD1.rows.length === 4 &&
+    accountAList.total === 1 &&
+    accountAList.items[0]?.accountId === 'account_A' &&
+    accountBMarkAttempt === 0,
+  'D1InboxStore 支持 accountId/tenantId 过滤且跨账号 mark_processed 不会误更新',
+);
+
+const auditWriter = new D1AuditLogWriter(inboxD1);
+await auditWriter.write({
+  userId: 'user_1',
+  oauthClientId: 'client_1',
+  tenantId: 'tenant_1',
+  accountId: 'account_A',
+  action: 'account.configure',
+  targetType: 'wechat_account',
+  targetId: 'account_A',
+  metadata: {
+    appSecret: 'SUPERSECRET_APP_SECRET',
+    nested: { accessToken: 'ACCESS_TOKEN_SHOULD_NOT_APPEAR' },
+    safeValue: 'kept',
+  },
+  occurredAt: 1710000400000,
+});
+const auditMetadata = JSON.parse(inboxD1.auditRows[0]?.metadata_json ?? '{}');
+const directSanitizedMetadata = sanitizeAuditMetadata({ encodingAESKey: 'ENCODING_AES_KEY_SECRET', label: 'safe' });
+let missingConfirmationRejected = false;
+try {
+  requireConfirmationMarker('wechat_publish.submit', undefined);
+} catch {
+  missingConfirmationRejected = true;
+}
+check(
+  auditMetadata.appSecret !== 'SUPERSECRET_APP_SECRET' &&
+    auditMetadata.nested?.accessToken !== 'ACCESS_TOKEN_SHOULD_NOT_APPEAR' &&
+    auditMetadata.safeValue === 'kept' &&
+    directSanitizedMetadata.label === 'safe',
+  'AuditLogWriter/sanitizeAuditMetadata 写入审计元数据时脱敏 secret/token 字段',
+);
+check(missingConfirmationRejected, '高风险操作 confirmation marker 缺失时会被 guardrail 拒绝');
 
 const inboxToolList = await inboxMcpTool.handler({
   action: 'list_pending',
