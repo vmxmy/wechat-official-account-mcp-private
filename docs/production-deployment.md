@@ -5,7 +5,7 @@ This repository deploys the HTTP-only WeChat Official Account MCP Worker to Clou
 ## Production resources
 
 - Worker: `wechat-official-account-mcp`
-- URL: `https://wechat-official-account-mcp.blueyang.workers.dev`
+- URL: `https://woa.ziikoo.app`
 - MCP endpoint: `/mcp`
 - Webhook endpoint: `/wx/callback`
 - D1 database: `wechat-official-account-mcp-prod`
@@ -53,9 +53,9 @@ Local generated values are stored in `.env.production.local`, which is ignored b
 ## Smoke checks
 
 ```bash
-curl -i https://wechat-official-account-mcp.blueyang.workers.dev/health
-curl -i https://wechat-official-account-mcp.blueyang.workers.dev/mcp
-curl -i https://wechat-official-account-mcp.blueyang.workers.dev/sse
+curl -i https://woa.ziikoo.app/health
+curl -i https://woa.ziikoo.app/mcp
+curl -i https://woa.ziikoo.app/sse
 ```
 
 Expected:
@@ -63,3 +63,5 @@ Expected:
 - `/health` returns `200` with `mcpEndpoint: "/mcp"`
 - `/mcp` returns `401 Unauthorized` without OAuth
 - `/sse` returns `404 Not Found`
+
+The workers.dev fallback may remain available for direct operational smoke checks, but client MCP configuration should prefer the custom domain above.

@@ -53,5 +53,12 @@
   ],
   "vars": {
     "ENVIRONMENT": "production"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "woa.ziikoo.app/*",
+      "zone_name": "ziikoo.app"
+    }
+  ],
+  "workers_dev": true
 }
