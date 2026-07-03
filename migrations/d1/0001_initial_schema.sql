@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS publishes (
 
 CREATE TABLE IF NOT EXISTS inbound_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id TEXT,
+  account_id TEXT,
   dedup_key TEXT NOT NULL UNIQUE,
   to_user_name TEXT NOT NULL,
   from_user_name TEXT NOT NULL,
@@ -77,3 +79,5 @@ CREATE INDEX IF NOT EXISTS idx_inbound_messages_pending ON inbound_messages(proc
 CREATE INDEX IF NOT EXISTS idx_inbound_messages_type ON inbound_messages(type, received_at);
 CREATE INDEX IF NOT EXISTS idx_inbound_messages_openid ON inbound_messages(from_user_name, received_at);
 CREATE INDEX IF NOT EXISTS idx_inbound_messages_received_at ON inbound_messages(received_at);
+CREATE INDEX IF NOT EXISTS idx_inbound_messages_account_pending ON inbound_messages(tenant_id, account_id, processed_at, received_at);
+CREATE INDEX IF NOT EXISTS idx_inbound_messages_account_dedup ON inbound_messages(account_id, dedup_key);

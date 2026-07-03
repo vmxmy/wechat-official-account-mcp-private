@@ -9,6 +9,8 @@ import type {
 import { MAX_MARK_PROCESSED_IDS, MAX_PROCESSING_NOTE_LENGTH } from '../mcp-tool/inbox-store.js';
 
 export interface InboundMessageInsert {
+  tenantId?: string | null;
+  accountId?: string | null;
   dedupKey: string;
   toUserName: string;
   fromUserName: string;
@@ -28,16 +30,33 @@ export class D1InboxStore implements InboxStore {
   async ensureSchema(): Promise<void> {
     if (this.schemaReady) return;
 
-    for (const statement of INBOUND_MESSAGES_SCHEMA_SQL.split(';').map(part => part.trim()).filter(Boolean)) {
+    await this.db.prepare(INBOUND_MESSAGES_TABLE_SQL).run();
+    await this.addOptionalColumn('tenant_id TEXT');
+    await this.addOptionalColumn('account_id TEXT');
+
+    for (const statement of INBOUND_MESSAGES_INDEX_SQL.split(';').map(part => part.trim()).filter(Boolean)) {
       await this.db.prepare(statement).run();
     }
     this.schemaReady = true;
+  }
+
+  private async addOptionalColumn(columnDefinition: string): Promise<void> {
+    try {
+      await this.db.prepare(`ALTER TABLE inbound_messages ADD COLUMN ${columnDefinition}`).run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/duplicate column|already exists/i.test(message)) {
+        throw error;
+      }
+    }
   }
 
   async insertMessage(message: InboundMessageInsert): Promise<{ inserted: boolean }> {
     await this.ensureSchema();
     const result = await this.db.prepare(
       `INSERT OR IGNORE INTO inbound_messages (
+        tenant_id,
+        account_id,
         dedup_key,
         to_user_name,
         from_user_name,
@@ -49,8 +68,10 @@ export class D1InboxStore implements InboxStore {
         received_at,
         processed_at,
         processing_note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
     ).bind(
+      message.tenantId ?? null,
+      message.accountId ?? null,
       message.dedupKey,
       message.toUserName,
       message.fromUserName,
@@ -108,19 +129,32 @@ export class D1InboxStore implements InboxStore {
 
     const placeholders = ids.map(() => '?').join(', ');
     const processedAt = options.processedAt ?? Date.now();
+    const scopeClauses: string[] = [];
+    const scopeValues: D1Value[] = [];
+    if (options.tenantId) {
+      scopeClauses.push('tenant_id = ?');
+      scopeValues.push(options.tenantId);
+    }
+    if (options.accountId) {
+      scopeClauses.push('account_id = ?');
+      scopeValues.push(options.accountId);
+    }
+    const scopeSql = scopeClauses.length ? ` AND ${scopeClauses.join(' AND ')}` : '';
     const result = await this.db.prepare(
       `UPDATE inbound_messages
        SET processed_at = ?, processing_note = ?
-       WHERE id IN (${placeholders})`,
-    ).bind(processedAt, options.note ?? null, ...ids).run();
+       WHERE id IN (${placeholders})${scopeSql}`,
+    ).bind(processedAt, options.note ?? null, ...ids, ...scopeValues).run();
 
     return result.meta?.changes ?? 0;
   }
 }
 
-export const INBOUND_MESSAGES_SCHEMA_SQL = `
+export const INBOUND_MESSAGES_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS inbound_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id TEXT,
+  account_id TEXT,
   dedup_key TEXT NOT NULL UNIQUE,
   to_user_name TEXT NOT NULL,
   from_user_name TEXT NOT NULL,
@@ -132,15 +166,27 @@ CREATE TABLE IF NOT EXISTS inbound_messages (
   received_at INTEGER NOT NULL,
   processed_at INTEGER,
   processing_note TEXT
-);
+)
+`;
+
+export const INBOUND_MESSAGES_INDEX_SQL = `
 CREATE INDEX IF NOT EXISTS idx_inbound_messages_pending ON inbound_messages(processed_at, received_at);
 CREATE INDEX IF NOT EXISTS idx_inbound_messages_type ON inbound_messages(type, received_at);
 CREATE INDEX IF NOT EXISTS idx_inbound_messages_openid ON inbound_messages(from_user_name, received_at);
 CREATE INDEX IF NOT EXISTS idx_inbound_messages_received_at ON inbound_messages(received_at);
+CREATE INDEX IF NOT EXISTS idx_inbound_messages_account_pending ON inbound_messages(tenant_id, account_id, processed_at, received_at);
+CREATE INDEX IF NOT EXISTS idx_inbound_messages_account_dedup ON inbound_messages(account_id, dedup_key);
 `;
+
+export const INBOUND_MESSAGES_SCHEMA_SQL = `${INBOUND_MESSAGES_TABLE_SQL};
+ALTER TABLE inbound_messages ADD COLUMN tenant_id TEXT;
+ALTER TABLE inbound_messages ADD COLUMN account_id TEXT;
+${INBOUND_MESSAGES_INDEX_SQL}`;
 
 type InboundMessageRow = {
   id: number;
+  tenant_id?: string | null;
+  account_id?: string | null;
   dedup_key: string;
   to_user_name: string;
   from_user_name: string;
@@ -160,6 +206,16 @@ function buildWhereClause(options: InboxListOptions): { whereSql: string; values
 
   if (options.pendingOnly) {
     clauses.push('processed_at IS NULL');
+  }
+
+  if (options.tenantId) {
+    clauses.push('tenant_id = ?');
+    values.push(options.tenantId);
+  }
+
+  if (options.accountId) {
+    clauses.push('account_id = ?');
+    values.push(options.accountId);
   }
 
   if (options.type) {
@@ -186,6 +242,8 @@ function clampLimit(value: number | undefined): number {
 function toInboundMessageRecord(row: InboundMessageRow): InboundMessageRecord {
   return {
     id: row.id,
+    tenantId: row.tenant_id ?? null,
+    accountId: row.account_id ?? null,
     dedupKey: row.dedup_key,
     toUserName: row.to_user_name,
     fromUserName: row.from_user_name,
