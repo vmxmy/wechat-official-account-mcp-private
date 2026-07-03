@@ -11,10 +11,16 @@ import { D1StorageManager } from './dist/src/storage/d1-storage-manager.js';
 import { D1InboxStore } from './dist/src/worker/inbox-store.js';
 import { createWorkerMediaTools } from './dist/src/worker/media-tools.js';
 import {
+  createInboundDedupKey,
   createWechatSignature,
   decryptWechatMessage,
   handleWechatWebhook,
 } from './dist/src/worker/wechat-webhook.js';
+import {
+  D1AuditLogWriter,
+  requireConfirmationMarker,
+  sanitizeAuditMetadata,
+} from './dist/src/worker/audit-log.js';
 
 let failed = false;
 
@@ -447,6 +453,8 @@ class MemoryInboxStore {
     }
     this.records.push({
       id: this.nextId++,
+      tenantId: message.tenantId ?? null,
+      accountId: message.accountId ?? null,
       dedupKey: message.dedupKey,
       toUserName: message.toUserName,
       fromUserName: message.fromUserName,
@@ -465,6 +473,8 @@ class MemoryInboxStore {
   async listMessages(options = {}) {
     let items = [...this.records];
     if (options.pendingOnly) items = items.filter(item => item.processedAt === null);
+    if (options.tenantId) items = items.filter(item => item.tenantId === options.tenantId);
+    if (options.accountId) items = items.filter(item => item.accountId === options.accountId);
     if (options.type) items = items.filter(item => item.type === options.type);
     if (options.openid) items = items.filter(item => item.fromUserName === options.openid);
     items.sort((a, b) => b.receivedAt - a.receivedAt || b.id - a.id);
