@@ -646,20 +646,25 @@ export class TokenOwner extends Agent<WorkerEnv> {
   private refreshPromise: Promise<AccessTokenInfo> | null = null;
   private tokenTableReady = false;
 
-  async getAccessToken(options: { forceRefresh?: boolean } = {}): Promise<AccessTokenInfo> {
+  async getAccessToken(options: TokenOwnerRequestOptions = {}): Promise<AccessTokenInfo> {
     await this.ensureTokenTables();
-    return await this.getAccessTokenWithRefresh(options, () => this.refreshAndPersist());
+    const accountContext = await this.resolveAccountContext(options.accountContext);
+    return await this.getAccessTokenWithRefresh(
+      { ...options, accountContext },
+      () => this.refreshAndPersist(accountContext),
+    );
   }
 
-  async refreshAccessToken(): Promise<AccessTokenInfo> {
-    return await this.getAccessToken({ forceRefresh: true });
+  async refreshAccessToken(options: TokenOwnerRequestOptions = {}): Promise<AccessTokenInfo> {
+    return await this.getAccessToken({ ...options, forceRefresh: true });
   }
 
-  async clearAccessToken(): Promise<void> {
+  async clearAccessToken(options: { accountContext?: AccountContext } = {}): Promise<void> {
     await this.ensureTokenTables();
+    const accountContext = await this.resolveAccountContext(options.accountContext);
     void this.sql`DELETE FROM wechat_access_token`;
     const storage = await createD1Storage(getAgentEnv(this));
-    await storage.clearAccessToken();
+    await storage.clearAccountAccessToken(accountContext);
   }
 
   async getDebugStatus(): Promise<Record<string, unknown>> {
@@ -705,15 +710,16 @@ export class TokenOwner extends Agent<WorkerEnv> {
         refreshCalls,
         uniqueTokenCount: uniqueTokens.size,
         singleWriter: refreshCalls === 1 && uniqueTokens.size === 1,
-        singletonName: TOKEN_OWNER_NAME,
+        tokenOwnerName: tokenOwnerNameForAccount(defaultAccountContext()),
       };
     } finally {
       this.refreshPromise = previousRefreshPromise;
     }
   }
 
-  async refreshBeforeExpiry(payload?: { expiresAt?: number }): Promise<void> {
+  async refreshBeforeExpiry(payload?: { expiresAt?: number; accountContext?: AccountContext }): Promise<void> {
     await this.ensureTokenTables();
+    const accountContext = await this.resolveAccountContext(payload?.accountContext);
     const current = await this.readStoredToken();
 
     if (payload?.expiresAt && current && current.expiresAt !== payload.expiresAt) {
@@ -725,7 +731,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
       return;
     }
 
-    await this.getAccessToken({ forceRefresh: true });
+    await this.getAccessToken({ forceRefresh: true, accountContext });
   }
 
   async onRequest(request: Request): Promise<Response> {
@@ -744,10 +750,10 @@ export class TokenOwner extends Agent<WorkerEnv> {
     );
   }
 
-  private async refreshAndPersist(): Promise<AccessTokenInfo> {
+  private async refreshAndPersist(accountContext: AccountContext): Promise<AccessTokenInfo> {
     await this.incrementMetric('refreshAttempts');
 
-    const config = await this.resolveWechatConfig();
+    const config = await this.resolveWechatConfig(accountContext);
     const env = getAgentEnv(this);
     const executor = await createWechatWorkersHttpExecutor(env);
     const response = await executor.get<{
@@ -779,7 +785,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
     await this.writeStoredToken(tokenInfo);
 
     const storage = await createD1Storage(env);
-    await storage.saveAccessToken(tokenInfo);
+    await storage.saveAccountAccessToken(accountContext, tokenInfo);
     await this.incrementMetric('refreshSuccesses');
     await this.setMetric('lastRefreshAt', Date.now());
     await this.schedulePreExpiryRefresh(tokenInfo);
@@ -788,7 +794,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
   }
 
   private async getAccessTokenWithRefresh(
-    options: { forceRefresh?: boolean },
+    options: TokenOwnerRequestOptions,
     refresher: () => Promise<AccessTokenInfo>,
   ): Promise<AccessTokenInfo> {
     const current = await this.readStoredToken();
@@ -810,9 +816,16 @@ export class TokenOwner extends Agent<WorkerEnv> {
     }
   }
 
-  private async resolveWechatConfig(): Promise<WechatConfig> {
+  private async resolveAccountContext(accountContext?: AccountContext): Promise<AccountContext> {
+    if (accountContext) return accountContext;
+
     const storage = await createD1Storage(getAgentEnv(this));
-    const stored = await storage.getConfig();
+    return (await storage.getDefaultAccountContext()) ?? defaultAccountContext();
+  }
+
+  private async resolveWechatConfig(accountContext: AccountContext): Promise<WechatConfig> {
+    const storage = await createD1Storage(getAgentEnv(this));
+    const stored = await storage.getAccountConfig(accountContext);
     if (stored?.appId && stored?.appSecret) {
       return stored;
     }
@@ -822,7 +835,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
     const appSecret = await resolveSecret(env.WECHAT_APP_SECRET);
 
     if (!appId || !appSecret) {
-      throw new Error('Wechat config not found. Configure D1 config or WECHAT_APP_ID/WECHAT_APP_SECRET secrets first.');
+      throw new Error('Wechat config not found. Configure an account in D1 or WECHAT_APP_ID/WECHAT_APP_SECRET secrets first.');
     }
 
     return { appId, appSecret };
