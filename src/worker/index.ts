@@ -35,6 +35,7 @@ import { WechatApiClient } from '../wechat/api-client.js';
 import { D1InboxStore } from './inbox-store.js';
 import { createWorkerMediaTools } from './media-tools.js';
 import { handleWechatWebhook } from './wechat-webhook.js';
+import { D1AuditLogWriter } from './audit-log.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -52,6 +53,7 @@ export interface WorkerEnv {
   WECHAT_MCP_SECRET_KEY: SecretBinding;
   WECHAT_WEBHOOK_TOKEN: SecretBinding;
   WECHAT_ENCODING_AES_KEY: SecretBinding;
+  WECHAT_DEFAULT_WEBHOOK_ACCOUNT_ID?: SecretBinding;
   WECHAT_PROXY_URL?: SecretBinding;
   WECHAT_PROXY_TOKEN?: SecretBinding;
   OAUTH_CLIENT_ID: SecretBinding;
@@ -683,7 +685,8 @@ const defaultHandler = {
         success: true,
         runtime: 'cloudflare-workers',
         mcpEndpoint: '/mcp',
-        webhookEndpoint: '/wx/callback',
+        webhookEndpoint: '/wx/callback/{accountId}',
+        legacyWebhookEndpoint: '/wx/callback',
       });
     }
 
@@ -820,9 +823,9 @@ export default {
     if (
       url.pathname === '/health' ||
       url.pathname === '/api/health' ||
-      url.pathname === '/wx/callback'
+      isWechatCallbackPath(url.pathname)
     ) {
-      if (url.pathname === '/wx/callback') {
+      if (isWechatCallbackPath(url.pathname)) {
         return await handleWechatCallbackRequest(request, env);
       }
       return await defaultHandler.fetch(request, env);
