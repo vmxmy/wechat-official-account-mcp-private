@@ -1,6 +1,7 @@
 // 简单测试脚本验证工具注册与运行时 seam
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'fs';
+import { execFileSync } from 'node:child_process';
 import CryptoJS from 'crypto-js';
 import { mcpTools, wechatTools } from './dist/src/mcp-tool/tools/index.js';
 import { inboxMcpTool } from './dist/src/mcp-tool/tools/inbox-tool.js';
@@ -11,6 +12,7 @@ import { D1StorageManager } from './dist/src/storage/d1-storage-manager.js';
 import { DEFAULT_ACCOUNT_ID, DEFAULT_TENANT_ID } from './dist/src/storage/types.js';
 import { D1InboxStore } from './dist/src/worker/inbox-store.js';
 import { createWorkerMediaTools } from './dist/src/worker/media-tools.js';
+import { handleManagementApiRequest } from './dist/src/worker/management-api.js';
 import {
   createInboundDedupKey,
   createWechatSignature,
@@ -39,15 +41,26 @@ mcpTools.forEach((tool, index) => {
 });
 
 console.log('\n=== 验证结果 ===');
-check(mcpTools.length === 22, mcpTools.length === 22
-  ? '成功！所有22个工具都已正确注册为MCP工具'
-  : `失败！期望22个工具，实际注册了${mcpTools.length}个工具`);
+check(mcpTools.length === 26, mcpTools.length === 26
+  ? '成功！所有22个既有工具 + 4个多租户管理工具都已正确注册为MCP工具'
+  : `失败！期望26个工具，实际注册了${mcpTools.length}个工具`);
+
+const managementToolNames = ['woa_context', 'woa_tenant', 'woa_account', 'woa_audit'];
+check(
+  managementToolNames.every(name => mcpTools.some(tool => tool.name === name)),
+  '多租户管理 MCP 工具 woa_context/woa_tenant/woa_account/woa_audit 已注册',
+);
+check(
+  mcpTools.filter(tool => tool.name.startsWith('wechat_')).every(tool => tool.inputSchema.accountId?.safeParse(undefined).success === true),
+  '既有 WeChat MCP 工具均接受可选 accountId 以支持账号解析',
+);
 
 check(
   !existsSync('./dist/src/cli.js') &&
+    existsSync('./dist/src/cli/woa.js') &&
     !existsSync('./dist/src/mcp-server') &&
     readFileSync('./dist/src/worker/index.js', 'utf8').includes("serve('/mcp'"),
-  '本地桌面 stdio/CLI 构建产物已移除，仅保留 Workers /mcp Streamable HTTP',
+  '旧本地桌面 stdio CLI 构建产物未恢复；仅新增 remote-only woa CLI，Workers /mcp Streamable HTTP 保持',
 );
 
 console.log('\n=== HTTP/Storage Seam 验证 ===');
@@ -176,6 +189,54 @@ console.log('\n=== HTTP-only runtime fixture 验证 ===');
 check(!existsSync('./dist/src/wechat/node-http-executor.js'), 'NodeHttpExecutor 构建产物已移除');
 check(!existsSync('./dist/src/storage/storage-manager.js'), 'SQLite StorageManager 构建产物已移除');
 check(!existsSync('./dist/src/auth/auth-manager.js'), '本地 AuthManager 构建产物已移除');
+
+console.log('\n=== Multi-tenant surface fixture 验证 ===');
+
+const anonymousRestResponse = await handleManagementApiRequest(
+  new Request('https://worker.example.test/api/v1/me'),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    createApiClient: async () => { throw new Error('anonymous request must not construct api client'); },
+  },
+);
+check(anonymousRestResponse.status === 401, 'REST /api/v1/me 匿名请求返回 401');
+
+const authorizedRestResponse = await handleManagementApiRequest(
+  new Request('https://worker.example.test/api/v1/me', {
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'x-woa-scopes': 'woa:context:read woa:tenant:read woa:account:read',
+    },
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    createApiClient: async () => { throw new Error('/me must not construct api client'); },
+  },
+);
+const authorizedRestBody = await authorizedRestResponse.json();
+check(
+  authorizedRestResponse.status === 200 &&
+    authorizedRestBody.success === true &&
+    authorizedRestBody.data?.accounts?.[0]?.accountId === 'default-account',
+  'REST /api/v1/me 授权请求返回用户/租户/默认账号上下文',
+);
+
+const woaHelp = execFileSync(process.execPath, ['./dist/src/cli/woa.js', '--help'], { encoding: 'utf8' });
+check(
+  woaHelp.includes('remote-only') &&
+    !woaHelp.includes('wechat-mcp mcp -a -s'),
+  'woa CLI 帮助只宣传 remote-only 工作流，不恢复旧本地 MCP server 命令',
+);
+const woaConfig = execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'mcp', 'config', 'codex', '--server', 'https://worker.example.test'], { encoding: 'utf8' });
+check(
+  woaConfig.includes('https://worker.example.test/mcp') &&
+    !/appSecret|WECHAT_APP_SECRET|app_secret/i.test(woaConfig),
+  'woa mcp config 生成远程 /mcp 配置且不包含微信凭据',
+);
 
 console.log('\n=== WeChat list default fixture 验证 ===');
 
