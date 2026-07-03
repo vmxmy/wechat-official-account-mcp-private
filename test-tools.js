@@ -683,6 +683,89 @@ check(encryptionProbe.config?.token?.startsWith('enc:'), 'D1StorageManager webho
 check(encryptionProbe.config?.encoding_aes_key?.startsWith('enc:'), 'D1StorageManager encoding_aes_key 使用 enc: 加密存储');
 check(encryptionProbe.accessTokens[0]?.access_token?.startsWith('enc:'), 'D1StorageManager access_token 使用 enc: 加密存储');
 
+console.log('\n=== Multi-tenant D1 foundation fixture 验证 ===');
+
+const migrationSql = readFileSync('./migrations/d1/0002_multi_tenant_foundation.sql', 'utf8');
+const requiredMultiTenantTables = [
+  'tenants',
+  'users',
+  'oauth_identities',
+  'tenant_memberships',
+  'oauth_clients',
+  'wechat_accounts',
+  'wechat_access_tokens',
+  'audit_logs',
+  'operation_jobs',
+  'account_media',
+  'account_permanent_media',
+  'account_drafts',
+  'account_publishes',
+  'account_inbound_messages',
+];
+check(
+  requiredMultiTenantTables.every(table => migrationSql.includes(`CREATE TABLE IF NOT EXISTS ${table}`)),
+  '0002 additive migration 声明多租户身份、账号、token、审计、任务与账号资源表',
+);
+check(
+  /UNIQUE\(tenant_id, slug\)/.test(migrationSql) &&
+    /client_id TEXT PRIMARY KEY/.test(migrationSql) &&
+    /PRIMARY KEY \(tenant_id, account_id\)/.test(migrationSql),
+  '0002 migration 包含 tenant slug、OAuth client id、账号 token 唯一约束',
+);
+check(
+  !/DROP TABLE|ALTER TABLE\s+(config|access_tokens|media|permanent_media|drafts|publishes|inbound_messages)/i.test(migrationSql),
+  '0002 migration 不破坏旧单租户表，保留回滚窗口',
+);
+check(
+  /INSERT OR IGNORE INTO wechat_accounts/.test(migrationSql) && /FROM config\s+WHERE id = 1/.test(migrationSql),
+  '0002 migration 包含从旧 config row 回填默认 tenant/account 的 fixture',
+);
+
+const tenantProbe = new MemoryD1Database();
+const tenantStorage = new D1StorageManager(tenantProbe, 'STORAGE_SECRET');
+await tenantStorage.initialize();
+await tenantStorage.saveConfig({ appId: 'APP_ID', appSecret: 'APP_SECRET', token: 'TOKEN', encodingAESKey: 'AES_KEY' });
+const backfillResult = await tenantStorage.backfillDefaultTenantAndAccount();
+const defaultContext = await tenantStorage.getDefaultAccountContext();
+const defaultAccountConfig = await tenantStorage.getAccountConfig(defaultContext);
+await tenantStorage.saveAccountAccessToken(defaultContext, { accessToken: 'ACCOUNT_TOKEN', expiresIn: 7200, expiresAt: 1893456000000 });
+const loadedAccountToken = await tenantStorage.getAccountAccessToken(defaultContext);
+await tenantStorage.saveAccountMedia(defaultContext, { mediaId: 'COLLIDE_MEDIA', type: 'image', createdAt: 1000 });
+await tenantStorage.saveAccountConfig({
+  tenantId: 'tenant_two',
+  accountId: 'acct_two',
+  accountSlug: 'second',
+  accountName: 'Second Account',
+  config: { appId: 'APP_ID_2', appSecret: 'APP_SECRET_2' },
+});
+const secondContext = await tenantStorage.getAccountContext('tenant_two', 'acct_two');
+await tenantStorage.saveAccountMedia(secondContext, { mediaId: 'COLLIDE_MEDIA', type: 'image', createdAt: 2000 });
+const defaultMedia = await tenantStorage.listAccountMedia(defaultContext);
+const secondMedia = await tenantStorage.listAccountMedia(secondContext);
+check(
+  backfillResult.hasLegacyConfig === true &&
+    defaultContext?.tenantId === DEFAULT_TENANT_ID &&
+    defaultContext?.accountId === DEFAULT_ACCOUNT_ID &&
+    tenantProbe.config?.app_id === 'APP_ID',
+  'D1StorageManager 默认 tenant/account 回填成功且旧 config row 保持存在',
+);
+check(
+  defaultAccountConfig?.appSecret === 'APP_SECRET' && tenantProbe.accounts.get(DEFAULT_ACCOUNT_ID)?.app_secret?.startsWith('enc:'),
+  'D1StorageManager account config 读取解密且新 app_secret 使用 enc: 加密',
+);
+check(
+  loadedAccountToken?.accessToken === 'ACCOUNT_TOKEN' && tenantProbe.accountTokens.get(`${DEFAULT_TENANT_ID}:${DEFAULT_ACCOUNT_ID}`)?.access_token?.startsWith('enc:'),
+  'D1StorageManager account token 按 tenant/account 保存并加密',
+);
+check(
+  defaultMedia.length === 1 && secondMedia.length === 1 && defaultMedia[0].createdAt !== secondMedia[0].createdAt,
+  'D1StorageManager account_media 支持跨账号 media_id 碰撞隔离',
+);
+check(
+  tenantStorage.namespaceR2Key(defaultContext, '/uploads/a.png') === `tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/uploads/a.png`,
+  'D1StorageManager R2 key 按 tenant/account 命名空间隔离',
+);
+
 console.log('\n=== WeChat webhook / inbox fixture 验证 ===');
 
 class MemoryInboxStore {
