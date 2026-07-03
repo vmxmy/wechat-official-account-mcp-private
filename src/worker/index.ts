@@ -329,18 +329,246 @@ function registerWorkerMcpTool(
 }
 
 async function handleWechatCallbackRequest(request: Request, env: WorkerEnv): Promise<Response> {
-  const storage = await createD1Storage(env);
-  const accountContext = (await storage.getDefaultAccountContext()) ?? defaultAccountContext();
-  const config = await storage.getAccountConfig(accountContext);
+  const url = new URL(request.url);
+  const routeAccountId = getWechatCallbackAccountId(url.pathname);
+  const resolved = routeAccountId
+    ? await resolveAccountWebhookConfig(env, routeAccountId)
+    : await resolveLegacyWebhookConfig(env);
+
+  if (resolved.kind === 'ambiguous') {
+    await safeWriteAudit(env, {
+      action: 'webhook.legacy_route_rejected',
+      targetType: 'wechat_webhook',
+      requestId: request.headers.get('cf-ray') ?? crypto.randomUUID(),
+      metadata: {
+        path: url.pathname,
+        reason: 'multiple_active_accounts',
+        migration: '/wx/callback/{accountId}',
+      },
+    });
+    return json(
+      {
+        success: false,
+        error: 'Ambiguous WeChat callback route. Configure the account-addressable callback URL for this account.',
+        migration: 'Use /wx/callback/{accountId}; accountId is the opaque WeChat account id from the management surface.',
+      },
+      { status: 409 },
+    );
+  }
+
+  if (resolved.kind === 'missing') {
+    await safeWriteAudit(env, {
+      action: 'webhook.account_route_rejected',
+      targetType: 'wechat_webhook',
+      targetId: routeAccountId,
+      requestId: request.headers.get('cf-ray') ?? crypto.randomUUID(),
+      metadata: {
+        path: url.pathname,
+        reason: routeAccountId ? 'unknown_or_disabled_account' : 'missing_single_account_config',
+      },
+    });
+    return new Response(
+      routeAccountId
+        ? 'Unknown or disabled WeChat account callback route.'
+        : 'Webhook account is not configured. Use /wx/callback/{accountId} after account setup.',
+      { status: routeAccountId ? 404 : 500 },
+    );
+  }
+
   const inboxStore = new D1InboxStore(env.DB);
   await inboxStore.ensureSchema();
 
-  return await handleWechatWebhook(request, {
-    token: config?.token ?? await resolveSecret(env.WECHAT_WEBHOOK_TOKEN),
-    appId: config?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
-    encodingAESKey: config?.encodingAESKey ?? await resolveSecret(env.WECHAT_ENCODING_AES_KEY),
+  const response = await handleWechatWebhook(request, {
+    token: resolved.config.token,
+    appId: resolved.config.appId,
+    encodingAESKey: resolved.config.encodingAESKey,
+    tenantId: resolved.config.tenantId,
+    accountId: resolved.config.accountId,
     inboxStore,
   });
+  await safeWriteAudit(env, {
+    action: response.status < 400 ? 'webhook.accepted' : 'webhook.rejected',
+    tenantId: resolved.config.tenantId,
+    accountId: resolved.config.accountId,
+    targetType: 'wechat_webhook',
+    targetId: resolved.config.accountId ?? routeAccountId,
+    requestId: request.headers.get('cf-ray') ?? crypto.randomUUID(),
+    metadata: {
+      path: url.pathname,
+      method: request.method,
+      status: response.status,
+      source: resolved.config.source,
+      encrypted: url.searchParams.get('encrypt_type') === 'aes',
+    },
+  });
+  return response;
+}
+
+type WebhookConfigResolution =
+  | { kind: 'configured'; config: ResolvedWebhookConfig }
+  | { kind: 'ambiguous' }
+  | { kind: 'missing' };
+
+type ResolvedWebhookConfig = {
+  tenantId?: string | null;
+  accountId?: string | null;
+  appId: string | null;
+  token: string | null;
+  encodingAESKey?: string | null;
+  source: 'account' | 'legacy';
+};
+
+function isWechatCallbackPath(pathname: string): boolean {
+  return pathname === '/wx/callback' || pathname.startsWith('/wx/callback/');
+}
+
+export function getWechatCallbackAccountId(pathname: string): string | null {
+  const prefix = '/wx/callback/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const accountId = decodeURIComponent(pathname.slice(prefix.length)).trim();
+  if (!accountId || accountId.includes('/')) {
+    return null;
+  }
+  return accountId;
+}
+
+async function resolveLegacyWebhookConfig(env: WorkerEnv): Promise<WebhookConfigResolution> {
+  const explicitDefaultAccountId = await resolveSecret(env.WECHAT_DEFAULT_WEBHOOK_ACCOUNT_ID);
+  if (explicitDefaultAccountId) {
+    const explicit = await resolveAccountWebhookConfig(env, explicitDefaultAccountId);
+    return explicit.kind === 'configured' ? explicit : { kind: 'missing' };
+  }
+
+  const accounts = await listActiveWebhookAccounts(env, 2);
+  if (accounts && accounts.length > 1) {
+    return { kind: 'ambiguous' };
+  }
+  if (accounts && accounts.length === 1) {
+    return { kind: 'configured', config: await rowToWebhookConfig(accounts[0], env) };
+  }
+
+  const legacy = await resolveLegacySingleAccountConfig(env);
+  return legacy ? { kind: 'configured', config: legacy } : { kind: 'missing' };
+}
+
+async function resolveAccountWebhookConfig(
+  env: WorkerEnv,
+  accountId: string,
+): Promise<WebhookConfigResolution> {
+  const row = await readWebhookAccountRow(env, accountId);
+  if (!row || !isWebhookAccountEnabled(row)) {
+    return { kind: 'missing' };
+  }
+
+  return { kind: 'configured', config: await rowToWebhookConfig(row, env) };
+}
+
+async function readWebhookAccountRow(
+  env: WorkerEnv,
+  accountId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await env.DB.prepare('SELECT * FROM wechat_accounts WHERE id = ? LIMIT 1')
+      .bind(accountId)
+      .first<Record<string, unknown>>();
+  } catch (error) {
+    if (isMissingTenantTableError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function listActiveWebhookAccounts(
+  env: WorkerEnv,
+  limit: number,
+): Promise<Array<Record<string, unknown>> | null> {
+  try {
+    const result = await env.DB.prepare('SELECT * FROM wechat_accounts LIMIT ?')
+      .bind(limit)
+      .all<Record<string, unknown>>();
+    return (result.results ?? []).filter(isWebhookAccountEnabled).slice(0, limit);
+  } catch (error) {
+    if (isMissingTenantTableError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function rowToWebhookConfig(
+  row: Record<string, unknown>,
+  env: WorkerEnv,
+): Promise<ResolvedWebhookConfig> {
+  return {
+    tenantId: getString(row.tenant_id ?? row.tenantId),
+    accountId: getString(row.id ?? row.account_id ?? row.accountId),
+    appId: getString(row.app_id ?? row.appId),
+    token: await decryptStoredSecret(getString(row.webhook_token ?? row.token), env),
+    encodingAESKey: await decryptStoredSecret(getString(row.encoding_aes_key ?? row.encodingAESKey), env),
+    source: 'account',
+  };
+}
+
+async function resolveLegacySingleAccountConfig(env: WorkerEnv): Promise<ResolvedWebhookConfig | null> {
+  const storage = await createD1Storage(env);
+  const config = await storage.getConfig();
+  const token = config?.token ?? await resolveSecret(env.WECHAT_WEBHOOK_TOKEN);
+  const appId = config?.appId ?? await resolveSecret(env.WECHAT_APP_ID);
+  const encodingAESKey = config?.encodingAESKey ?? await resolveSecret(env.WECHAT_ENCODING_AES_KEY);
+
+  if (!token && !appId && !encodingAESKey) {
+    return null;
+  }
+
+  return {
+    token,
+    appId,
+    encodingAESKey,
+    source: 'legacy',
+  };
+}
+
+function isWebhookAccountEnabled(row: Record<string, unknown>): boolean {
+  const status = getString(row.status)?.toLowerCase();
+  return !status || ['active', 'enabled', 'configured'].includes(status);
+}
+
+function getString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+async function decryptStoredSecret(value: string | null, env: WorkerEnv): Promise<string | null> {
+  if (!value || !value.startsWith('enc:')) {
+    return value;
+  }
+  const secretKey = await resolveSecret(env.WECHAT_MCP_SECRET_KEY);
+  if (!secretKey) {
+    return null;
+  }
+  try {
+    const bytes = CryptoJS.AES.decrypt(value.slice(4), secretKey);
+    const text = bytes.toString(CryptoJS.enc.Utf8);
+    return text || null;
+  } catch {
+    return null;
+  }
+}
+
+function isMissingTenantTableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such table|no such column|D1_ERROR/i.test(message) && /wechat_accounts|tenant|account/i.test(message);
+}
+
+async function safeWriteAudit(env: WorkerEnv, event: Parameters<D1AuditLogWriter['write']>[0]): Promise<void> {
+  try {
+    await new D1AuditLogWriter(env.DB).write(event);
+  } catch {
+    // Webhook ack/reject semantics must not depend on best-effort audit persistence.
+  }
 }
 
 export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number }, { userId?: string }> {
