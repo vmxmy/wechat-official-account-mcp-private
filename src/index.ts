@@ -10,6 +10,8 @@ export * from './worker/index';
 export * from './worker/media-tools';
 export * from './worker/inbox-store';
 export * from './worker/wechat-webhook';
+export * from './worker/tenant-context';
+export * from './worker/management-api';
 
 // Storage and WeChat runtime seams
 export * from './storage/types';
