@@ -95,5 +95,8 @@
     "vite-tsconfig-paths": "^5.1.4",
     "wrangler": "^4.106.0",
     "zustand": "^5.0.3"
+  },
+  "bin": {
+    "woa": "./dist/src/cli/woa.js"
   }
 }
