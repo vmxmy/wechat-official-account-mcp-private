@@ -8,25 +8,7 @@ import {
 import CryptoJS from 'crypto-js';
 import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
 import type { McpTool } from '../mcp-tool/types.js';
-import { authMcpTool } from '../mcp-tool/tools/auth-tool.js';
-import { draftMcpTool } from '../mcp-tool/tools/draft-tool.js';
-import { publishMcpTool } from '../mcp-tool/tools/publish-tool.js';
-import { userMcpTool } from '../mcp-tool/tools/user-tool.js';
-import { tagMcpTool } from '../mcp-tool/tools/tag-tool.js';
-import { menuMcpTool } from '../mcp-tool/tools/menu-tool.js';
-import { templateMsgMcpTool } from '../mcp-tool/tools/template-msg-tool.js';
-import { customerServiceMcpTool } from '../mcp-tool/tools/customer-service-tool.js';
-import { statisticsMcpTool } from '../mcp-tool/tools/statistics-tool.js';
-import { autoReplyMcpTool } from '../mcp-tool/tools/auto-reply-tool.js';
-import { massSendMcpTool } from '../mcp-tool/tools/mass-send-tool.js';
-import { subscribeMsgMcpTool } from '../mcp-tool/tools/subscribe-msg-tool.js';
-import { inboxMcpTool } from '../mcp-tool/tools/inbox-tool.js';
-import { qrcodeMcpTool } from '../mcp-tool/tools/qrcode-tool.js';
-import { shortUrlMcpTool } from '../mcp-tool/tools/short-url-tool.js';
-import { commentMcpTool } from '../mcp-tool/tools/comment-tool.js';
-import { blacklistMcpTool } from '../mcp-tool/tools/blacklist-tool.js';
-import { kfAccountMcpTool } from '../mcp-tool/tools/kf-account-tool.js';
-import { accountMcpTool } from '../mcp-tool/tools/account-tool.js';
+import { workerSharedMcpTools, withOptionalAccountId } from '../mcp-tool/tools/index.js';
 import { D1StorageManager, type D1DatabaseLike } from '../storage/d1-storage-manager.js';
 import {
   DEFAULT_ACCOUNT_ID,
@@ -43,7 +25,13 @@ import { WechatApiClientFactory } from '../wechat/api-client-factory.js';
 import { D1InboxStore } from './inbox-store.js';
 import { createWorkerMediaTools } from './media-tools.js';
 import { handleWechatWebhook } from './wechat-webhook.js';
-import { D1AuditLogWriter } from './audit-log.js';
+import {
+  attachTenantMetadata,
+  createDefaultTenantContext,
+  enrichMcpToolParams,
+  type TenantRequestContext,
+} from './tenant-context.js';
+import { handleManagementApiRequest } from './management-api.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -85,27 +73,7 @@ type WechatMcpAgentStub = {
   runEventStoreSelfTest(): Promise<Record<string, unknown>>;
 };
 
-const WORKER_SHARED_MCP_TOOLS = [
-  authMcpTool,
-  draftMcpTool,
-  publishMcpTool,
-  userMcpTool,
-  tagMcpTool,
-  menuMcpTool,
-  templateMsgMcpTool,
-  customerServiceMcpTool,
-  statisticsMcpTool,
-  autoReplyMcpTool,
-  massSendMcpTool,
-  inboxMcpTool,
-  subscribeMsgMcpTool,
-  qrcodeMcpTool,
-  shortUrlMcpTool,
-  commentMcpTool,
-  blacklistMcpTool,
-  kfAccountMcpTool,
-  accountMcpTool,
-];
+const WORKER_SHARED_MCP_TOOLS = workerSharedMcpTools;
 const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000;
 
 export function tokenOwnerNameForAccount(accountContext: AccountContext): string {
@@ -307,6 +275,7 @@ function registerWorkerMcpTool(
   server: McpServer,
   tool: McpTool,
   apiClient: WechatApiClient,
+  tenantContext: TenantRequestContext,
 ): void {
   server.tool(
     tool.name,
@@ -314,7 +283,9 @@ function registerWorkerMcpTool(
     tool.inputSchema as any,
     async (params: unknown) => {
       try {
-        return await tool.handler(params, apiClient) as any;
+        const scoped = enrichMcpToolParams(params, tenantContext, tool.name);
+        const result = await tool.handler(scoped.params, apiClient);
+        return attachTenantMetadata(result, tenantContext, scoped.account) as any;
       } catch (error) {
         return {
           content: [{
@@ -583,14 +554,22 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
 
   async init(): Promise<void> {
     const env = getAgentEnv(this);
-    const { apiClient, storage, accountContext } = await createWorkerToolContext(env);
+    const { apiClient, storage } = await createWorkerToolContext(env);
+    const currentConfig = await apiClient.getAuthManager().getConfig();
+    const tenantContext = createDefaultTenantContext({
+      source: 'mcp',
+      userId: this.props?.userId ?? await resolveSecret(env.OAUTH_CLIENT_ID),
+      oauthClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+      scopes: ['wechat.mcp', 'woa:context:read', 'woa:tenant:read', 'woa:account:read', 'woa:account:write', 'woa:content:read', 'woa:content:write', 'woa:content:publish', 'woa:inbox:read', 'woa:audit:read'],
+      appId: currentConfig?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
+    });
     const mediaTools = createWorkerMediaTools({
       mediaBucket: env.MEDIA,
-      saveMedia: media => storage.saveAccountMedia(accountContext, media),
-    });
+      saveMedia: media => storage.saveMedia(media),
+    }).map(withOptionalAccountId);
 
     for (const tool of [...WORKER_SHARED_MCP_TOOLS, ...mediaTools]) {
-      registerWorkerMcpTool(this.server, tool, apiClient);
+      registerWorkerMcpTool(this.server, tool, apiClient, tenantContext);
     }
   }
 
@@ -980,6 +959,15 @@ const defaultHandler = {
       });
     }
 
+    if (url.pathname.startsWith('/api/v1')) {
+      return await handleManagementApiRequest(request, {
+        appId: await resolveSecret(env.WECHAT_APP_ID),
+        defaultUserId: await resolveSecret(env.OAUTH_CLIENT_ID),
+        defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+        createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
+      });
+    }
+
     if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
       return new Response('Unauthorized', {
         status: 401,
@@ -1097,7 +1085,19 @@ function createOAuthProvider(): OAuthProvider<WorkerEnv> {
       '/mcp': mcpHandler,
     },
     defaultHandler,
-    scopesSupported: ['wechat.mcp'],
+    scopesSupported: [
+      'wechat.mcp',
+      'woa:context:read',
+      'woa:tenant:read',
+      'woa:tenant:write',
+      'woa:account:read',
+      'woa:account:write',
+      'woa:content:read',
+      'woa:content:write',
+      'woa:content:publish',
+      'woa:inbox:read',
+      'woa:audit:read',
+    ],
     allowPlainPKCE: false,
   });
 }
@@ -1108,6 +1108,15 @@ export default {
 
     if (isLegacyRestToolPath(url.pathname)) {
       return legacyRestToolRemovedResponse();
+    }
+
+    if (url.pathname.startsWith('/api/v1')) {
+      return await handleManagementApiRequest(request, {
+        appId: await resolveSecret(env.WECHAT_APP_ID),
+        defaultUserId: await resolveSecret(env.OAUTH_CLIENT_ID),
+        defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+        createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
+      });
     }
 
     if (
