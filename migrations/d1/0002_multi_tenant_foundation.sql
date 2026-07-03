@@ -269,3 +269,56 @@ SELECT
 FROM access_tokens
 ORDER BY created_at DESC
 LIMIT 1;
+-- Backfill legacy account resources into scoped tables when the default account exists.
+INSERT OR IGNORE INTO account_media (tenant_id, account_id, media_id, type, created_at, url)
+SELECT 'tenant_default', 'acct_default', media_id, type, created_at, url
+FROM media
+WHERE EXISTS (SELECT 1 FROM wechat_accounts WHERE id = 'acct_default');
+
+INSERT OR IGNORE INTO account_permanent_media (tenant_id, account_id, media_id, type, name, created_at, update_time, url)
+SELECT 'tenant_default', 'acct_default', media_id, type, name, created_at, update_time, url
+FROM permanent_media
+WHERE EXISTS (SELECT 1 FROM wechat_accounts WHERE id = 'acct_default');
+
+INSERT OR IGNORE INTO account_drafts (tenant_id, account_id, media_id, content, update_time)
+SELECT 'tenant_default', 'acct_default', media_id, content, update_time
+FROM drafts
+WHERE EXISTS (SELECT 1 FROM wechat_accounts WHERE id = 'acct_default');
+
+INSERT OR IGNORE INTO account_publishes (tenant_id, account_id, publish_id, msg_data_id, idx, article_url, content, publish_time, publish_status)
+SELECT 'tenant_default', 'acct_default', publish_id, msg_data_id, idx, article_url, content, publish_time, publish_status
+FROM publishes
+WHERE EXISTS (SELECT 1 FROM wechat_accounts WHERE id = 'acct_default');
+
+INSERT OR IGNORE INTO account_inbound_messages (
+  tenant_id,
+  account_id,
+  dedup_key,
+  to_user_name,
+  from_user_name,
+  type,
+  event_type,
+  raw_xml,
+  parsed_payload_json,
+  create_time,
+  received_at,
+  processed_at,
+  processing_note
+)
+SELECT
+  'tenant_default',
+  'acct_default',
+  dedup_key,
+  to_user_name,
+  from_user_name,
+  type,
+  event_type,
+  raw_xml,
+  parsed_payload_json,
+  create_time,
+  received_at,
+  processed_at,
+  processing_note
+FROM inbound_messages
+WHERE EXISTS (SELECT 1 FROM wechat_accounts WHERE id = 'acct_default');
+
