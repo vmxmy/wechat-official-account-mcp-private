@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { WechatToolDefinition, McpTool } from '../types.js';
 import { authTool, authMcpTool } from './auth-tool.js';
 import { createWorkerMediaTools } from '../../worker/media-tools.js';
@@ -19,8 +20,64 @@ import { commentMcpTool } from './comment-tool.js';
 import { blacklistMcpTool } from './blacklist-tool.js';
 import { kfAccountMcpTool } from './kf-account-tool.js';
 import { accountMcpTool } from './account-tool.js';
+import {
+  tenantManagementMcpTools,
+  woaAccountMcpTool,
+  woaAuditMcpTool,
+  woaContextMcpTool,
+  woaTenantMcpTool,
+} from './tenant-management-tools.js';
 
-const [mediaUploadTool, uploadImgTool, permanentMediaTool] = createWorkerMediaTools();
+const accountIdInput = z.string()
+  .min(1)
+  .max(128)
+  .optional()
+  .describe('公众号账号 ID（多租户模式可选；省略时使用默认/唯一账号）');
+
+const [rawMediaUploadTool, rawUploadImgTool, rawPermanentMediaTool] = createWorkerMediaTools();
+
+export function withOptionalAccountId(tool: McpTool): McpTool {
+  if (Object.prototype.hasOwnProperty.call(tool.inputSchema, 'accountId')) {
+    return tool;
+  }
+
+  return {
+    ...tool,
+    inputSchema: {
+      ...tool.inputSchema,
+      accountId: accountIdInput,
+    },
+  };
+}
+
+export const mediaUploadTool = withOptionalAccountId(rawMediaUploadTool);
+export const uploadImgTool = withOptionalAccountId(rawUploadImgTool);
+export const permanentMediaTool = withOptionalAccountId(rawPermanentMediaTool);
+
+const wechatOperationMcpTools: McpTool[] = [
+  authMcpTool,
+  draftMcpTool,
+  publishMcpTool,
+  permanentMediaTool,
+  mediaUploadTool,
+  uploadImgTool,
+  userMcpTool,
+  tagMcpTool,
+  menuMcpTool,
+  templateMsgMcpTool,
+  customerServiceMcpTool,
+  subscribeMsgMcpTool,
+  statisticsMcpTool,
+  autoReplyMcpTool,
+  massSendMcpTool,
+  inboxMcpTool,
+  qrcodeMcpTool,
+  shortUrlMcpTool,
+  commentMcpTool,
+  blacklistMcpTool,
+  kfAccountMcpTool,
+  accountMcpTool,
+].map(withOptionalAccountId);
 
 /**
  * 所有微信公众号 MCP 工具
@@ -32,55 +89,32 @@ export const wechatTools: WechatToolDefinition[] = [
 ];
 
 /**
+ * Worker 运行时共享 MCP 工具列表；媒体工具在 Worker init 中重新创建以注入 R2/D1 保存器。
+ */
+export const workerSharedMcpTools: McpTool[] = [
+  ...wechatOperationMcpTools.filter(tool => ![
+    'wechat_media_upload',
+    'wechat_upload_img',
+    'wechat_permanent_media',
+  ].includes(tool.name)),
+  ...tenantManagementMcpTools,
+];
+
+/**
  * MCP工具列表
  */
 export const mcpTools: McpTool[] = [
-  // 基础功能
-  authMcpTool,
-  draftMcpTool,
-  publishMcpTool,
-  permanentMediaTool,
-  mediaUploadTool,
-  uploadImgTool,
-
-  // 用户管理
-  userMcpTool,
-
-  // 标签管理
-  tagMcpTool,
-
-  // 菜单管理
-  menuMcpTool,
-
-  // 消息功能
-  templateMsgMcpTool,
-  customerServiceMcpTool,
-  subscribeMsgMcpTool,
-
-  // 数据分析
-  statisticsMcpTool,
-
-  // 高级功能
-  autoReplyMcpTool,
-  massSendMcpTool,
-  inboxMcpTool,
-
-  // v2.2 API 扩展工具
-  qrcodeMcpTool,
-  shortUrlMcpTool,
-  commentMcpTool,
-  blacklistMcpTool,
-  kfAccountMcpTool,
-  accountMcpTool,
+  ...wechatOperationMcpTools,
+  ...tenantManagementMcpTools,
 ];
 
 export {
   authTool,
-  mediaUploadTool,
-  uploadImgTool,
-  permanentMediaTool,
+  authMcpTool,
   draftTool,
+  draftMcpTool,
   publishTool,
+  publishMcpTool,
   userMcpTool,
   tagMcpTool,
   menuMcpTool,
@@ -97,4 +131,8 @@ export {
   blacklistMcpTool,
   kfAccountMcpTool,
   accountMcpTool,
+  woaContextMcpTool,
+  woaTenantMcpTool,
+  woaAccountMcpTool,
+  woaAuditMcpTool,
 };
