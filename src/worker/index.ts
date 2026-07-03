@@ -28,10 +28,18 @@ import { blacklistMcpTool } from '../mcp-tool/tools/blacklist-tool.js';
 import { kfAccountMcpTool } from '../mcp-tool/tools/kf-account-tool.js';
 import { accountMcpTool } from '../mcp-tool/tools/account-tool.js';
 import { D1StorageManager, type D1DatabaseLike } from '../storage/d1-storage-manager.js';
+import {
+  DEFAULT_ACCOUNT_ID,
+  DEFAULT_ACCOUNT_SLUG,
+  DEFAULT_TENANT_ID,
+  DEFAULT_TENANT_SLUG,
+  type AccountContext,
+} from '../storage/types.js';
 import { AccessTokenHttpExecutor } from '../wechat/http-executor.js';
 import { WorkersHttpExecutor } from '../wechat/workers-http-executor.js';
 import type { OutboundProxyConfig } from '../wechat/proxy.js';
 import { WechatApiClient } from '../wechat/api-client.js';
+import { WechatApiClientFactory } from '../wechat/api-client-factory.js';
 import { D1InboxStore } from './inbox-store.js';
 import { createWorkerMediaTools } from './media-tools.js';
 import { handleWechatWebhook } from './wechat-webhook.js';
@@ -60,10 +68,15 @@ export interface WorkerEnv {
   OAUTH_CLIENT_SECRET: SecretBinding;
 }
 
+type TokenOwnerRequestOptions = {
+  forceRefresh?: boolean;
+  accountContext?: AccountContext;
+};
+
 type TokenOwnerStub = {
-  getAccessToken(options?: { forceRefresh?: boolean }): Promise<AccessTokenInfo>;
-  refreshAccessToken(): Promise<AccessTokenInfo>;
-  clearAccessToken(): Promise<void>;
+  getAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
+  refreshAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
+  clearAccessToken(options?: { accountContext?: AccountContext }): Promise<void>;
   getDebugStatus(): Promise<Record<string, unknown>>;
   runCoalescingSelfTest(): Promise<Record<string, unknown>>;
 };
@@ -94,7 +107,10 @@ const WORKER_SHARED_MCP_TOOLS = [
   accountMcpTool,
 ];
 const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000;
-const TOKEN_OWNER_NAME = 'global';
+
+export function tokenOwnerNameForAccount(accountContext: AccountContext): string {
+  return `token:${accountContext.tenantId}:${accountContext.accountId}`;
+}
 
 function json(data: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(data), {
@@ -137,10 +153,10 @@ function legacyRestToolRemovedResponse(): Response {
   );
 }
 
-async function getTokenOwner(env: WorkerEnv): Promise<TokenOwnerStub> {
+async function getTokenOwner(env: WorkerEnv, accountContext?: AccountContext): Promise<TokenOwnerStub> {
   return await getAgentByName(
     env.TOKEN_OWNER as any,
-    TOKEN_OWNER_NAME,
+    tokenOwnerNameForAccount(accountContext ?? defaultAccountContext()),
   ) as unknown as TokenOwnerStub;
 }
 
@@ -161,38 +177,61 @@ function getAgentEnv(agent: unknown): WorkerEnv {
   return (agent as { env: WorkerEnv }).env;
 }
 
+function defaultAccountContext(appId?: string): AccountContext {
+  return {
+    tenantId: DEFAULT_TENANT_ID,
+    tenantSlug: DEFAULT_TENANT_SLUG,
+    tenantName: 'Default Tenant',
+    accountId: DEFAULT_ACCOUNT_ID,
+    accountSlug: DEFAULT_ACCOUNT_SLUG,
+    accountName: 'Default WeChat Official Account',
+    appId,
+    status: 'active',
+    role: 'owner',
+    scopes: ['woa:*'],
+  };
+}
+
 class WorkersAuthManager {
   private config: WechatConfig | null = null;
 
   constructor(
     private readonly storage: D1StorageManager,
     private readonly tokenOwner: TokenOwnerStub,
+    private readonly accountContext: AccountContext,
   ) {}
 
   async initialize(): Promise<void> {
-    this.config = await this.storage.getConfig();
+    this.config = await this.storage.getAccountConfig(this.accountContext);
   }
 
   async setConfig(config: WechatConfig): Promise<void> {
     this.config = config;
-    await this.storage.saveConfig(config);
-    await this.storage.clearAccessToken();
-    await this.tokenOwner.clearAccessToken();
+    await this.storage.saveAccountConfig({
+      tenantId: this.accountContext.tenantId,
+      accountId: this.accountContext.accountId,
+      accountSlug: this.accountContext.accountSlug,
+      accountName: this.accountContext.accountName,
+      config,
+      isDefault: this.accountContext.tenantId === DEFAULT_TENANT_ID && this.accountContext.accountId === DEFAULT_ACCOUNT_ID,
+    });
+    await this.storage.clearAccountAccessToken(this.accountContext);
+    await this.tokenOwner.clearAccessToken({ accountContext: this.accountContext });
   }
 
   async getConfig(): Promise<WechatConfig | null> {
     if (!this.config) {
-      this.config = await this.storage.getConfig();
+      this.config = await this.storage.getAccountConfig(this.accountContext);
     }
     return this.config;
   }
 
   async getAccessToken(): Promise<AccessTokenInfo> {
-    return await this.tokenOwner.getAccessToken();
+    return await this.tokenOwner.getAccessToken({ accountContext: this.accountContext });
   }
 
   async refreshAccessToken(): Promise<AccessTokenInfo> {
-    return await this.tokenOwner.refreshAccessToken();
+    return await this.tokenOwner.refreshAccessToken({ accountContext: this.accountContext });
   }
 
   isConfigured(): boolean {
@@ -201,34 +240,43 @@ class WorkersAuthManager {
 
   async clearAuth(): Promise<void> {
     this.config = null;
-    await this.storage.clearConfig();
-    await this.storage.clearAccessToken();
-    await this.tokenOwner.clearAccessToken();
+    await this.storage.clearAccountConfig(this.accountContext);
+    await this.storage.clearAccountAccessToken(this.accountContext);
+    await this.tokenOwner.clearAccessToken({ accountContext: this.accountContext });
   }
 }
 
-async function createWorkerToolContext(env: WorkerEnv): Promise<{
+async function createWorkerToolContext(env: WorkerEnv, requestedAccountContext?: AccountContext): Promise<{
   apiClient: WechatApiClient;
   storage: D1StorageManager;
   inboxStore: D1InboxStore;
+  accountContext: AccountContext;
 }> {
   const storage = await createD1Storage(env);
   const inboxStore = new D1InboxStore(env.DB);
   await inboxStore.ensureSchema();
-  const tokenOwner = await getTokenOwner(env);
-  const authManager = new WorkersAuthManager(storage, tokenOwner);
-  await authManager.initialize();
+  const accountContext = requestedAccountContext
+    ?? (await storage.getDefaultAccountContext())
+    ?? defaultAccountContext();
+  const tokenOwner = await getTokenOwner(env, accountContext);
   const proxy = await resolveWorkerProxyConfig(env);
 
-  const apiClient = new WechatApiClient(authManager, {
-    httpExecutor: new AccessTokenHttpExecutor(
+  const factory = new WechatApiClientFactory({
+    createAuthManager: async context => {
+      const authManager = new WorkersAuthManager(storage, tokenOwner, context);
+      await authManager.initialize();
+      return authManager;
+    },
+    createHttpExecutor: async context => new AccessTokenHttpExecutor(
       await createWechatWorkersHttpExecutor(env, proxy),
-      async () => (await tokenOwner.getAccessToken()).accessToken,
+      async () => (await tokenOwner.getAccessToken({ accountContext: context })).accessToken,
     ),
-    inboxStore,
+    createInboxStore: () => inboxStore,
   });
 
-  return { apiClient, storage, inboxStore };
+  const apiClient = await factory.create(accountContext);
+
+  return { apiClient, storage, inboxStore, accountContext };
 }
 
 async function resolveWorkerProxyConfig(env: WorkerEnv): Promise<OutboundProxyConfig | undefined> {
@@ -282,7 +330,8 @@ function registerWorkerMcpTool(
 
 async function handleWechatCallbackRequest(request: Request, env: WorkerEnv): Promise<Response> {
   const storage = await createD1Storage(env);
-  const config = await storage.getConfig();
+  const accountContext = (await storage.getDefaultAccountContext()) ?? defaultAccountContext();
+  const config = await storage.getAccountConfig(accountContext);
   const inboxStore = new D1InboxStore(env.DB);
   await inboxStore.ensureSchema();
 
@@ -306,10 +355,10 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
 
   async init(): Promise<void> {
     const env = getAgentEnv(this);
-    const { apiClient, storage } = await createWorkerToolContext(env);
+    const { apiClient, storage, accountContext } = await createWorkerToolContext(env);
     const mediaTools = createWorkerMediaTools({
       mediaBucket: env.MEDIA,
-      saveMedia: media => storage.saveMedia(media),
+      saveMedia: media => storage.saveAccountMedia(accountContext, media),
     });
 
     for (const tool of [...WORKER_SHARED_MCP_TOOLS, ...mediaTools]) {
