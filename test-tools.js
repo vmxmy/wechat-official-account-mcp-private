@@ -946,8 +946,8 @@ const accountBMarkAttempt = await d1InboxStore.markProcessed({
   accountId: 'account_B',
   note: 'wrong account',
 });
-check(inboxD1.rows.length === 2 && textList.total === 1, 'D1InboxStore 入库去重并支持 type/openid/pending 过滤');
-check(markCount === 1 && pendingAfterMark.total === 1, 'D1InboxStore mark_processed 更新 processed_at');
+check(inboxD1.rows.length === 4 && textList.total === 1, 'D1InboxStore 入库去重并支持 type/openid/pending 过滤');
+check(markCount === 1 && pendingAfterMark.total === 3, 'D1InboxStore mark_processed 更新 processed_at');
 check(
   inboxD1.rows.length === 4 &&
     accountAList.total === 1 &&
