@@ -442,7 +442,7 @@ async function resolveLegacyWebhookConfig(env: WorkerEnv): Promise<WebhookConfig
     return explicit.kind === 'configured' ? explicit : { kind: 'missing' };
   }
 
-  const accounts = await listActiveWebhookAccounts(env, 2);
+  const accounts = await listActiveWebhookAccounts(env, 20);
   if (accounts && accounts.length > 1) {
     return { kind: 'ambiguous' };
   }
