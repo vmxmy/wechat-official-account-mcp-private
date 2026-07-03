@@ -601,6 +601,40 @@ await handleWechatWebhook(
 );
 check(webhookStore.records.length === 1, 'Webhook 重试同一 MsgId 时保持幂等去重');
 
+const scopedWebhookStore = new MemoryInboxStore();
+await handleWechatWebhook(
+  new Request(`https://worker.test/wx/callback/account_A?signature=${validSignature}&timestamp=${timestamp}&nonce=${nonce}`, {
+    method: 'POST',
+    body: plaintextXml,
+  }),
+  {
+    token: webhookToken,
+    appId: 'wx1234567890abcdef',
+    tenantId: 'tenant_1',
+    accountId: 'account_A',
+    inboxStore: scopedWebhookStore,
+  },
+);
+await handleWechatWebhook(
+  new Request(`https://worker.test/wx/callback/account_B?signature=${validSignature}&timestamp=${timestamp}&nonce=${nonce}`, {
+    method: 'POST',
+    body: plaintextXml,
+  }),
+  {
+    token: webhookToken,
+    appId: 'wx1234567890abcdef',
+    tenantId: 'tenant_1',
+    accountId: 'account_B',
+    inboxStore: scopedWebhookStore,
+  },
+);
+check(
+  scopedWebhookStore.records.length === 2 &&
+    scopedWebhookStore.records[0]?.dedupKey === createInboundDedupKey({ MsgId: '1234567890' }, { tenantId: 'tenant_1', accountId: 'account_A' }) &&
+    scopedWebhookStore.records[1]?.dedupKey === createInboundDedupKey({ MsgId: '1234567890' }, { tenantId: 'tenant_1', accountId: 'account_B' }),
+  'Webhook 按 accountId 生成去重键，同一 MsgId 在不同账号下互不抑制',
+);
+
 const encodingAESKey = Buffer.from(Uint8Array.from({ length: 32 }, (_, index) => index + 1)).toString('base64').replace(/=/g, '');
 const eventXml = '<xml>' +
   '<ToUserName><![CDATA[gh_test]]></ToUserName>' +
@@ -631,8 +665,32 @@ const encryptedResponse = await handleWechatWebhook(
 check(decryptedXml === eventXml, 'Webhook AES-CBC-256/PKCS#7 解密并校验 appid');
 check(encryptedResponse.status === 200 && encryptedStore.records[0]?.eventType === 'subscribe', 'Webhook 加密消息验签解密后入库 event');
 
+const mismatchedEncryptedPayload = encryptWechatMessageForFixture(eventXml, 'wx_other_appid', encodingAESKey);
+const mismatchedEncryptedSignature = createWechatSignature([webhookToken, timestamp, nonce, mismatchedEncryptedPayload]);
+const mismatchedEncryptedXml = `<xml><ToUserName><![CDATA[gh_test]]></ToUserName><Encrypt><![CDATA[${mismatchedEncryptedPayload}]]></Encrypt></xml>`;
+const mismatchedEncryptedStore = new MemoryInboxStore();
+const mismatchedEncryptedResponse = await handleWechatWebhook(
+  new Request(`https://worker.test/wx/callback/account_A?encrypt_type=aes&msg_signature=${mismatchedEncryptedSignature}&timestamp=${timestamp}&nonce=${nonce}`, {
+    method: 'POST',
+    body: mismatchedEncryptedXml,
+  }),
+  {
+    token: webhookToken,
+    appId: 'wx1234567890abcdef',
+    encodingAESKey,
+    tenantId: 'tenant_1',
+    accountId: 'account_A',
+    inboxStore: mismatchedEncryptedStore,
+  },
+);
+check(
+  mismatchedEncryptedResponse.status === 403 && mismatchedEncryptedStore.records.length === 0,
+  'Webhook 加密消息 appid 不匹配时返回 403 且不入库',
+);
+
 class MemoryInboxD1Database {
   rows = [];
+  auditRows = [];
   nextId = 1;
 
   prepare(query) {
@@ -660,6 +718,8 @@ class MemoryInboxD1Statement {
   async run() {
     if (this.query.startsWith('INSERT OR IGNORE INTO inbound_messages')) {
       const [
+        tenantId,
+        accountId,
         dedupKey,
         toUserName,
         fromUserName,
@@ -675,6 +735,8 @@ class MemoryInboxD1Statement {
       }
       this.db.rows.push({
         id: this.db.nextId++,
+        tenant_id: tenantId,
+        account_id: accountId,
         dedup_key: dedupKey,
         to_user_name: toUserName,
         from_user_name: fromUserName,
@@ -690,11 +752,50 @@ class MemoryInboxD1Statement {
       return { success: true, meta: { changes: 1 } };
     }
 
+    if (this.query.startsWith('INSERT INTO audit_logs')) {
+      const [
+        userId,
+        oauthClientId,
+        tenantId,
+        accountId,
+        action,
+        targetType,
+        targetId,
+        requestId,
+        metadataJson,
+        occurredAt,
+      ] = this.values;
+      this.db.auditRows.push({
+        id: this.db.auditRows.length + 1,
+        user_id: userId,
+        oauth_client_id: oauthClientId,
+        tenant_id: tenantId,
+        account_id: accountId,
+        action,
+        target_type: targetType,
+        target_id: targetId,
+        request_id: requestId,
+        metadata_json: metadataJson,
+        occurred_at: occurredAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
     if (this.query.startsWith('UPDATE inbound_messages SET processed_at = ?')) {
-      const [processedAt, note, ...ids] = this.values;
+      const [processedAt, note] = this.values;
+      const scopeValueCount = this.scopeValueCount();
+      const ids = this.values.slice(2, this.values.length - scopeValueCount);
+      const scopeValues = this.values.slice(this.values.length - scopeValueCount);
+      let scopeIndex = 0;
+      const tenantId = this.query.includes('tenant_id = ?') ? scopeValues[scopeIndex++] : undefined;
+      const accountId = this.query.includes('account_id = ?') ? scopeValues[scopeIndex++] : undefined;
       let changes = 0;
       for (const row of this.db.rows) {
-        if (ids.includes(row.id)) {
+        if (
+          ids.includes(row.id) &&
+          (tenantId === undefined || row.tenant_id === tenantId) &&
+          (accountId === undefined || row.account_id === accountId)
+        ) {
           row.processed_at = processedAt;
           row.processing_note = note;
           changes += 1;
@@ -738,6 +839,14 @@ class MemoryInboxD1Statement {
     if (this.query.includes('processed_at IS NULL')) {
       rows = rows.filter(row => row.processed_at === null);
     }
+    if (this.query.includes('tenant_id = ?')) {
+      const tenantId = this.values[index++];
+      rows = rows.filter(row => row.tenant_id === tenantId);
+    }
+    if (this.query.includes('account_id = ?')) {
+      const accountId = this.values[index++];
+      rows = rows.filter(row => row.account_id === accountId);
+    }
     if (this.query.includes('type = ?')) {
       const type = this.values[index++];
       rows = rows.filter(row => row.type === type);
@@ -751,8 +860,17 @@ class MemoryInboxD1Statement {
 
   filterValueCount() {
     let count = 0;
+    if (this.query.includes('tenant_id = ?')) count += 1;
+    if (this.query.includes('account_id = ?')) count += 1;
     if (this.query.includes('type = ?')) count += 1;
     if (this.query.includes('from_user_name = ?')) count += 1;
+    return count;
+  }
+
+  scopeValueCount() {
+    let count = 0;
+    if (this.query.includes('tenant_id = ?')) count += 1;
+    if (this.query.includes('account_id = ?')) count += 1;
     return count;
   }
 }
