@@ -565,13 +565,13 @@ src/
 安装：
 
 ```bash
-npm install -g @vmxmy/wechat-official-account-mcp
+npm install -g @ziikoo/wechat-official-account-mcp
 ```
 
 不全局安装也可直接运行：
 
 ```bash
-npx -y --package @vmxmy/wechat-official-account-mcp woa login --server https://<your-worker-domain> --token <oauth-token>
+npx -y --package @ziikoo/wechat-official-account-mcp woa login --server https://<your-worker-domain> --token <oauth-token>
 ```
 
 ```bash

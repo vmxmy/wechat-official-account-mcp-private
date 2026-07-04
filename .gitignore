@@ -32,3 +32,6 @@ data/
 .env.*
 !.env.example
 .tmp-cf/
+
+# Cloudflare local state
+.wrangler/

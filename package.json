@@ -1,5 +1,5 @@
 {
-  "name": "@vmxmy/wechat-official-account-mcp",
+  "name": "@ziikoo/wechat-official-account-mcp",
   "version": "2.2.0",
   "type": "module",
   "description": "微信公众号 MCP 服务 - 为 AI 应用提供完整的微信公众号 API 集成（26个工具模块，含多租户管理工具）",
