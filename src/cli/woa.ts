@@ -2,7 +2,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile, chmod } from 'node:fs/promises';
-import { createServer, Server } from 'node:http';
+import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -343,9 +343,7 @@ async function exchangeAuthorizationCode(
 }
 
 async function startLocalCallbackServer(expectedState: string, timeoutMs: number, preferredPort: number): Promise<LocalCallbackServer> {
-  let server: Server | undefined;
   let settled = false;
-  let timeout: NodeJS.Timeout | undefined;
   let resolveCode: (code: string) => void;
   let rejectCode: (error: Error) => void;
   const waitForCode = new Promise<string>((resolve, reject) => {
@@ -353,7 +351,7 @@ async function startLocalCallbackServer(expectedState: string, timeoutMs: number
     rejectCode = reject;
   });
 
-  server = createServer((request, response) => {
+  const server = createServer((request, response) => {
     const requestUrl = new URL(request.url || '/', `http://${request.headers.host || '127.0.0.1'}`);
     if (requestUrl.pathname !== '/callback') {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
@@ -389,11 +387,11 @@ async function startLocalCallbackServer(expectedState: string, timeoutMs: number
   });
 
   await new Promise<void>((resolve, reject) => {
-    server!.once('error', reject);
-    server!.listen(preferredPort, '127.0.0.1', () => resolve());
+    server.once('error', reject);
+    server.listen(preferredPort, '127.0.0.1', () => resolve());
   });
 
-  timeout = setTimeout(() => {
+  const timeout = setTimeout(() => {
     if (!settled) {
       settled = true;
       rejectCode(new Error(`OAuth callback timed out after ${Math.round(timeoutMs / 1000)} seconds.`));
@@ -405,8 +403,8 @@ async function startLocalCallbackServer(expectedState: string, timeoutMs: number
     redirectUri: `http://127.0.0.1:${address.port}/callback`,
     waitForCode,
     close: async () => {
-      if (timeout) clearTimeout(timeout);
-      await new Promise<void>(resolve => server!.close(() => resolve()));
+      clearTimeout(timeout);
+      await new Promise<void>(resolve => server.close(() => resolve()));
     },
   };
 }
