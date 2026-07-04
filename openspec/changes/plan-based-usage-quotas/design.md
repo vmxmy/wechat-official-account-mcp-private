@@ -11,6 +11,7 @@ The platform already exposes a multi-tenant Cloudflare Workers Remote MCP runtim
 - Quota metadata is machine-readable for MCP clients and support tooling.
 - D1 schema is additive and Stripe-ready.
 - Usage summaries are visible through authenticated management API/CLI endpoints with upgrade prompt metadata.
+- Stripe Checkout and signed subscription webhooks synchronize paid plan entitlements without storing Stripe secrets in code.
 
 ## Non-Goals
 
@@ -40,8 +41,16 @@ The adapter reserves quota before executing a tool, preventing a known over-limi
 
 The management API exposes `GET /api/v1/tenants/:tenantId/usage`, and the remote-only `woa usage` / `woa tenant usage` commands call that endpoint. The summary is built entirely from D1 entitlement/counter rows plus the in-code quota policy, so dashboards can render usage and upgrade prompts without constructing a WeChat API client or consuming a WeChat operation quota.
 
+### D6: Stripe sync uses metadata, signed webhook raw body, and fail-closed readiness
+
+Checkout creation uses Stripe's subscription-mode Checkout Session API with the tenant ID and target plan copied into both Session metadata and `subscription_data[metadata]`. Runtime checkout is fail-closed unless Stripe secret key, webhook secret, Plus/Pro price IDs, and default success/cancel URLs are all configured, so the platform cannot create paid sessions without a reconciliation path. Webhook processing verifies the raw request body against the `Stripe-Signature` `v1` HMAC-SHA256 signature before touching D1. `checkout.session.completed` upgrades the entitlement, subscription updates keep plan/status/current period synchronized, and `customer.subscription.deleted` downgrades to Free/cancelled only when it refers to the currently stored subscription ID.
+
+### D7: Stripe webhook idempotency and ordering guard
+
+`stripe_billing_events` stores processed Stripe event IDs. Duplicate webhook deliveries are ignored, and subscription events whose subscription ID differs from the current entitlement are treated as stale so old deletions cannot downgrade a tenant that has already moved to a newer paid subscription.
+
 ## Risks / Follow-ups
 
 - Concurrent requests can still race around the pre-read path; the SQL upsert contains a conditional update, but high-concurrency behavior should be stress-tested before large public rollout.
 - `wechat_publish.submit` receives a draft media ID, so it currently counts one publish unit unless an explicit article count is supplied by the caller.
-- Stripe webhook integration should update `tenant_entitlements.plan`, `status`, and Stripe IDs.
+- Stripe subscription statuses such as `past_due` are synchronized into entitlement status; product-level grace-period enforcement can be refined after billing policy is finalized.

@@ -66,6 +66,69 @@ The D1 entitlement model SHALL store tenant plan state and fields needed for fut
 - **THEN** the Worker applies Plus limits instead of Free limits
 - **AND** the entitlement record can store Stripe customer and subscription identifiers for future billing integration
 
+### Requirement: Stripe subscriptions synchronize tenant entitlements
+
+The OAuth-protected management API SHALL create Stripe Checkout subscription sessions for paid plans only when billing reconciliation is fully configured, and the Worker SHALL process signed Stripe subscription webhooks to synchronize `tenant_entitlements`.
+
+#### Scenario: Tenant starts Plus Checkout
+
+- **GIVEN** Stripe billing is configured with a Plus price ID
+- **AND** an authenticated tenant member has `woa:billing:write`
+- **WHEN** the member requests a Plus checkout session
+- **THEN** the Worker creates a Stripe Checkout Session in subscription mode
+- **AND** the session includes tenant ID and target plan metadata on both the Checkout Session and subscription data
+- **AND** the response returns the Checkout session URL without exposing the Stripe secret key
+
+#### Scenario: Checkout fails closed when reconciliation is not configured
+
+- **GIVEN** Stripe billing is missing any required checkout or webhook configuration
+- **WHEN** a tenant member requests a paid checkout session
+- **THEN** the Worker rejects the request
+- **AND** no Stripe Checkout Session is created
+
+#### Scenario: Checkout completion upgrades entitlement
+
+- **GIVEN** Stripe sends a `checkout.session.completed` webhook with a valid `Stripe-Signature`
+- **AND** the event metadata contains the tenant ID and paid plan
+- **WHEN** the Worker processes the webhook
+- **THEN** it updates `tenant_entitlements` with the paid plan, active status, Stripe customer ID, and Stripe subscription ID
+
+#### Scenario: Subscription deletion downgrades entitlement
+
+- **GIVEN** Stripe sends a `customer.subscription.deleted` webhook with a valid `Stripe-Signature`
+- **AND** the subscription ID matches the tenant's current Stripe subscription ID
+- **WHEN** the Worker processes the webhook
+- **THEN** it downgrades the tenant entitlement to Free
+- **AND** records the entitlement status as cancelled
+
+#### Scenario: Stale subscription deletion is ignored
+
+- **GIVEN** a tenant has a current active Stripe subscription ID
+- **WHEN** Stripe sends an older `customer.subscription.deleted` webhook for a different subscription ID
+- **THEN** the Worker records the event as stale
+- **AND** the tenant entitlement remains unchanged
+
+#### Scenario: Duplicate Stripe event is ignored
+
+- **GIVEN** a Stripe webhook event ID has already been processed
+- **WHEN** Stripe retries the same event
+- **THEN** the Worker treats the event as a duplicate
+- **AND** does not apply entitlement changes a second time
+
+#### Scenario: Failed entitlement write remains retryable
+
+- **GIVEN** a signed Stripe webhook event has not completed entitlement synchronization
+- **WHEN** entitlement persistence fails after signature verification
+- **THEN** the Worker does not mark the event as processed
+- **AND** a later Stripe retry can still apply the entitlement change
+
+#### Scenario: Invalid Stripe signature is rejected
+
+- **GIVEN** a Stripe webhook request has an invalid or stale signature
+- **WHEN** the Worker receives the request
+- **THEN** it returns an error
+- **AND** it does not update tenant entitlement state
+
 ### Requirement: Tenants can inspect usage and upgrade prompts
 
 The management API and remote-only CLI SHALL expose tenant usage summaries for dashboard and support workflows without constructing a WeChat API client.

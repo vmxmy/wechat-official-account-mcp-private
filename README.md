@@ -97,6 +97,12 @@ npm run worker:deploy
 | `WECHAT_PROXY_URL` | 可选：微信 API 出站 HTTPS relay 代理地址（固定出口 IP） |
 | `WECHAT_PROXY_TOKEN` | 可选：relay 代理鉴权 token |
 | `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` | Remote MCP OAuth 客户端凭证 |
+| `STRIPE_SECRET_KEY` | 可选：创建 Stripe Checkout Session 的 secret key |
+| `STRIPE_WEBHOOK_SECRET` | 可选：校验 Stripe webhook `Stripe-Signature` |
+| `STRIPE_PLUS_PRICE_ID` / `STRIPE_PRO_PRICE_ID` | 可选：Plus/Pro 订阅价格 ID |
+| `STRIPE_BILLING_SUCCESS_URL` / `STRIPE_BILLING_CANCEL_URL` | 可选：Checkout 默认成功/取消跳转 URL |
+
+Stripe Checkout 采用 fail-closed 策略：只有 secret key、webhook secret、Plus/Pro price ID、默认成功/取消 URL 全部配置后，受 OAuth 保护的付费 checkout 能力才会启用。
 
 > 生产注意：微信公众号 API 通常要求在公众号后台配置服务器 IP 白名单。Cloudflare Workers 默认出口 IP 不固定，正式切流前请配置固定出口代理。Workers 不支持传统 HTTP CONNECT forward proxy，本项目支持 `WECHAT_PROXY_URL` HTTPS relay：所有发往 `api.weixin.qq.com` 的 token/API/上传请求会改发到 relay，并通过 `x-wechat-proxy-target-url` header 传递目标 URL（默认不放 query，避免 access_token/AppSecret 进入代理访问日志）；relay 服务需在白名单 IP 机器上按原 method/body/headers 转发到该 target，并原样返回微信响应。
 > relay 运维要求：relay 必须校验 `x-wechat-proxy-token`（如启用），限制只转发到 `https://api.weixin.qq.com/*`，并在 access log 中禁用或脱敏 `x-wechat-proxy-target-url` 与 `x-wechat-proxy-token` header，避免目标 URL 中的 `access_token` 或 AppSecret 落盘。

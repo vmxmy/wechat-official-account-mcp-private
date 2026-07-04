@@ -8,6 +8,7 @@ This repository deploys the HTTP-only WeChat Official Account MCP Worker to Clou
 - URL: `https://woa.ziikoo.app`
 - MCP endpoint: `/mcp`
 - Webhook endpoint: `/wx/callback`
+- Stripe webhook endpoint: `/api/stripe/webhook`
 - D1 database: `wechat-official-account-mcp-prod`
 - KV namespace binding: `OAUTH_KV`
 - R2 bucket: `wechat-official-account-mcp-media`
@@ -47,6 +48,15 @@ Runtime secrets are stored in Cloudflare Worker Secrets, not in GitHub:
 - `OAUTH_CLIENT_SECRET`
 - Optional: `WECHAT_PROXY_URL`
 - Optional: `WECHAT_PROXY_TOKEN`
+- Optional: `STRIPE_SECRET_KEY`
+- Optional: `STRIPE_WEBHOOK_SECRET`
+- Optional: `STRIPE_PLUS_PRICE_ID`
+- Optional: `STRIPE_PRO_PRICE_ID`
+- Optional: `STRIPE_BILLING_SUCCESS_URL`
+- Optional: `STRIPE_BILLING_CANCEL_URL`
+
+Stripe Checkout is fail-closed: paid checkout creation is unavailable unless the secret key,
+webhook secret, both paid price IDs, and default success/cancel URLs are all configured.
 
 Local generated values are stored in `.env.production.local`, which is ignored by Git.
 

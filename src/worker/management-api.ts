@@ -18,6 +18,11 @@ import {
   reserveMcpToolQuota,
   type QuotaMetadata,
 } from './usage-store.js';
+import {
+  StripeBillingError,
+  type StripeBillingService,
+} from './stripe-billing.js';
+import { normalizeSubscriptionPlan } from './quota-policy.js';
 
 export interface ManagementApiDeps {
   createApiClient(): Promise<WechatApiClient>;
@@ -25,6 +30,9 @@ export interface ManagementApiDeps {
   defaultUserId?: string | null;
   defaultClientId?: string | null;
   usageStore?: D1UsageQuotaStore;
+  billing?: StripeBillingService;
+  trustedContext?: TenantRequestContext;
+  allowUnsafeHeaderContextForTests?: boolean;
 }
 
 export async function handleManagementApiRequest(
@@ -33,11 +41,22 @@ export async function handleManagementApiRequest(
 ): Promise<Response> {
   let context: TenantRequestContext | undefined;
   try {
-    context = createRestTenantContext(request, {
-      appId: deps.appId,
-      defaultUserId: deps.defaultUserId,
-      defaultClientId: deps.defaultClientId,
-    });
+    if (deps.trustedContext) {
+      context = deps.trustedContext;
+    } else {
+      if (!deps.allowUnsafeHeaderContextForTests) {
+        throw new ApiError(
+          'unauthorized',
+          'OAuth-protected management context is required for /api/v1 routes.',
+          401,
+        );
+      }
+      context = createRestTenantContext(request, {
+        appId: deps.appId,
+        defaultUserId: deps.defaultUserId,
+        defaultClientId: deps.defaultClientId,
+      });
+    }
 
     const url = new URL(request.url);
     const segments = url.pathname.replace(/^\/api\/v1\/?/, '').split('/').filter(Boolean);
@@ -52,6 +71,7 @@ export async function handleManagementApiRequest(
           '/api/v1/me',
           '/api/v1/tenants',
           '/api/v1/tenants/:tenantId/usage',
+          '/api/v1/tenants/:tenantId/billing/checkout',
           '/api/v1/tenants/:tenantId/accounts',
           '/api/v1/tenants/:tenantId/accounts/:accountId/drafts',
           '/api/v1/tenants/:tenantId/accounts/:accountId/publishes',
@@ -95,6 +115,16 @@ export async function handleManagementApiRequest(
           requestId: context?.requestId,
         },
       }, { status: 429 });
+    }
+    if (error instanceof StripeBillingError) {
+      return jsonResponse({
+        success: false,
+        error: {
+          code: error.code,
+          message: error.message,
+          requestId: context?.requestId,
+        },
+      }, { status: error.status });
     }
     return apiErrorToResponse(error, context?.requestId);
   }
@@ -163,6 +193,29 @@ async function handleTenantRoutes(
       },
       requestId: context.requestId,
     });
+  }
+
+  if (request.method === 'POST' && segments.length === 4 && segments[2] === 'billing' && segments[3] === 'checkout') {
+    requireScope(context, 'woa:billing:write');
+    if (!deps.billing) {
+      throw new ApiError('stripe_billing_unconfigured', 'Stripe billing is not fully configured in this runtime.', 503);
+    }
+    const body = await readJsonBody(request) as Record<string, unknown>;
+    const plan = normalizeSubscriptionPlan(body.plan);
+    if (plan !== 'plus' && plan !== 'pro') {
+      throw new ApiError('validation_error', 'plan must be plus or pro.', 400, { field: 'plan' });
+    }
+    const session = await deps.billing.createCheckoutSession({
+      tenantId,
+      plan,
+      successUrl: stringValue(body.successUrl),
+      cancelUrl: stringValue(body.cancelUrl),
+    });
+    return jsonResponse({
+      success: true,
+      data: session,
+      requestId: context.requestId,
+    }, { status: 201 });
   }
 
   if (segments[2] === 'accounts') {

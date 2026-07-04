@@ -180,10 +180,19 @@ CREATE TABLE IF NOT EXISTS usage_events (
   outcome TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS stripe_billing_events (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  tenant_id TEXT,
+  stripe_subscription_id TEXT,
+  created_at INTEGER NOT NULL,
+  processed_at INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_tenant_entitlements_plan ON tenant_entitlements(plan, status);
 CREATE INDEX IF NOT EXISTS idx_usage_counters_metric_period ON usage_counters(metric, period);
 CREATE INDEX IF NOT EXISTS idx_usage_events_tenant_time ON usage_events(tenant_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_usage_events_tool_time ON usage_events(tool_name, created_at);
+CREATE INDEX IF NOT EXISTS idx_stripe_billing_events_tenant_time ON stripe_billing_events(tenant_id, processed_at);
 `;
 
 export class D1UsageQuotaStore {
@@ -209,25 +218,20 @@ export class D1UsageQuotaStore {
        LIMIT 1`,
     ).bind(tenantId).first<Record<string, unknown>>();
 
-    if (!row) {
-      return {
-        tenantId,
-        plan: DEFAULT_SUBSCRIPTION_PLAN,
-        status: 'active',
-        limitOverrides: null,
-      };
-    }
+    return rowToTenantEntitlement(tenantId, row);
+  }
 
-    return {
-      tenantId,
-      plan: normalizeSubscriptionPlan(row.plan),
-      status: stringValue(row.status) || 'active',
-      limitOverrides: parseJsonObject(row.limits_json),
-      stripeCustomerId: stringValue(row.stripe_customer_id),
-      stripeSubscriptionId: stringValue(row.stripe_subscription_id),
-      currentPeriodStart: numberValue(row.current_period_start),
-      currentPeriodEnd: numberValue(row.current_period_end),
-    };
+  async findEntitlementByStripeSubscriptionId(subscriptionId: string): Promise<TenantEntitlement | null> {
+    await this.ensureSchema();
+    const row = await this.db.prepare(
+      `SELECT tenant_id, plan, status, limits_json, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end
+       FROM tenant_entitlements
+       WHERE stripe_subscription_id = ?
+       LIMIT 1`,
+    ).bind(subscriptionId).first<Record<string, unknown>>();
+
+    if (!row) return null;
+    return rowToTenantEntitlement(stringValue(row.tenant_id) || '', row);
   }
 
   async upsertEntitlement(input: {
@@ -275,6 +279,47 @@ export class D1UsageQuotaStore {
       input.currentPeriodEnd ?? null,
       JSON.stringify(input.limitOverrides ?? {}),
       now,
+      now,
+    ).run();
+  }
+
+  async hasStripeBillingEvent(eventId: string): Promise<boolean> {
+    await this.ensureSchema();
+    const row = await this.db.prepare(
+      `SELECT event_id
+       FROM stripe_billing_events
+       WHERE event_id = ?
+       LIMIT 1`,
+    ).bind(eventId).first<Record<string, unknown>>();
+
+    return !!row;
+  }
+
+  async recordStripeBillingEvent(input: {
+    eventId: string;
+    eventType: string;
+    tenantId?: string | null;
+    stripeSubscriptionId?: string | null;
+    eventCreatedAt?: number | null;
+    now?: number;
+  }): Promise<void> {
+    await this.ensureSchema();
+    const now = input.now ?? Date.now();
+    await this.db.prepare(
+      `INSERT INTO stripe_billing_events (
+         event_id,
+         event_type,
+         tenant_id,
+         stripe_subscription_id,
+         created_at,
+         processed_at
+       ) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      input.eventId,
+      input.eventType,
+      input.tenantId ?? null,
+      input.stripeSubscriptionId ?? null,
+      input.eventCreatedAt ?? now,
       now,
     ).run();
   }
@@ -684,6 +729,28 @@ function parseJsonObject(value: unknown): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+function rowToTenantEntitlement(tenantId: string, row: Record<string, unknown> | null): TenantEntitlement {
+  if (!row) {
+    return {
+      tenantId,
+      plan: DEFAULT_SUBSCRIPTION_PLAN,
+      status: 'active',
+      limitOverrides: null,
+    };
+  }
+
+  return {
+    tenantId,
+    plan: normalizeSubscriptionPlan(row.plan),
+    status: stringValue(row.status) || 'active',
+    limitOverrides: parseJsonObject(row.limits_json),
+    stripeCustomerId: stringValue(row.stripe_customer_id),
+    stripeSubscriptionId: stringValue(row.stripe_subscription_id),
+    currentPeriodStart: numberValue(row.current_period_start),
+    currentPeriodEnd: numberValue(row.current_period_end),
+  };
 }
 
 function stringValue(value: unknown): string | null {

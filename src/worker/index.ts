@@ -29,6 +29,12 @@ import { D1AuditLogWriter } from './audit-log.js';
 import { handleManagementApiRequest } from './management-api.js';
 import { executeMcpToolWithQuota } from './mcp-quota.js';
 import {
+  createStripeCheckoutService,
+  handleStripeWebhookRequest,
+  type StripeBillingService,
+  type StripePriceIds,
+} from './stripe-billing.js';
+import {
   createDefaultTenantContext,
   type TenantRequestContext,
 } from './tenant-context.js';
@@ -55,6 +61,12 @@ export interface WorkerEnv {
   WECHAT_PROXY_TOKEN?: SecretBinding;
   OAUTH_CLIENT_ID: SecretBinding;
   OAUTH_CLIENT_SECRET: SecretBinding;
+  STRIPE_SECRET_KEY?: SecretBinding;
+  STRIPE_WEBHOOK_SECRET?: SecretBinding;
+  STRIPE_PLUS_PRICE_ID?: SecretBinding;
+  STRIPE_PRO_PRICE_ID?: SecretBinding;
+  STRIPE_BILLING_SUCCESS_URL?: SecretBinding;
+  STRIPE_BILLING_CANCEL_URL?: SecretBinding;
 }
 
 type TokenOwnerRequestOptions = {
@@ -270,6 +282,39 @@ async function createWechatWorkersHttpExecutor(
   return new WorkersHttpExecutor({
     proxy: proxy ?? await resolveWorkerProxyConfig(env),
   });
+}
+
+async function resolveStripePriceIds(env: WorkerEnv): Promise<StripePriceIds> {
+  return {
+    plus: await resolveSecret(env.STRIPE_PLUS_PRICE_ID),
+    pro: await resolveSecret(env.STRIPE_PRO_PRICE_ID),
+  };
+}
+
+async function createStripeBillingServiceForEnv(
+  env: WorkerEnv,
+  usageStore: D1UsageQuotaStore,
+): Promise<StripeBillingService | undefined> {
+  const secretKey = await resolveSecret(env.STRIPE_SECRET_KEY);
+  const webhookSecret = await resolveSecret(env.STRIPE_WEBHOOK_SECRET);
+  const priceIds = await resolveStripePriceIds(env);
+  const defaultSuccessUrl = await resolveSecret(env.STRIPE_BILLING_SUCCESS_URL);
+  const defaultCancelUrl = await resolveSecret(env.STRIPE_BILLING_CANCEL_URL);
+  if (!secretKey || !webhookSecret || !priceIds.plus || !priceIds.pro || !defaultSuccessUrl || !defaultCancelUrl) {
+    return undefined;
+  }
+
+  return createStripeCheckoutService({
+    secretKey,
+    priceIds,
+    usageStore,
+    defaultSuccessUrl,
+    defaultCancelUrl,
+  });
+}
+
+function isStripeWebhookPath(pathname: string): boolean {
+  return pathname === '/api/stripe/webhook';
 }
 
 function registerWorkerMcpTool(
@@ -955,6 +1000,43 @@ const mcpHandler = WechatMcpAgent.serve('/mcp', {
   binding: 'WECHAT_MCP_AGENT',
 });
 
+const managementApiHandler = {
+  async fetch(request: Request, env: WorkerEnv, ctx: unknown): Promise<Response> {
+    const url = new URL(request.url);
+    const usageStore = new D1UsageQuotaStore(env.DB);
+    const props = oauthPropsFromContext(ctx);
+    const trustedContext = createDefaultTenantContext({
+      source: 'rest',
+      userId: props.userId || await resolveSecret(env.OAUTH_CLIENT_ID) || 'wechat-admin',
+      oauthClientId: props.oauthClientId,
+      scopes: props.scopes,
+      requestId: request.headers.get('x-request-id'),
+      appId: await resolveSecret(env.WECHAT_APP_ID),
+    });
+
+    if (url.pathname.includes('/billing/checkout') && !trustedContext.scopes.includes('woa:billing:write')) {
+      return json({
+        success: false,
+        error: {
+          code: 'missing_scope',
+          message: 'Missing required OAuth scope: woa:billing:write',
+          requestId: trustedContext.requestId,
+        },
+      }, { status: 403 });
+    }
+
+    return await handleManagementApiRequest(request, {
+      appId: await resolveSecret(env.WECHAT_APP_ID),
+      defaultUserId: await resolveSecret(env.OAUTH_CLIENT_ID),
+      defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+      usageStore,
+      billing: await createStripeBillingServiceForEnv(env, usageStore),
+      trustedContext,
+      createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
+    });
+  },
+};
+
 const defaultHandler = {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     const url = new URL(request.url);
@@ -989,6 +1071,20 @@ const defaultHandler = {
     return new Response('Not Found', { status: 404 });
   },
 };
+
+function oauthPropsFromContext(ctx: unknown): { userId?: string; oauthClientId?: string; scopes: string[] } {
+  const props = (ctx as unknown as { props?: Record<string, unknown> }).props ?? {};
+  const scopes = Array.isArray(props.scopes)
+    ? props.scopes.filter((scope): scope is string => typeof scope === 'string' && scope.trim().length > 0)
+    : typeof props.scopes === 'string'
+      ? props.scopes.split(/[\s,]+/).filter(Boolean)
+      : [];
+  return {
+    userId: typeof props.userId === 'string' ? props.userId : undefined,
+    oauthClientId: typeof props.oauthClientId === 'string' ? props.oauthClientId : undefined,
+    scopes,
+  };
+}
 
 async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Response> {
   const url = new URL(request.url);
@@ -1029,6 +1125,8 @@ async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Respon
     scope: oauthRequest.scope,
     props: {
       userId,
+      oauthClientId: oauthRequest.clientId,
+      scopes: oauthRequest.scope,
     },
     metadata: {
       mcpServer: 'wechat-official-account-mcp',
@@ -1088,6 +1186,7 @@ function createOAuthProvider(): OAuthProvider<WorkerEnv> {
     clientRegistrationEndpoint: '/oauth/register',
     apiHandlers: {
       '/mcp': mcpHandler,
+      '/api/v1': managementApiHandler,
     },
     defaultHandler,
     scopesSupported: [
@@ -1102,6 +1201,7 @@ function createOAuthProvider(): OAuthProvider<WorkerEnv> {
       'woa:content:publish',
       'woa:inbox:read',
       'woa:usage:read',
+      'woa:billing:write',
       'woa:audit:read',
     ],
     allowPlainPKCE: false,
@@ -1116,13 +1216,11 @@ export default {
       return legacyRestToolRemovedResponse();
     }
 
-    if (url.pathname.startsWith('/api/v1')) {
-      return await handleManagementApiRequest(request, {
-        appId: await resolveSecret(env.WECHAT_APP_ID),
-        defaultUserId: await resolveSecret(env.OAUTH_CLIENT_ID),
-        defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+    if (isStripeWebhookPath(url.pathname)) {
+      return await handleStripeWebhookRequest(request, {
+        webhookSecret: await resolveSecret(env.STRIPE_WEBHOOK_SECRET),
         usageStore: new D1UsageQuotaStore(env.DB),
-        createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
+        priceIds: await resolveStripePriceIds(env),
       });
     }
 

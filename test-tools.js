@@ -1,5 +1,6 @@
 // 简单测试脚本验证工具注册与运行时 seam
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { existsSync, readFileSync } from 'fs';
 import { execFile, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -37,6 +38,10 @@ import {
   reserveMcpToolQuota,
 } from './dist/src/worker/usage-store.js';
 import { executeMcpToolWithQuota } from './dist/src/worker/mcp-quota.js';
+import {
+  createStripeCheckoutService,
+  handleStripeWebhookRequest,
+} from './dist/src/worker/stripe-billing.js';
 
 let failed = false;
 
@@ -64,6 +69,13 @@ function usageCliRequestsOk(requests) {
     requests[0].method === 'GET' &&
     requests[0].url === `/api/v1/tenants/${DEFAULT_TENANT_ID}/usage` &&
     requests[0].authorization === 'Bearer TEST_TOKEN';
+}
+
+function stripeSignatureHeader(payload, secret, timestamp = Math.floor(Date.now() / 1000)) {
+  const signature = createHmac('sha256', secret)
+    .update(`${timestamp}.${payload}`)
+    .digest('hex');
+  return `t=${timestamp},v1=${signature}`;
 }
 
 console.log('=== MCP工具注册验证 ===');
@@ -232,6 +244,7 @@ const anonymousRestResponse = await handleManagementApiRequest(
     appId: 'wx1234567890abcdef',
     defaultUserId: 'wechat-admin',
     defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
     createApiClient: async () => { throw new Error('anonymous request must not construct api client'); },
   },
 );
@@ -248,6 +261,7 @@ const authorizedRestResponse = await handleManagementApiRequest(
     appId: 'wx1234567890abcdef',
     defaultUserId: 'wechat-admin',
     defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
     createApiClient: async () => { throw new Error('/me must not construct api client'); },
   },
 );
@@ -271,6 +285,12 @@ check(
     !/appSecret|WECHAT_APP_SECRET|app_secret/i.test(woaConfig),
   'woa mcp config 生成远程 /mcp 配置且不包含微信凭据',
 );
+const workerIndexSource = readFileSync('./src/worker/index.ts', 'utf8');
+check(
+  workerIndexSource.includes("'/api/v1': managementApiHandler") &&
+    !workerIndexSource.includes("url.pathname.startsWith('/api/v1')"),
+  '生产 Worker /api/v1 通过 OAuthProvider apiHandlers 保护，不在 OAuth 前手动执行 REST',
+);
 
 console.log('\n=== Plan quota fixture 验证 ===');
 
@@ -278,6 +298,7 @@ class MemoryUsageD1Database {
   entitlements = new Map();
   counters = new Map();
   events = [];
+  stripeEvents = new Map();
 
   prepare(query) {
     return new MemoryUsageD1Statement(this, query);
@@ -404,6 +425,20 @@ class MemoryUsageD1Statement {
       return { success: true, meta: { changes: 1 } };
     }
 
+    if (q.startsWith('INSERT INTO stripe_billing_events')) {
+      const [eventId, eventType, tenantId, stripeSubscriptionId, createdAt, processedAt] = this.values;
+      if (this.db.stripeEvents.has(eventId)) throw new Error(`Duplicate stripe event fixture: ${eventId}`);
+      this.db.stripeEvents.set(eventId, {
+        event_id: eventId,
+        event_type: eventType,
+        tenant_id: tenantId,
+        stripe_subscription_id: stripeSubscriptionId,
+        created_at: createdAt,
+        processed_at: processedAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
     if (q.startsWith('CREATE TABLE') || q.startsWith('CREATE INDEX')) {
       return { success: true, meta: { changes: 0 } };
     }
@@ -416,6 +451,15 @@ class MemoryUsageD1Statement {
 
     if (q.startsWith('SELECT plan, status, limits_json')) {
       return this.db.entitlements.get(this.values[0]) ?? null;
+    }
+
+    if (q.startsWith('SELECT tenant_id, plan, status, limits_json')) {
+      const subscriptionId = this.values[0];
+      return [...this.db.entitlements.values()].find(row => row.stripe_subscription_id === subscriptionId) ?? null;
+    }
+
+    if (q.startsWith('SELECT event_id FROM stripe_billing_events')) {
+      return this.db.stripeEvents.get(this.values[0]) ?? null;
     }
 
     if (q.startsWith('SELECT used, limit_value, reset_at')) {
@@ -456,11 +500,17 @@ check(
   'Free 计划不隐藏任何 MCP tool；所有工具至少受每日/月度总调用配额约束',
 );
 const quotaMigrationSql = readFileSync('./migrations/d1/0003_usage_quotas.sql', 'utf8');
+const stripeBillingMigrationSql = readFileSync('./migrations/d1/0004_stripe_billing_events.sql', 'utf8');
 check(
   ['tenant_entitlements', 'usage_counters', 'usage_events'].every(table => quotaMigrationSql.includes(`CREATE TABLE IF NOT EXISTS ${table}`)) &&
     /stripe_customer_id TEXT/.test(quotaMigrationSql) &&
     /INSERT OR IGNORE INTO tenant_entitlements/.test(quotaMigrationSql),
   '0003 migration 声明 plan entitlement、usage counters/events，并为 Stripe 订阅字段预留落点',
+);
+check(
+  stripeBillingMigrationSql.includes('CREATE TABLE IF NOT EXISTS stripe_billing_events') &&
+    stripeBillingMigrationSql.includes('event_id TEXT PRIMARY KEY'),
+  '0004 migration 声明 Stripe webhook event 幂等 ledger',
 );
 
 const quotaDb = new MemoryUsageD1Database();
@@ -573,6 +623,7 @@ const restDraftResponse = await handleManagementApiRequest(
     appId: 'wx1234567890abcdef',
     defaultUserId: 'wechat-admin',
     defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
     usageStore: restQuotaStore,
     createApiClient: async () => ({
       post: async (path, data) => {
@@ -605,6 +656,7 @@ const failingRestDraftResponse = await handleManagementApiRequest(
     appId: 'wx1234567890abcdef',
     defaultUserId: 'wechat-admin',
     defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
     usageStore: restFailQuotaStore,
     createApiClient: async () => ({
       post: async () => {
@@ -640,6 +692,7 @@ const deniedRestDraftResponse = await handleManagementApiRequest(
     appId: 'wx1234567890abcdef',
     defaultUserId: 'wechat-admin',
     defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
     usageStore: restDeniedQuotaStore,
     createApiClient: async () => {
       deniedRestDraftCalls += 1;
@@ -687,6 +740,7 @@ const usageVisibilityResponse = await handleManagementApiRequest(
     appId: 'wx1234567890abcdef',
     defaultUserId: 'wechat-admin',
     defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
     usageStore: usageVisibilityStore,
     createApiClient: async () => {
       usageApiClientConstructed = true;
@@ -747,6 +801,488 @@ try {
 } finally {
   await new Promise(resolve => usageCliServer.close(resolve));
 }
+
+console.log('\n=== Stripe billing fixture 验证 ===');
+
+const stripeCheckoutStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+const stripeCheckoutCalls = [];
+const stripeBilling = createStripeCheckoutService({
+  secretKey: 'sk_test_fixture',
+  priceIds: {
+    plus: 'price_plus_fixture',
+    pro: 'price_pro_fixture',
+  },
+  usageStore: stripeCheckoutStore,
+  defaultSuccessUrl: 'https://app.example.test/billing/success',
+  defaultCancelUrl: 'https://app.example.test/billing/cancel',
+  fetch: async (input, init = {}) => {
+    const bodyText = init.body instanceof URLSearchParams ? init.body.toString() : String(init.body ?? '');
+    stripeCheckoutCalls.push({
+      url: String(input),
+      method: init.method,
+      authorization: new Headers(init.headers).get('authorization'),
+      bodyText,
+    });
+    return new Response(JSON.stringify({
+      id: 'cs_test_fixture',
+      url: 'https://checkout.stripe.com/c/pay/cs_test_fixture',
+      customer: 'cus_test_fixture',
+      subscription: 'sub_test_fixture',
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  },
+});
+const stripeCheckoutResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/billing/checkout`, {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'content-type': 'application/json',
+      'x-woa-scopes': 'woa:tenant:read woa:billing:write',
+    },
+    body: JSON.stringify({ plan: 'plus' }),
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    usageStore: stripeCheckoutStore,
+    billing: stripeBilling,
+    createApiClient: async () => {
+      throw new Error('Stripe checkout must not construct WeChat api client');
+    },
+  },
+);
+const stripeCheckoutBody = await stripeCheckoutResponse.json();
+check(
+  stripeCheckoutResponse.status === 201 &&
+    stripeCheckoutBody.data?.url === 'https://checkout.stripe.com/c/pay/cs_test_fixture' &&
+    stripeCheckoutCalls[0]?.url === 'https://api.stripe.com/v1/checkout/sessions' &&
+    stripeCheckoutCalls[0]?.authorization === 'Bearer sk_test_fixture' &&
+    stripeCheckoutCalls[0]?.bodyText.includes('mode=subscription') &&
+    stripeCheckoutCalls[0]?.bodyText.includes('line_items%5B0%5D%5Bprice%5D=price_plus_fixture') &&
+    stripeCheckoutCalls[0]?.bodyText.includes(`metadata%5Btenant_id%5D=${DEFAULT_TENANT_ID}`) &&
+    !JSON.stringify(stripeCheckoutBody).includes('sk_test_fixture'),
+  'Stripe Checkout API 创建订阅 session，写入 tenant/plan metadata 且不回显 secret',
+);
+
+const stripeCheckoutMissingScopeResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/billing/checkout`, {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ plan: 'plus' }),
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    usageStore: stripeCheckoutStore,
+    billing: stripeBilling,
+    createApiClient: async () => {
+      throw new Error('Stripe checkout missing-scope rejection must not construct WeChat api client');
+    },
+  },
+);
+const stripeCheckoutMissingScopeBody = await stripeCheckoutMissingScopeResponse.json();
+check(
+  stripeCheckoutMissingScopeResponse.status === 403 &&
+    stripeCheckoutMissingScopeBody.error?.code === 'missing_scope',
+  'Stripe Checkout REST route 缺少 woa:billing:write scope 时拒绝，避免伪 Bearer 默认写权限',
+);
+
+let offOriginCheckoutRejected = false;
+try {
+  await stripeBilling.createCheckoutSession({
+    tenantId: DEFAULT_TENANT_ID,
+    plan: 'plus',
+    successUrl: 'https://evil.example.test/success',
+  });
+} catch (error) {
+  offOriginCheckoutRejected = error?.code === 'stripe_checkout_url_forbidden';
+}
+let insecureCheckoutRejected = false;
+try {
+  await stripeBilling.createCheckoutSession({
+    tenantId: DEFAULT_TENANT_ID,
+    plan: 'plus',
+    successUrl: 'http://app.example.test/billing/success',
+  });
+} catch (error) {
+  insecureCheckoutRejected = error?.code === 'stripe_checkout_url_invalid';
+}
+check(
+  offOriginCheckoutRejected && insecureCheckoutRejected,
+  'Stripe Checkout redirect URL 只允许 HTTPS 且与配置 origin 一致',
+);
+
+const stripeWebhookSecret = 'webhook_secret_fixture';
+const stripeWebhookStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+const stripeCheckoutEventPayload = JSON.stringify({
+  id: 'evt_checkout_fixture',
+  type: 'checkout.session.completed',
+  data: {
+    object: {
+      id: 'cs_test_fixture',
+      client_reference_id: DEFAULT_TENANT_ID,
+      customer: 'cus_test_fixture',
+      subscription: 'sub_test_fixture',
+      metadata: {
+        tenant_id: DEFAULT_TENANT_ID,
+        plan: 'plus',
+      },
+    },
+  },
+});
+const stripeCheckoutWebhookResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(stripeCheckoutEventPayload, stripeWebhookSecret),
+    },
+    body: stripeCheckoutEventPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: stripeWebhookStore,
+    priceIds: {
+      plus: 'price_plus_fixture',
+      pro: 'price_pro_fixture',
+    },
+  },
+);
+const stripeCheckoutWebhookBody = await stripeCheckoutWebhookResponse.json();
+const plusEntitlement = await stripeWebhookStore.getEntitlement(DEFAULT_TENANT_ID);
+check(
+  stripeCheckoutWebhookResponse.status === 200 &&
+    stripeCheckoutWebhookBody.handled === true &&
+    plusEntitlement.plan === 'plus' &&
+    plusEntitlement.status === 'active' &&
+    plusEntitlement.stripeCustomerId === 'cus_test_fixture' &&
+    plusEntitlement.stripeSubscriptionId === 'sub_test_fixture',
+  'Stripe checkout.session.completed webhook 验签后同步 Plus entitlement 与 Stripe IDs',
+);
+
+const duplicateStripeCheckoutWebhookResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(stripeCheckoutEventPayload, stripeWebhookSecret),
+    },
+    body: stripeCheckoutEventPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: stripeWebhookStore,
+    priceIds: {
+      plus: 'price_plus_fixture',
+      pro: 'price_pro_fixture',
+    },
+  },
+);
+const duplicateStripeCheckoutWebhookBody = await duplicateStripeCheckoutWebhookResponse.json();
+check(
+  duplicateStripeCheckoutWebhookResponse.status === 200 &&
+    duplicateStripeCheckoutWebhookBody.duplicate === true &&
+    duplicateStripeCheckoutWebhookBody.reason === 'duplicate_stripe_event',
+  'Stripe webhook 重复 event.id 幂等忽略',
+);
+
+await stripeWebhookStore.upsertEntitlement({
+  tenantId: DEFAULT_TENANT_ID,
+  plan: 'pro',
+  status: 'active',
+  stripeCustomerId: 'cus_test_fixture',
+  stripeSubscriptionId: 'sub_new_fixture',
+});
+const stripeStaleCheckoutPayload = JSON.stringify({
+  id: 'evt_checkout_stale_fixture',
+  type: 'checkout.session.completed',
+  data: {
+    object: {
+      id: 'cs_stale_fixture',
+      client_reference_id: DEFAULT_TENANT_ID,
+      customer: 'cus_test_fixture',
+      subscription: 'sub_old_fixture',
+      metadata: {
+        tenant_id: DEFAULT_TENANT_ID,
+        plan: 'plus',
+      },
+    },
+  },
+});
+const stripeStaleCheckoutResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(stripeStaleCheckoutPayload, stripeWebhookSecret),
+    },
+    body: stripeStaleCheckoutPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: stripeWebhookStore,
+    priceIds: {
+      plus: 'price_plus_fixture',
+      pro: 'price_pro_fixture',
+    },
+  },
+);
+const staleCheckoutEntitlement = await stripeWebhookStore.getEntitlement(DEFAULT_TENANT_ID);
+const staleCheckoutBody = await stripeStaleCheckoutResponse.json();
+check(
+  stripeStaleCheckoutResponse.status === 200 &&
+    staleCheckoutBody.stale === true &&
+    staleCheckoutEntitlement.plan === 'pro' &&
+    staleCheckoutEntitlement.stripeSubscriptionId === 'sub_new_fixture',
+  'Stripe 旧 checkout.session.completed 事件不会覆盖当前新订阅',
+);
+
+const stripeStaleSubscriptionDeletedPayload = JSON.stringify({
+  id: 'evt_deleted_stale_fixture',
+  type: 'customer.subscription.deleted',
+  data: {
+    object: {
+      id: 'sub_old_fixture',
+      customer: 'cus_test_fixture',
+      status: 'canceled',
+      metadata: {
+        tenant_id: DEFAULT_TENANT_ID,
+        plan: 'plus',
+      },
+    },
+  },
+});
+const stripeStaleDeletedWebhookResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(stripeStaleSubscriptionDeletedPayload, stripeWebhookSecret),
+    },
+    body: stripeStaleSubscriptionDeletedPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: stripeWebhookStore,
+    priceIds: {
+      plus: 'price_plus_fixture',
+      pro: 'price_pro_fixture',
+    },
+  },
+);
+const staleEntitlement = await stripeWebhookStore.getEntitlement(DEFAULT_TENANT_ID);
+const staleDeletedBody = await stripeStaleDeletedWebhookResponse.json();
+check(
+  stripeStaleDeletedWebhookResponse.status === 200 &&
+    staleDeletedBody.stale === true &&
+    staleEntitlement.plan === 'pro' &&
+    staleEntitlement.stripeSubscriptionId === 'sub_new_fixture',
+  'Stripe 旧 subscription.deleted 事件不会降级当前新订阅',
+);
+
+await stripeWebhookStore.upsertEntitlement({
+  tenantId: DEFAULT_TENANT_ID,
+  plan: 'pro',
+  status: 'active',
+  stripeCustomerId: 'cus_test_fixture',
+  stripeSubscriptionId: null,
+});
+const stripeMissingCurrentSubscriptionDeletedPayload = JSON.stringify({
+  id: 'evt_deleted_missing_current_fixture',
+  type: 'customer.subscription.deleted',
+  data: {
+    object: {
+      id: 'sub_unknown_fixture',
+      customer: 'cus_test_fixture',
+      status: 'canceled',
+      metadata: {
+        tenant_id: DEFAULT_TENANT_ID,
+        plan: 'pro',
+      },
+    },
+  },
+});
+const stripeMissingCurrentDeletedWebhookResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(stripeMissingCurrentSubscriptionDeletedPayload, stripeWebhookSecret),
+    },
+    body: stripeMissingCurrentSubscriptionDeletedPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: stripeWebhookStore,
+    priceIds: {
+      plus: 'price_plus_fixture',
+      pro: 'price_pro_fixture',
+    },
+  },
+);
+const missingCurrentDeletedBody = await stripeMissingCurrentDeletedWebhookResponse.json();
+const missingCurrentEntitlement = await stripeWebhookStore.getEntitlement(DEFAULT_TENANT_ID);
+check(
+  stripeMissingCurrentDeletedWebhookResponse.status === 200 &&
+    missingCurrentDeletedBody.stale === true &&
+    missingCurrentEntitlement.plan === 'pro' &&
+    missingCurrentEntitlement.stripeSubscriptionId === null,
+  'Stripe subscription.deleted 在当前 entitlement 无 subscriptionId 时不会降级 paid 计划',
+);
+
+await stripeWebhookStore.upsertEntitlement({
+  tenantId: DEFAULT_TENANT_ID,
+  plan: 'pro',
+  status: 'active',
+  stripeCustomerId: 'cus_test_fixture',
+  stripeSubscriptionId: 'sub_new_fixture',
+});
+
+class FailingOnceUsageStore extends D1UsageQuotaStore {
+  failed = false;
+
+  async upsertEntitlement(input) {
+    if (!this.failed) {
+      this.failed = true;
+      throw new Error('fixture transient entitlement failure');
+    }
+    return await super.upsertEntitlement(input);
+  }
+}
+
+const retryAfterFailureStore = new FailingOnceUsageStore(new MemoryUsageD1Database());
+const retryAfterFailurePayload = JSON.stringify({
+  id: 'evt_retry_after_failure_fixture',
+  type: 'checkout.session.completed',
+  data: {
+    object: {
+      id: 'cs_retry_fixture',
+      client_reference_id: 'tenant_retry_fixture',
+      customer: 'cus_retry_fixture',
+      subscription: 'sub_retry_fixture',
+      metadata: {
+        tenant_id: 'tenant_retry_fixture',
+        plan: 'plus',
+      },
+    },
+  },
+});
+let retryFirstAttemptFailed = false;
+try {
+  await handleStripeWebhookRequest(
+    new Request('https://worker.example.test/api/stripe/webhook', {
+      method: 'POST',
+      headers: {
+        'stripe-signature': stripeSignatureHeader(retryAfterFailurePayload, stripeWebhookSecret),
+      },
+      body: retryAfterFailurePayload,
+    }),
+    {
+      webhookSecret: stripeWebhookSecret,
+      usageStore: retryAfterFailureStore,
+    },
+  );
+} catch {
+  retryFirstAttemptFailed = true;
+}
+const retrySecondResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(retryAfterFailurePayload, stripeWebhookSecret),
+    },
+    body: retryAfterFailurePayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: retryAfterFailureStore,
+  },
+);
+const retryEntitlement = await retryAfterFailureStore.getEntitlement('tenant_retry_fixture');
+check(
+  retryFirstAttemptFailed &&
+    retrySecondResponse.status === 200 &&
+    retryEntitlement.plan === 'plus' &&
+    retryEntitlement.stripeSubscriptionId === 'sub_retry_fixture',
+  'Stripe entitlement 写入失败不会提前标记 event processed，重试可成功同步',
+);
+
+const stripeSubscriptionDeletedPayload = JSON.stringify({
+  id: 'evt_deleted_fixture',
+  type: 'customer.subscription.deleted',
+  data: {
+    object: {
+      id: 'sub_new_fixture',
+      customer: 'cus_test_fixture',
+      status: 'canceled',
+      metadata: {
+        tenant_id: DEFAULT_TENANT_ID,
+        plan: 'pro',
+      },
+    },
+  },
+});
+const stripeDeletedWebhookResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(stripeSubscriptionDeletedPayload, stripeWebhookSecret),
+    },
+    body: stripeSubscriptionDeletedPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: stripeWebhookStore,
+    priceIds: {
+      plus: 'price_plus_fixture',
+      pro: 'price_pro_fixture',
+    },
+  },
+);
+const cancelledEntitlement = await stripeWebhookStore.getEntitlement(DEFAULT_TENANT_ID);
+check(
+  stripeDeletedWebhookResponse.status === 200 &&
+    cancelledEntitlement.plan === 'free' &&
+    cancelledEntitlement.status === 'cancelled',
+  'Stripe customer.subscription.deleted webhook 将租户降级为 Free/cancelled',
+);
+
+const stripeInvalidSignatureResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': 't=1,v1=bad',
+    },
+    body: stripeCheckoutEventPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: stripeWebhookStore,
+    now: Date.now(),
+  },
+);
+check(stripeInvalidSignatureResponse.status === 400, 'Stripe webhook 签名错误时拒绝处理');
+
+const stripeInvalidJsonPayload = 'not-json';
+const stripeInvalidJsonResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(stripeInvalidJsonPayload, stripeWebhookSecret),
+    },
+    body: stripeInvalidJsonPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: stripeWebhookStore,
+  },
+);
+check(stripeInvalidJsonResponse.status === 400, 'Stripe webhook 已验签但非 JSON payload 时显式拒绝');
 
 console.log('\n=== WeChat list default fixture 验证 ===');
 
