@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, readFile, writeFile, chmod } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { DEFAULT_ACCOUNT_ID, DEFAULT_TENANT_ID } from '../storage/types.js';
 
 interface CliConfig {
   server?: string;
@@ -206,14 +207,14 @@ async function writeMcpConfig(target: string | undefined, flags: Record<string, 
 async function resolveTenantAccount(flags: Record<string, string | boolean>): Promise<{ tenantId: string; accountId: string }> {
   const config = await loadConfig();
   return {
-    tenantId: stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id') || config.activeTenantId || 'default-tenant',
-    accountId: stringFlag(flags, 'account') || stringFlag(flags, 'account-id') || config.activeAccountId || 'default-account',
+    tenantId: stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id') || config.activeTenantId || DEFAULT_TENANT_ID,
+    accountId: stringFlag(flags, 'account') || stringFlag(flags, 'account-id') || config.activeAccountId || DEFAULT_ACCOUNT_ID,
   };
 }
 
 async function resolveTenantId(flags: Record<string, string | boolean>): Promise<string> {
   const config = await loadConfig();
-  return stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id') || config.activeTenantId || 'default-tenant';
+  return stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id') || config.activeTenantId || DEFAULT_TENANT_ID;
 }
 
 async function loadConfig(): Promise<CliConfig> {

@@ -1120,6 +1120,7 @@ export default {
         appId: await resolveSecret(env.WECHAT_APP_ID),
         defaultUserId: await resolveSecret(env.OAUTH_CLIENT_ID),
         defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+        usageStore: new D1UsageQuotaStore(env.DB),
         createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
       });
     }

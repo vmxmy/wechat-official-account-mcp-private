@@ -9,14 +9,22 @@ import {
   publicContext,
   requireScope,
   resolveAccountContext,
+  type AccountContext,
   type TenantRequestContext,
 } from './tenant-context.js';
+import {
+  D1UsageQuotaStore,
+  QuotaExceededError,
+  reserveMcpToolQuota,
+  type QuotaMetadata,
+} from './usage-store.js';
 
 export interface ManagementApiDeps {
   createApiClient(): Promise<WechatApiClient>;
   appId?: string | null;
   defaultUserId?: string | null;
   defaultClientId?: string | null;
+  usageStore?: D1UsageQuotaStore;
 }
 
 export async function handleManagementApiRequest(
@@ -76,6 +84,17 @@ export async function handleManagementApiRequest(
 
     throw new ApiError('not_found', 'API route not found.', 404);
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return jsonResponse({
+        success: false,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          requestId: context?.requestId,
+        },
+      }, { status: 429 });
+    }
     return apiErrorToResponse(error, context?.requestId);
   }
 }
@@ -202,96 +221,200 @@ async function handleAccountRoutes(
     if (!body.appId || !body.appSecret) {
       throw new ApiError('validation_error', 'appId and appSecret are required.', 400);
     }
-    const apiClient = await deps.createApiClient();
-    await apiClient.getAuthManager().setConfig({
-      appId: body.appId,
-      appSecret: body.appSecret,
-      token: body.token,
-      encodingAESKey: body.encodingAESKey,
-    });
-    return jsonResponse({
-      success: true,
-      data: {
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'woa_account',
+      action: 'configure',
+      params: { action: 'configure', tenantId, accountId },
+    }, async () => {
+      const apiClient = await deps.createApiClient();
+      await apiClient.getAuthManager().setConfig({
+        appId: body.appId,
+        appSecret: body.appSecret,
+        token: body.token,
+        encodingAESKey: body.encodingAESKey,
+      });
+      return {
         tenantId,
         accountId,
         appId: body.appId,
         hasAppSecret: true,
         hasToken: !!body.token,
         hasEncodingAESKey: !!body.encodingAESKey,
-      },
-      requestId: context.requestId,
+      };
     });
+    return apiSuccess(data, context, quota);
   }
 
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'status') {
-    const apiClient = await deps.createApiClient();
-    const config = await apiClient.getAuthManager().getConfig();
-    return jsonResponse({
-      success: true,
-      data: {
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'woa_account',
+      action: 'status',
+      params: { action: 'status', tenantId, accountId },
+    }, async () => {
+      const apiClient = await deps.createApiClient();
+      const config = await apiClient.getAuthManager().getConfig();
+      return {
         account: account?.account,
         configured: !!(config?.appId && config?.appSecret),
         config: maskConfig(config),
-      },
-      requestId: context.requestId,
+      };
     });
+    return apiSuccess(data, context, quota);
   }
 
   if (request.method === 'POST' && segments.length === 6 && segments[4] === 'token' && segments[5] === 'refresh') {
     requireScope(context, 'woa:account:write');
-    const apiClient = await deps.createApiClient();
-    const token = await apiClient.getAuthManager().refreshAccessToken();
-    return jsonResponse({
-      success: true,
-      data: {
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'wechat_auth',
+      action: 'refresh_token',
+      params: { action: 'refresh_token', tenantId, accountId },
+    }, async () => {
+      const apiClient = await deps.createApiClient();
+      const token = await apiClient.getAuthManager().refreshAccessToken();
+      return {
         accountId,
         expiresIn: token.expiresIn,
         expiresAt: token.expiresAt,
-      },
-      requestId: context.requestId,
+      };
     });
+    return apiSuccess(data, context, quota);
   }
 
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'drafts') {
     requireScope(context, 'woa:content:read');
-    const apiClient = await deps.createApiClient();
     const url = new URL(request.url);
-    const data = await apiClient.post('/cgi-bin/draft/batchget', {
+    const params = {
+      action: 'list',
       offset: intQuery(url, 'offset', 0),
       count: clampIntQuery(url, 'count', 20, 1, 20),
       no_content: clampIntQuery(url, 'no_content', 1, 0, 1),
+      tenantId,
+      accountId,
+    };
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'wechat_draft',
+      action: 'list',
+      params,
+    }, async () => {
+      const apiClient = await deps.createApiClient();
+      return await apiClient.post('/cgi-bin/draft/batchget', {
+        offset: params.offset,
+        count: params.count,
+        no_content: params.no_content,
+      });
     });
-    return jsonResponse({ success: true, data, requestId: context.requestId });
+    return apiSuccess(data, context, quota);
   }
 
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'publishes') {
     requireScope(context, 'woa:content:read');
-    const apiClient = await deps.createApiClient();
     const url = new URL(request.url);
-    const data = await apiClient.post('/cgi-bin/freepublish/batchget', {
+    const params = {
+      action: 'list',
       offset: intQuery(url, 'offset', 0),
       count: clampIntQuery(url, 'count', 20, 1, 20),
       no_content: clampIntQuery(url, 'no_content', 1, 0, 1),
+      tenantId,
+      accountId,
+    };
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'wechat_publish',
+      action: 'list',
+      params,
+    }, async () => {
+      const apiClient = await deps.createApiClient();
+      return await apiClient.post('/cgi-bin/freepublish/batchget', {
+        offset: params.offset,
+        count: params.count,
+        no_content: params.no_content,
+      });
     });
-    return jsonResponse({ success: true, data, requestId: context.requestId });
+    return apiSuccess(data, context, quota);
   }
 
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'inbox') {
     requireScope(context, 'woa:inbox:read');
-    const apiClient = await deps.createApiClient();
-    const inboxStore = getInboxStore(apiClient);
     const url = new URL(request.url);
-    const data = await inboxStore.listMessages({
-      pendingOnly: url.searchParams.get('pending') !== 'false',
+    const pendingOnly = url.searchParams.get('pending') !== 'false';
+    const params = {
+      action: pendingOnly ? 'list_pending' : 'list_all',
+      tenantId,
+      accountId,
+      pendingOnly,
       type: url.searchParams.get('type') ?? undefined,
       openid: url.searchParams.get('openid') ?? undefined,
       limit: clampIntQuery(url, 'limit', 20, 1, 100),
       offset: intQuery(url, 'offset', 0),
+    };
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'wechat_inbox',
+      action: params.action,
+      params,
+    }, async () => {
+      const apiClient = await deps.createApiClient();
+      const inboxStore = getInboxStore(apiClient);
+      return await inboxStore.listMessages({
+        pendingOnly: params.pendingOnly,
+        type: params.type,
+        openid: params.openid,
+        limit: params.limit,
+        offset: params.offset,
+        tenantId,
+        accountId,
+      });
     });
-    return jsonResponse({ success: true, data, requestId: context.requestId });
+    return apiSuccess(data, context, quota);
   }
 
   throw new ApiError('not_found', 'Account API route not found.', 404);
+}
+
+async function runWithOptionalQuota<T>(
+  deps: ManagementApiDeps,
+  context: TenantRequestContext,
+  account: AccountContext | undefined,
+  quotaRequest: {
+    toolName: string;
+    action: string;
+    params: Record<string, unknown>;
+  },
+  operation: () => Promise<T>,
+): Promise<{ data: T; quota?: QuotaMetadata }> {
+  if (!deps.usageStore) {
+    return { data: await operation() };
+  }
+
+  const tenantId = account?.tenantId ?? context.defaultTenantId ?? String(quotaRequest.params.tenantId ?? 'tenant_unknown');
+  const accountId = account?.accountId ?? context.defaultAccountId ?? stringValue(quotaRequest.params.accountId);
+  const reservation = await reserveMcpToolQuota({
+    store: deps.usageStore,
+    tenantId,
+    accountId,
+    userId: context.userId,
+    oauthClientId: context.oauthClientId,
+    requestId: context.requestId,
+    toolName: quotaRequest.toolName,
+    action: quotaRequest.action,
+    params: quotaRequest.params,
+  });
+
+  try {
+    const data = await operation();
+    await reservation.commit();
+    return { data, quota: reservation.metadata() };
+  } catch (error) {
+    await reservation.refund('rest_operation_error');
+    throw error;
+  }
+}
+
+function apiSuccess(data: unknown, context: TenantRequestContext, quota?: QuotaMetadata): Response {
+  return jsonResponse({
+    success: true,
+    data,
+    ...(quota ? { meta: { quota } } : {}),
+    requestId: context.requestId,
+  });
 }
 
 async function readJsonBody(request: Request): Promise<unknown> {
@@ -354,4 +477,8 @@ function maskAccountBody(body: unknown): unknown {
     }
   }
   return copy;
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }

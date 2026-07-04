@@ -1,4 +1,8 @@
 import type { WechatToolResult } from '../mcp-tool/types.js';
+import {
+  DEFAULT_ACCOUNT_ID,
+  DEFAULT_TENANT_ID,
+} from '../storage/types.js';
 
 export type TenantRole = 'owner' | 'admin' | 'operator' | 'viewer';
 
@@ -45,8 +49,6 @@ export interface TenantAwareParams extends Record<string, unknown> {
   __woaAccountContext?: AccountContext;
 }
 
-const DEFAULT_TENANT_ID = 'default-tenant';
-const DEFAULT_ACCOUNT_ID = 'default-account';
 const DEFAULT_SCOPES = [
   'wechat.mcp',
   'woa:context:read',

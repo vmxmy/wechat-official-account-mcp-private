@@ -233,7 +233,7 @@ const authorizedRestBody = await authorizedRestResponse.json();
 check(
   authorizedRestResponse.status === 200 &&
     authorizedRestBody.success === true &&
-    authorizedRestBody.data?.accounts?.[0]?.accountId === 'default-account',
+    authorizedRestBody.data?.accounts?.[0]?.accountId === DEFAULT_ACCOUNT_ID,
   'REST /api/v1/me 授权请求返回用户/租户/默认账号上下文',
 );
 
@@ -534,6 +534,105 @@ const refundedStatsCounter = await refundStore.getCounter('tenant_quota', 'stats
 check(
   (refundedStatsCounter?.used ?? 0) === 0,
   'handler 失败时业务配额会退款，不计入成功用量',
+);
+
+console.log('\n=== REST quota fixture 验证 ===');
+
+const restQuotaStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+let restDraftCalls = 0;
+const restDraftResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/drafts?count=20&no_content=1`, {
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:read',
+    },
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    usageStore: restQuotaStore,
+    createApiClient: async () => ({
+      post: async (path, data) => {
+        restDraftCalls += 1;
+        return { total_count: 0, item_count: 0, item: [], fixturePath: path, fixtureData: data };
+      },
+    }),
+  },
+);
+const restDraftBody = await restDraftResponse.json();
+const restToolCallCounter = await restQuotaStore.getCounter(DEFAULT_TENANT_ID, 'tool_calls_month', quotaPeriod('month'));
+check(
+  restDraftResponse.status === 200 &&
+    restDraftCalls === 1 &&
+    restDraftBody.meta?.quota?.checks?.some(item => item.metric === 'tool_calls_month') &&
+    restToolCallCounter?.used === 1,
+  'REST draft list 成功时提交 quota 并在响应 meta 返回机器可读 quota 信息',
+);
+
+const restFailQuotaStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+let failingRestDraftCalls = 0;
+const failingRestDraftResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/drafts`, {
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:read',
+    },
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    usageStore: restFailQuotaStore,
+    createApiClient: async () => ({
+      post: async () => {
+        failingRestDraftCalls += 1;
+        throw new Error('fixture upstream failure');
+      },
+    }),
+  },
+);
+const failedRestToolCallCounter = await restFailQuotaStore.getCounter(DEFAULT_TENANT_ID, 'tool_calls_month', quotaPeriod('month'));
+check(
+  failingRestDraftResponse.status === 500 &&
+    failingRestDraftCalls === 1 &&
+    (failedRestToolCallCounter?.used ?? 0) === 0,
+  'REST operation handler 失败时 quota 被退款，不消耗业务用量',
+);
+
+const restDeniedQuotaStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+await restDeniedQuotaStore.upsertEntitlement({
+  tenantId: DEFAULT_TENANT_ID,
+  plan: 'free',
+  limitOverrides: { tool_calls_month: 0 },
+});
+let deniedRestDraftCalls = 0;
+const deniedRestDraftResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/drafts`, {
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:read',
+    },
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    usageStore: restDeniedQuotaStore,
+    createApiClient: async () => {
+      deniedRestDraftCalls += 1;
+      return { post: async () => ({}) };
+    },
+  },
+);
+const deniedRestBody = await deniedRestDraftResponse.json();
+const deniedDayCounter = await restDeniedQuotaStore.getCounter(DEFAULT_TENANT_ID, 'tool_calls_day', quotaPeriod('day'));
+check(
+  deniedRestDraftResponse.status === 429 &&
+    deniedRestBody.error?.code === 'quota_exceeded' &&
+    deniedRestDraftCalls === 0 &&
+    (deniedDayCounter?.used ?? 0) === 0,
+  'REST quota_exceeded 在调用 apiClient 前拦截，且回滚已预占的其它 counter',
 );
 
 console.log('\n=== WeChat list default fixture 验证 ===');
