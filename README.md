@@ -562,6 +562,18 @@ src/
 
 `woa` 只调用远程 Worker REST API 或生成远程 `/mcp` 配置，不再启动本地 MCP/stdio/SSE 服务器，也不会在本机保存微信 AppSecret。
 
+安装：
+
+```bash
+npm install -g @vmxmy/wechat-official-account-mcp
+```
+
+不全局安装也可直接运行：
+
+```bash
+npx -y --package @vmxmy/wechat-official-account-mcp woa login --server https://<your-worker-domain> --token <oauth-token>
+```
+
 ```bash
 woa login --server https://<your-worker-domain> --token <oauth-token>
 woa whoami
@@ -604,7 +616,7 @@ npm run build
 # 预览 npm 包内容
 npm run pack:dry
 
-# 发布到 npm
+# 发布到 npm（scoped public 包）
 npm publish
 ```
 

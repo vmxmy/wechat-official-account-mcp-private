@@ -1,5 +1,5 @@
 {
-  "name": "wechat-official-account-mcp",
+  "name": "@vmxmy/wechat-official-account-mcp",
   "version": "2.2.0",
   "type": "module",
   "description": "微信公众号 MCP 服务 - 为 AI 应用提供完整的微信公众号 API 集成（26个工具模块，含多租户管理工具）",
@@ -25,11 +25,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/xwang152-jack/wechat-official-account-mcp.git"
+    "url": "git+https://github.com/vmxmy/wechat-official-account-mcp-private.git"
   },
-  "homepage": "https://github.com/xwang152-jack/wechat-official-account-mcp#readme",
+  "homepage": "https://woa.ziikoo.app",
   "bugs": {
-    "url": "https://github.com/xwang152-jack/wechat-official-account-mcp/issues"
+    "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/issues"
   },
   "scripts": {
     "build": "npm run clean && tsc",
@@ -97,6 +97,10 @@
     "zustand": "^5.0.3"
   },
   "bin": {
-    "woa": "./dist/src/cli/woa.js"
+    "woa": "dist/src/cli/woa.js"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }
