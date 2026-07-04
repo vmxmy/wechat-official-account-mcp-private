@@ -24,6 +24,18 @@ import {
   requireConfirmationMarker,
   sanitizeAuditMetadata,
 } from './dist/src/worker/audit-log.js';
+import { createDefaultTenantContext } from './dist/src/worker/tenant-context.js';
+import {
+  PLAN_QUOTA_POLICIES,
+  createQuotaConsumptions,
+  quotaPeriod,
+} from './dist/src/worker/quota-policy.js';
+import {
+  D1UsageQuotaStore,
+  QuotaExceededError,
+  reserveMcpToolQuota,
+} from './dist/src/worker/usage-store.js';
+import { executeMcpToolWithQuota } from './dist/src/worker/mcp-quota.js';
 
 let failed = false;
 
@@ -236,6 +248,292 @@ check(
   woaConfig.includes('https://worker.example.test/mcp') &&
     !/appSecret|WECHAT_APP_SECRET|app_secret/i.test(woaConfig),
   'woa mcp config 生成远程 /mcp 配置且不包含微信凭据',
+);
+
+console.log('\n=== Plan quota fixture 验证 ===');
+
+class MemoryUsageD1Database {
+  entitlements = new Map();
+  counters = new Map();
+  events = [];
+
+  prepare(query) {
+    return new MemoryUsageD1Statement(this, query);
+  }
+
+  async exec() {
+    return {};
+  }
+}
+
+class MemoryUsageD1Statement {
+  values = [];
+
+  constructor(db, query) {
+    this.db = db;
+    this.query = query.replace(/\s+/g, ' ').trim();
+  }
+
+  bind(...values) {
+    this.values = values;
+    return this;
+  }
+
+  async run() {
+    const q = this.query;
+
+    if (q.startsWith('INSERT INTO tenant_entitlements')) {
+      const [
+        tenantId,
+        plan,
+        status,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        currentPeriodStart,
+        currentPeriodEnd,
+        limitsJson,
+        createdAt,
+        updatedAt,
+      ] = this.values;
+      const existing = this.db.entitlements.get(tenantId);
+      this.db.entitlements.set(tenantId, {
+        tenant_id: tenantId,
+        plan,
+        status,
+        stripe_customer_id: stripeCustomerId,
+        stripe_subscription_id: stripeSubscriptionId,
+        current_period_start: currentPeriodStart,
+        current_period_end: currentPeriodEnd,
+        limits_json: limitsJson,
+        created_at: existing?.created_at ?? createdAt,
+        updated_at: updatedAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO usage_counters')) {
+      const [tenantId, period, metric, amount, limitValue, resetAt, createdAt, updatedAt] = this.values;
+      const key = `${tenantId}:${period}:${metric}`;
+      const existing = this.db.counters.get(key);
+      if (existing) {
+        if (existing.used + amount <= limitValue) {
+          existing.used += amount;
+          existing.limit_value = limitValue;
+          existing.reset_at = resetAt;
+          existing.updated_at = updatedAt;
+          return { success: true, meta: { changes: 1 } };
+        }
+        return { success: true, meta: { changes: 0 } };
+      }
+      this.db.counters.set(key, {
+        tenant_id: tenantId,
+        period,
+        metric,
+        used: amount,
+        limit_value: limitValue,
+        reset_at: resetAt,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE usage_counters SET used = MAX')) {
+      const [amount, updatedAt, tenantId, period, metric] = this.values;
+      const key = `${tenantId}:${period}:${metric}`;
+      const existing = this.db.counters.get(key);
+      if (existing) {
+        existing.used = Math.max(0, existing.used - amount);
+        existing.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO usage_events')) {
+      const [
+        id,
+        tenantId,
+        accountId,
+        userId,
+        oauthClientId,
+        requestId,
+        toolName,
+        action,
+        plan,
+        metricsJson,
+        outcome,
+        createdAt,
+      ] = this.values;
+      this.db.events.push({
+        id,
+        tenant_id: tenantId,
+        account_id: accountId,
+        user_id: userId,
+        oauth_client_id: oauthClientId,
+        request_id: requestId,
+        tool_name: toolName,
+        action,
+        plan,
+        metrics_json: metricsJson,
+        outcome,
+        created_at: createdAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('CREATE TABLE') || q.startsWith('CREATE INDEX')) {
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    throw new Error(`Unsupported usage D1 run query: ${q}`);
+  }
+
+  async first() {
+    const q = this.query;
+
+    if (q.startsWith('SELECT plan, status, limits_json')) {
+      return this.db.entitlements.get(this.values[0]) ?? null;
+    }
+
+    if (q.startsWith('SELECT used, limit_value, reset_at')) {
+      const [tenantId, period, metric] = this.values;
+      return this.db.counters.get(`${tenantId}:${period}:${metric}`) ?? null;
+    }
+
+    throw new Error(`Unsupported usage D1 first query: ${q}`);
+  }
+
+  async all() {
+    return { success: true, results: [] };
+  }
+}
+
+const quotaNow = Date.UTC(2026, 6, 4, 8, 0, 0);
+const freePublishConsumptions = createQuotaConsumptions({
+  toolName: 'wechat_publish',
+  params: { action: 'submit' },
+  plan: 'free',
+  now: quotaNow,
+});
+const plusPublishConsumptions = createQuotaConsumptions({
+  toolName: 'wechat_publish',
+  params: { action: 'submit' },
+  plan: 'plus',
+  now: quotaNow,
+});
+check(
+  PLAN_QUOTA_POLICIES.free.limits.published_articles_month === 30 &&
+    freePublishConsumptions.some(item => item.metric === 'published_articles_month' && item.limit === 30) &&
+    plusPublishConsumptions.some(item => item.metric === 'published_articles_month' && item.limit === 300),
+  'Free/Plus plan 配额策略允许全工具但发布月额度分别为 30/300',
+);
+check(
+  !Object.prototype.hasOwnProperty.call(PLAN_QUOTA_POLICIES.free, 'disabledTools') &&
+    mcpTools.every(tool => createQuotaConsumptions({ toolName: tool.name, params: { action: 'list' }, plan: 'free', now: quotaNow }).length >= 2),
+  'Free 计划不隐藏任何 MCP tool；所有工具至少受每日/月度总调用配额约束',
+);
+const quotaMigrationSql = readFileSync('./migrations/d1/0003_usage_quotas.sql', 'utf8');
+check(
+  ['tenant_entitlements', 'usage_counters', 'usage_events'].every(table => quotaMigrationSql.includes(`CREATE TABLE IF NOT EXISTS ${table}`)) &&
+    /stripe_customer_id TEXT/.test(quotaMigrationSql) &&
+    /INSERT OR IGNORE INTO tenant_entitlements/.test(quotaMigrationSql),
+  '0003 migration 声明 plan entitlement、usage counters/events，并为 Stripe 订阅字段预留落点',
+);
+
+const quotaDb = new MemoryUsageD1Database();
+const quotaStore = new D1UsageQuotaStore(quotaDb);
+await quotaStore.ensureSchema();
+const quotaContext = createDefaultTenantContext({
+  source: 'test',
+  userId: 'user_quota',
+  tenantId: 'tenant_quota',
+  accountId: 'acct_quota',
+});
+const quotaPublishTool = {
+  name: 'wechat_publish',
+  description: 'quota publish fixture',
+  inputSchema: {},
+  handler: async () => ({ content: [{ type: 'text', text: 'published' }] }),
+};
+let freePublishSuccesses = 0;
+for (let index = 0; index < 30; index += 1) {
+  const result = await executeMcpToolWithQuota({
+    tool: quotaPublishTool,
+    apiClient: {},
+    params: { action: 'submit', mediaId: `MEDIA_${index}` },
+    tenantContext: quotaContext,
+    usageStore: quotaStore,
+  });
+  if (result.isError !== true) freePublishSuccesses += 1;
+}
+check(freePublishSuccesses === 30, 'Free 发布额度内 30 次调用均成功');
+const overQuotaResult = await executeMcpToolWithQuota({
+  tool: quotaPublishTool,
+  apiClient: {},
+  params: { action: 'submit', mediaId: 'MEDIA_OVER_LIMIT' },
+  tenantContext: quotaContext,
+  usageStore: quotaStore,
+});
+const publishCounter = await quotaStore.getCounter('tenant_quota', 'published_articles_month', quotaPeriod('month'));
+check(
+  publishCounter?.used === 30 &&
+    overQuotaResult.isError === true &&
+    overQuotaResult._meta?.error?.code === 'quota_exceeded',
+  'Free 发布月额度第 31 次被 quota_exceeded 拦截且不增加已用量',
+);
+
+const plusQuotaStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+await plusQuotaStore.upsertEntitlement({ tenantId: 'tenant_plus', plan: 'plus' });
+const plusReservation = await reserveMcpToolQuota({
+  store: plusQuotaStore,
+  tenantId: 'tenant_plus',
+  toolName: 'wechat_publish',
+  action: 'submit',
+  params: { action: 'submit' },
+});
+check(
+  plusReservation.metadata().checks.some(item => item.metric === 'published_articles_month' && item.limit === 300),
+  'tenant_entitlements 可将租户升级到 Plus 并使用 Plus 配额',
+);
+await plusReservation.refund('fixture_cleanup');
+
+let quotaExceededThrown = false;
+try {
+  await reserveMcpToolQuota({
+    store: quotaStore,
+    tenantId: 'tenant_quota',
+    toolName: 'wechat_publish',
+    action: 'submit',
+    params: { action: 'submit' },
+  });
+} catch (error) {
+  quotaExceededThrown = error instanceof QuotaExceededError;
+}
+check(quotaExceededThrown, '底层 quota reservation 在超额时抛出 QuotaExceededError');
+
+const refundStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+const failingStatsTool = {
+  name: 'wechat_statistics',
+  description: 'quota refund fixture',
+  inputSchema: {},
+  handler: async () => { throw new Error('fixture failure'); },
+};
+try {
+  await executeMcpToolWithQuota({
+    tool: failingStatsTool,
+    apiClient: {},
+    params: { action: 'get_article_summary', beginDate: '2026-07-01', endDate: '2026-07-01' },
+    tenantContext: quotaContext,
+    usageStore: refundStore,
+  });
+} catch {
+  // expected fixture failure
+}
+const refundedStatsCounter = await refundStore.getCounter('tenant_quota', 'stats_queries_month', quotaPeriod('month'));
+check(
+  (refundedStatsCounter?.used ?? 0) === 0,
+  'handler 失败时业务配额会退款，不计入成功用量',
 );
 
 console.log('\n=== WeChat list default fixture 验证 ===');

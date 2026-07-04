@@ -27,12 +27,12 @@ import { createWorkerMediaTools } from './media-tools.js';
 import { handleWechatWebhook } from './wechat-webhook.js';
 import { D1AuditLogWriter } from './audit-log.js';
 import { handleManagementApiRequest } from './management-api.js';
+import { executeMcpToolWithQuota } from './mcp-quota.js';
 import {
-  attachTenantMetadata,
   createDefaultTenantContext,
-  enrichMcpToolParams,
   type TenantRequestContext,
 } from './tenant-context.js';
+import { D1UsageQuotaStore } from './usage-store.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -277,6 +277,7 @@ function registerWorkerMcpTool(
   tool: McpTool,
   apiClient: WechatApiClient,
   tenantContext: TenantRequestContext,
+  usageStore: D1UsageQuotaStore,
 ): void {
   server.tool(
     tool.name,
@@ -284,9 +285,13 @@ function registerWorkerMcpTool(
     tool.inputSchema as any,
     async (params: unknown) => {
       try {
-        const scoped = enrichMcpToolParams(params, tenantContext, tool.name);
-        const result = await tool.handler(scoped.params, apiClient);
-        return attachTenantMetadata(result, tenantContext, scoped.account) as any;
+        return await executeMcpToolWithQuota({
+          tool,
+          apiClient,
+          params,
+          tenantContext,
+          usageStore,
+        }) as any;
       } catch (error) {
         return {
           content: [{
@@ -555,7 +560,9 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
 
   async init(): Promise<void> {
     const env = getAgentEnv(this);
-    const { apiClient, storage } = await createWorkerToolContext(env);
+    const { apiClient, storage, accountContext } = await createWorkerToolContext(env);
+    const usageStore = new D1UsageQuotaStore(env.DB);
+    await usageStore.ensureSchema();
     const currentConfig = await apiClient.getAuthManager().getConfig();
     const tenantContext = createDefaultTenantContext({
       source: 'mcp',
@@ -563,6 +570,12 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
       oauthClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
       scopes: ['wechat.mcp', 'woa:context:read', 'woa:tenant:read', 'woa:account:read', 'woa:account:write', 'woa:content:read', 'woa:content:write', 'woa:content:publish', 'woa:inbox:read', 'woa:audit:read'],
       appId: currentConfig?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
+      tenantId: accountContext.tenantId,
+      tenantSlug: accountContext.tenantSlug,
+      tenantName: accountContext.tenantName,
+      accountId: accountContext.accountId,
+      accountSlug: accountContext.accountSlug,
+      accountName: accountContext.accountName,
     });
     const mediaTools = createWorkerMediaTools({
       mediaBucket: env.MEDIA,
@@ -570,7 +583,7 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
     }).map(withOptionalAccountId);
 
     for (const tool of [...WORKER_SHARED_MCP_TOOLS, ...mediaTools]) {
-      registerWorkerMcpTool(this.server, tool, apiClient, tenantContext);
+      registerWorkerMcpTool(this.server, tool, apiClient, tenantContext, usageStore);
     }
   }
 
