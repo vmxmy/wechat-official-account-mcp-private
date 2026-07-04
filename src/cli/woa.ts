@@ -49,6 +49,18 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (root === 'tenant' && sub === 'usage') {
+    const tenantId = await resolveTenantId(parsed.flags);
+    console.log(JSON.stringify(await apiGet(`/api/v1/tenants/${tenantId}/usage`, parsed.flags), null, 2));
+    return;
+  }
+
+  if (root === 'usage') {
+    const tenantId = await resolveTenantId(parsed.flags);
+    console.log(JSON.stringify(await apiGet(`/api/v1/tenants/${tenantId}/usage`, parsed.flags), null, 2));
+    return;
+  }
+
   if (root === 'account') {
     await handleAccountCommand(sub, parsed.flags);
     return;
@@ -138,7 +150,7 @@ async function login(flags: Record<string, string | boolean>): Promise<void> {
   authorizeUrl.searchParams.set('code_challenge', challenge);
   authorizeUrl.searchParams.set('code_challenge_method', 'S256');
   authorizeUrl.searchParams.set('state', state);
-  authorizeUrl.searchParams.set('scope', 'wechat.mcp woa:context:read woa:tenant:read woa:account:read woa:content:read woa:inbox:read');
+  authorizeUrl.searchParams.set('scope', 'wechat.mcp woa:context:read woa:tenant:read woa:account:read woa:content:read woa:inbox:read woa:usage:read');
 
   await saveConfig({ ...(await loadConfig()), server, clientId, pkce: { verifier, state } });
   console.log('Open this OAuth URL in a browser to continue login:');
@@ -299,6 +311,8 @@ Usage:
   woa login --server <url> [--token <oauth-token>]
   woa whoami [--server <url>] [--token <oauth-token>]
   woa tenant list
+  woa tenant usage [--tenant <tenantId>]
+  woa usage [--tenant <tenantId>]
   woa account list [--tenant <tenantId>]
   woa account status [--tenant <tenantId>] [--account <accountId>]
   woa account configure --tenant <tenantId> --account <accountId> --app-id <wx...> --app-secret <secret>

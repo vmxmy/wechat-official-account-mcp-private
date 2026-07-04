@@ -1,10 +1,17 @@
 import type { D1DatabaseLike, D1Value } from '../storage/d1-storage-manager.js';
 import {
   DEFAULT_SUBSCRIPTION_PLAN,
+  QUOTA_METRIC_LABELS,
+  QUOTA_METRIC_WINDOWS,
+  getPlanQuotaPolicy,
   createQuotaConsumptions,
+  mergePlanLimits,
+  quotaPeriod,
+  quotaResetAt,
   normalizeSubscriptionPlan,
   type QuotaConsumption,
   type QuotaMetric,
+  type QuotaWindow,
   type SubscriptionPlan,
 } from './quota-policy.js';
 
@@ -84,6 +91,44 @@ export interface QuotaExceededDetails {
   remaining: number;
   period: string;
   resetAt: number;
+}
+
+export interface UsageMetricSummary {
+  metric: QuotaMetric;
+  label: string;
+  window: QuotaWindow;
+  period: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  resetAt: number;
+  percentUsed: number;
+  status: 'ok' | 'approaching' | 'exhausted';
+}
+
+export interface UsageUpgradePrompt {
+  recommended: boolean;
+  suggestedPlan?: SubscriptionPlan;
+  reasonCode?: 'quota_approaching' | 'quota_exhausted';
+  message?: string;
+  metrics: Array<Pick<UsageMetricSummary, 'metric' | 'label' | 'used' | 'limit' | 'remaining' | 'percentUsed' | 'resetAt'>>;
+}
+
+export interface TenantUsageSummary {
+  tenantId: string;
+  generatedAt: number;
+  entitlement: {
+    tenantId: string;
+    plan: SubscriptionPlan;
+    displayName: string;
+    status: string;
+    currentPeriodStart?: number | null;
+    currentPeriodEnd?: number | null;
+    hasStripeCustomer: boolean;
+    hasStripeSubscription: boolean;
+  };
+  metrics: UsageMetricSummary[];
+  upgradePrompt: UsageUpgradePrompt;
 }
 
 export class QuotaExceededError extends Error {
@@ -253,6 +298,54 @@ export class D1UsageQuotaStore {
       limit: numberValue(row.limit_value) ?? 0,
       resetAt: numberValue(row.reset_at) ?? 0,
       label: '',
+    };
+  }
+
+  async getUsageSummary(tenantId: string, now: number = Date.now()): Promise<TenantUsageSummary> {
+    await this.ensureSchema();
+    const entitlement = await this.getEntitlement(tenantId);
+    const policy = getPlanQuotaPolicy(entitlement.plan);
+    const limits = mergePlanLimits(entitlement.plan, entitlement.limitOverrides);
+    const metrics: UsageMetricSummary[] = [];
+
+    for (const metric of Object.keys(limits) as QuotaMetric[]) {
+      const window = QUOTA_METRIC_WINDOWS[metric];
+      const period = quotaPeriod(window, now);
+      const resetAt = quotaResetAt(window, now);
+      const counter = await this.getCounter(tenantId, metric, period);
+      const used = counter?.used ?? 0;
+      const limit = limits[metric];
+      const remaining = Math.max(0, limit - used);
+      const percentUsed = calculatePercentUsed(used, limit);
+      metrics.push({
+        metric,
+        label: QUOTA_METRIC_LABELS[metric],
+        window,
+        period,
+        used,
+        limit,
+        remaining,
+        resetAt: counter?.resetAt || resetAt,
+        percentUsed,
+        status: metricUsageStatus(used, limit, percentUsed),
+      });
+    }
+
+    return {
+      tenantId,
+      generatedAt: now,
+      entitlement: {
+        tenantId,
+        plan: entitlement.plan,
+        displayName: policy.displayName,
+        status: entitlement.status,
+        currentPeriodStart: entitlement.currentPeriodStart,
+        currentPeriodEnd: entitlement.currentPeriodEnd,
+        hasStripeCustomer: !!entitlement.stripeCustomerId,
+        hasStripeSubscription: !!entitlement.stripeSubscriptionId,
+      },
+      metrics,
+      upgradePrompt: createUsageUpgradePrompt(entitlement.plan, metrics),
     };
   }
 
@@ -601,6 +694,60 @@ function numberValue(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
   return null;
+}
+
+function calculatePercentUsed(used: number, limit: number): number {
+  if (limit <= 0) {
+    return used > 0 ? 100 : 0;
+  }
+  return Math.min(100, Math.round((used / limit) * 10_000) / 100);
+}
+
+function metricUsageStatus(
+  used: number,
+  limit: number,
+  percentUsed: number,
+): UsageMetricSummary['status'] {
+  if (limit <= 0 || used >= limit) return 'exhausted';
+  if (percentUsed >= 80) return 'approaching';
+  return 'ok';
+}
+
+function createUsageUpgradePrompt(
+  plan: SubscriptionPlan,
+  metrics: UsageMetricSummary[],
+): UsageUpgradePrompt {
+  const suggestedPlan = plan === 'free' ? 'plus' : plan === 'plus' ? 'pro' : undefined;
+  const exhausted = metrics.filter(metric => metric.status === 'exhausted');
+  const approaching = metrics.filter(metric => metric.status === 'approaching');
+  const highlighted = exhausted.length > 0 ? exhausted : approaching;
+
+  if (!suggestedPlan || highlighted.length === 0) {
+    return {
+      recommended: false,
+      metrics: [],
+    };
+  }
+
+  const reasonCode = exhausted.length > 0 ? 'quota_exhausted' : 'quota_approaching';
+  const labels = highlighted.slice(0, 3).map(metric => metric.label).join('、');
+  return {
+    recommended: true,
+    suggestedPlan,
+    reasonCode,
+    message: reasonCode === 'quota_exhausted'
+      ? `${labels} 已达到当前套餐上限，建议升级到 ${getPlanQuotaPolicy(suggestedPlan).displayName}。`
+      : `${labels} 接近当前套餐上限，建议升级到 ${getPlanQuotaPolicy(suggestedPlan).displayName}。`,
+    metrics: highlighted.map(metric => ({
+      metric: metric.metric,
+      label: metric.label,
+      used: metric.used,
+      limit: metric.limit,
+      remaining: metric.remaining,
+      percentUsed: metric.percentUsed,
+      resetAt: metric.resetAt,
+    })),
+  };
 }
 
 function randomId(prefix: string): string {

@@ -51,6 +51,7 @@ export async function handleManagementApiRequest(
         routes: [
           '/api/v1/me',
           '/api/v1/tenants',
+          '/api/v1/tenants/:tenantId/usage',
           '/api/v1/tenants/:tenantId/accounts',
           '/api/v1/tenants/:tenantId/accounts/:accountId/drafts',
           '/api/v1/tenants/:tenantId/accounts/:accountId/publishes',
@@ -146,6 +147,22 @@ async function handleTenantRoutes(
       },
       requestId: context.requestId,
     }, { status: 202 });
+  }
+
+  if (request.method === 'GET' && segments.length === 3 && segments[2] === 'usage') {
+    requireScope(context, 'woa:usage:read');
+    if (!deps.usageStore) {
+      throw new ApiError('runtime_unavailable', 'Usage quota store is not configured in this runtime.', 500);
+    }
+    const summary = await deps.usageStore.getUsageSummary(tenantId);
+    return jsonResponse({
+      success: true,
+      data: summary,
+      meta: {
+        upgradePrompt: summary.upgradePrompt,
+      },
+      requestId: context.requestId,
+    });
   }
 
   if (segments[2] === 'accounts') {

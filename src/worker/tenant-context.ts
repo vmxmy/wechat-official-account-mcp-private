@@ -59,6 +59,7 @@ const DEFAULT_SCOPES = [
   'woa:content:write',
   'woa:content:publish',
   'woa:inbox:read',
+  'woa:usage:read',
   'woa:audit:read',
 ];
 

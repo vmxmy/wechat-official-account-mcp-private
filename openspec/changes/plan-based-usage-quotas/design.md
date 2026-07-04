@@ -10,12 +10,12 @@ The platform already exposes a multi-tenant Cloudflare Workers Remote MCP runtim
 - Successful tool executions count; failed handlers refund reserved usage.
 - Quota metadata is machine-readable for MCP clients and support tooling.
 - D1 schema is additive and Stripe-ready.
+- Usage summaries are visible through authenticated management API/CLI endpoints with upgrade prompt metadata.
 
 ## Non-Goals
 
-- Stripe Checkout, customer portal, webhook handling, invoice state, or payment UI in this change.
-- REST/CLI quota enforcement in this first implementation pass; the store/policy is reusable for those adapters later.
 - Per-seat billing or resource-count enforcement beyond usage counters.
+- Payment UI, invoice rendering, or per-seat billing beyond Stripe-backed plan synchronization.
 - Changing WeChat official API request fields, endpoints, or official API quota semantics.
 
 ## Decisions
@@ -36,9 +36,12 @@ The adapter reserves quota before executing a tool, preventing a known over-limi
 
 `tenant_entitlements` stores the plan and future Stripe IDs. `usage_counters` stores tenant/period/metric counters. `usage_events` stores append-only event metadata for support and analytics. Foreign keys are intentionally omitted from the usage schema so onboarding and partially backfilled tenant contexts cannot block quota telemetry.
 
+### D5: Usage visibility is read-only and WeChat-independent
+
+The management API exposes `GET /api/v1/tenants/:tenantId/usage`, and the remote-only `woa usage` / `woa tenant usage` commands call that endpoint. The summary is built entirely from D1 entitlement/counter rows plus the in-code quota policy, so dashboards can render usage and upgrade prompts without constructing a WeChat API client or consuming a WeChat operation quota.
+
 ## Risks / Follow-ups
 
 - Concurrent requests can still race around the pre-read path; the SQL upsert contains a conditional update, but high-concurrency behavior should be stress-tested before large public rollout.
 - `wechat_publish.submit` receives a draft media ID, so it currently counts one publish unit unless an explicit article count is supplied by the caller.
-- REST and CLI should call the same `D1UsageQuotaStore` in the next pass.
 - Stripe webhook integration should update `tenant_entitlements.plan`, `status`, and Stripe IDs.

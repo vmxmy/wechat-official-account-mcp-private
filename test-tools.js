@@ -1,7 +1,8 @@
 // 简单测试脚本验证工具注册与运行时 seam
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'fs';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import CryptoJS from 'crypto-js';
 import { mcpTools, wechatTools } from './dist/src/mcp-tool/tools/index.js';
 import { inboxMcpTool } from './dist/src/mcp-tool/tools/inbox-tool.js';
@@ -42,6 +43,27 @@ let failed = false;
 function check(ok, message) {
   console.log(`${ok ? '✅' : '❌'} ${message}`);
   failed ||= !ok;
+}
+
+function execFileText(file, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { encoding: 'utf8', ...options }, (error, stdout, stderr) => {
+      if (error) {
+        error.stdout = stdout;
+        error.stderr = stderr;
+        reject(error);
+        return;
+      }
+      resolve(stdout);
+    });
+  });
+}
+
+function usageCliRequestsOk(requests) {
+  return requests.length === 1 &&
+    requests[0].method === 'GET' &&
+    requests[0].url === `/api/v1/tenants/${DEFAULT_TENANT_ID}/usage` &&
+    requests[0].authorization === 'Bearer TEST_TOKEN';
 }
 
 console.log('=== MCP工具注册验证 ===');
@@ -634,6 +656,97 @@ check(
     (deniedDayCounter?.used ?? 0) === 0,
   'REST quota_exceeded 在调用 apiClient 前拦截，且回滚已预占的其它 counter',
 );
+
+const usageVisibilityStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+await usageVisibilityStore.upsertEntitlement({
+  tenantId: DEFAULT_TENANT_ID,
+  plan: 'free',
+  limitOverrides: {
+    tool_calls_month: 1,
+    tool_calls_day: 100,
+  },
+});
+const usageVisibilityReservation = await reserveMcpToolQuota({
+  store: usageVisibilityStore,
+  tenantId: DEFAULT_TENANT_ID,
+  accountId: DEFAULT_ACCOUNT_ID,
+  toolName: 'wechat_draft',
+  action: 'list',
+  params: { action: 'list' },
+});
+await usageVisibilityReservation.commit();
+let usageApiClientConstructed = false;
+const usageVisibilityResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/usage`, {
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'x-woa-scopes': 'woa:tenant:read woa:usage:read',
+    },
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    usageStore: usageVisibilityStore,
+    createApiClient: async () => {
+      usageApiClientConstructed = true;
+      throw new Error('usage visibility must not construct api client');
+    },
+  },
+);
+const usageVisibilityBody = await usageVisibilityResponse.json();
+const usageToolCallMonth = usageVisibilityBody.data?.metrics?.find(item => item.metric === 'tool_calls_month');
+check(
+  usageVisibilityResponse.status === 200 &&
+    usageApiClientConstructed === false &&
+    usageVisibilityBody.data?.entitlement?.plan === 'free' &&
+    usageVisibilityBody.data?.metrics?.length === Object.keys(PLAN_QUOTA_POLICIES.free.limits).length &&
+    usageToolCallMonth?.used === 1 &&
+    usageToolCallMonth?.limit === 1 &&
+    usageVisibilityBody.data?.upgradePrompt?.recommended === true &&
+    usageVisibilityBody.data?.upgradePrompt?.suggestedPlan === 'plus' &&
+    usageVisibilityBody.meta?.upgradePrompt?.reasonCode === 'quota_exhausted',
+  'REST usage visibility 返回全量指标/升级提示且不构造 WeChat API client',
+);
+
+const usageCliServerRequests = [];
+const usageCliServer = createServer((req, res) => {
+  usageCliServerRequests.push({
+    method: req.method,
+    url: req.url,
+    authorization: req.headers.authorization,
+  });
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({
+    success: true,
+    data: {
+      tenantId: DEFAULT_TENANT_ID,
+      metrics: [{ metric: 'tool_calls_month', used: 1, limit: 1 }],
+      upgradePrompt: { recommended: true, suggestedPlan: 'plus' },
+    },
+  }));
+});
+await new Promise(resolve => usageCliServer.listen(0, '127.0.0.1', resolve));
+try {
+  const address = usageCliServer.address();
+  const usageCliPort = typeof address === 'object' && address ? address.port : 0;
+  const usageCliOutput = await execFileText(process.execPath, [
+    './dist/src/cli/woa.js',
+    'usage',
+    '--server',
+    `http://127.0.0.1:${usageCliPort}`,
+    '--token',
+    'TEST_TOKEN',
+  ]);
+  check(
+    usageCliRequestsOk(usageCliServerRequests) &&
+      usageCliOutput.includes('"upgradePrompt"') &&
+      usageCliOutput.includes('"suggestedPlan": "plus"'),
+    'woa usage CLI 调用远程 /api/v1/tenants/:tenantId/usage 并输出升级提示',
+  );
+} finally {
+  await new Promise(resolve => usageCliServer.close(resolve));
+}
 
 console.log('\n=== WeChat list default fixture 验证 ===');
 

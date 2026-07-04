@@ -24,4 +24,4 @@
 
 - [ ] 4.1 Implement Stripe Checkout and webhook plan synchronization.
 - [x] 4.2 Apply the same quota wrapper to REST and CLI operation adapters.
-- [ ] 4.3 Add dashboard/API endpoints for usage visibility and plan upgrade prompts.
+- [x] 4.3 Add dashboard/API endpoints for usage visibility and plan upgrade prompts.

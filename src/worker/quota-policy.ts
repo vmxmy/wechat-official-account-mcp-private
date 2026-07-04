@@ -94,7 +94,7 @@ export const QUOTA_METRIC_LABELS: Record<QuotaMetric, string> = {
   high_risk_ops_month: '每月高风险操作次数',
 };
 
-const METRIC_WINDOWS: Record<QuotaMetric, QuotaWindow> = {
+export const QUOTA_METRIC_WINDOWS: Record<QuotaMetric, QuotaWindow> = {
   tool_calls_day: 'day',
   tool_calls_month: 'month',
   published_articles_month: 'month',
@@ -180,7 +180,7 @@ export function createQuotaConsumptions(options: {
   }
 
   return [...merged.entries()].map(([metric, amount]) => {
-    const window = METRIC_WINDOWS[metric];
+    const window = QUOTA_METRIC_WINDOWS[metric];
     return {
       metric,
       amount,

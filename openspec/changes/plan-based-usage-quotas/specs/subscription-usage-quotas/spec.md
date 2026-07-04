@@ -65,3 +65,21 @@ The D1 entitlement model SHALL store tenant plan state and fields needed for fut
 - **WHEN** quota policy is resolved for that tenant
 - **THEN** the Worker applies Plus limits instead of Free limits
 - **AND** the entitlement record can store Stripe customer and subscription identifiers for future billing integration
+
+### Requirement: Tenants can inspect usage and upgrade prompts
+
+The management API and remote-only CLI SHALL expose tenant usage summaries for dashboard and support workflows without constructing a WeChat API client.
+
+#### Scenario: Usage summary returns all quota metrics
+
+- **GIVEN** an authenticated tenant member with `woa:usage:read`
+- **WHEN** the member requests the tenant usage summary
+- **THEN** the response includes the current plan entitlement, every quota metric, used value, limit, remaining value, period, and reset time
+- **AND** the response includes machine-readable upgrade prompt metadata
+
+#### Scenario: Exhausted Free quota recommends Plus
+
+- **GIVEN** a Free tenant has exhausted at least one quota metric
+- **WHEN** the member requests the tenant usage summary
+- **THEN** the upgrade prompt recommends the Plus plan
+- **AND** the usage summary does not call the WeChat Official Account API

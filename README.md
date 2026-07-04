@@ -552,6 +552,18 @@ src/
 - 微信公众号后台的服务器地址建议迁移为 `https://<your-worker-domain>/wx/callback/{accountId}`；旧 `/wx/callback` 只在显式或可安全推断单账号时兼容处理，多账号部署会返回迁移提示。
 - `wechat_inbox` 用于查询 `/wx/callback/{accountId}` 写入的入站消息；Webhook 本身不会主动回复或调度任务。
 
+### Remote-only `woa` CLI
+
+`woa` 只调用远程 Worker REST API 或生成远程 `/mcp` 配置，不再启动本地 MCP/stdio/SSE 服务器，也不会在本机保存微信 AppSecret。
+
+```bash
+woa login --server https://<your-worker-domain> --token <oauth-token>
+woa whoami
+woa usage                         # 查看当前租户套餐、用量、重置时间与升级提示
+woa tenant usage --tenant <id>     # 指定租户查看用量
+woa account configure --tenant <id> --account <id> --app-id <wx...> --app-secret <secret>
+```
+
 ## 🧪 开发指南
 
 ### 开发模式
