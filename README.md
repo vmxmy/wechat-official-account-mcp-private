@@ -571,15 +571,21 @@ npm install -g @ziikoo/wechat-official-account-mcp
 不全局安装也可直接运行：
 
 ```bash
-npx -y --package @ziikoo/wechat-official-account-mcp woa login --server https://<your-worker-domain> --token <oauth-token>
+npx -y --package @ziikoo/wechat-official-account-mcp woa login --server https://<your-worker-domain>
 ```
 
 ```bash
-woa login --server https://<your-worker-domain> --token <oauth-token>
+woa login --server https://<your-worker-domain>  # 打开浏览器完成 OAuth 授权并保存 access token
 woa whoami
 woa usage                         # 查看当前租户套餐、用量、重置时间与升级提示
 woa tenant usage --tenant <id>     # 指定租户查看用量
 woa account configure --tenant <id> --account <id> --app-id <wx...> --app-secret <secret>
+```
+
+CI/冒烟测试可跳过浏览器授权，直接保存已有 OAuth token：
+
+```bash
+woa login --server https://<your-worker-domain> --token <oauth-token>
 ```
 
 ## 🧪 开发指南

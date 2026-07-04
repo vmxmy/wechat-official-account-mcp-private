@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { createHash, randomBytes } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile, chmod } from 'node:fs/promises';
+import { createServer, Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { DEFAULT_ACCOUNT_ID, DEFAULT_TENANT_ID } from '../storage/types.js';
@@ -8,7 +11,12 @@ import { DEFAULT_ACCOUNT_ID, DEFAULT_TENANT_ID } from '../storage/types.js';
 interface CliConfig {
   server?: string;
   accessToken?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  scope?: string;
+  expiresAt?: number;
   clientId?: string;
+  clientSecret?: string;
   activeTenantId?: string;
   activeAccountId?: string;
   pkce?: {
@@ -23,7 +31,48 @@ interface ParsedArgs {
 }
 
 const DEFAULT_CLIENT_ID = 'woa-cli';
+const DEFAULT_SCOPES = [
+  'wechat.mcp',
+  'woa:context:read',
+  'woa:tenant:read',
+  'woa:tenant:write',
+  'woa:account:read',
+  'woa:account:write',
+  'woa:content:read',
+  'woa:content:write',
+  'woa:content:publish',
+  'woa:inbox:read',
+  'woa:usage:read',
+  'woa:billing:write',
+  'woa:audit:read',
+].join(' ');
 const CONFIG_PATH = process.env.WOA_CLI_CONFIG || path.join(homedir(), '.config', 'wechat-official-account-mcp', 'cli.json');
+
+interface OAuthServerMetadata {
+  issuer?: string;
+  authorization_endpoint?: string;
+  token_endpoint?: string;
+  registration_endpoint?: string;
+}
+
+interface OAuthClientRegistration {
+  client_id: string;
+  client_secret?: string;
+}
+
+interface OAuthTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  token_type?: string;
+  expires_in?: number;
+  scope?: string;
+}
+
+interface LocalCallbackServer {
+  redirectUri: string;
+  waitForCode: Promise<string>;
+  close: () => Promise<void>;
+}
 
 async function main(argv: string[]): Promise<void> {
   const parsed = parseArgs(argv);
@@ -131,31 +180,255 @@ async function handleAccountCommand(sub: string | undefined, flags: Record<strin
 
 async function login(flags: Record<string, string | boolean>): Promise<void> {
   const server = normalizeServer(requiredString(flags, 'server', 'login requires --server <url>'));
-  const clientId = stringFlag(flags, 'client-id') || DEFAULT_CLIENT_ID;
+  const requestedClientId = stringFlag(flags, 'client-id') || DEFAULT_CLIENT_ID;
   const token = stringFlag(flags, 'token');
 
   if (token) {
-    await saveConfig({ ...(await loadConfig()), server, clientId, accessToken: token });
+    await saveConfig({ ...(await loadConfig()), server, clientId: requestedClientId, accessToken: token });
     console.log(`Saved OAuth access token for ${server}. No WeChat app secret was stored locally.`);
     return;
   }
 
+  const metadata = await discoverOAuthMetadata(server);
+  const scope = stringFlag(flags, 'scope') || stringFlag(flags, 'scopes') || DEFAULT_SCOPES;
   const verifier = base64Url(randomBytes(32));
   const challenge = base64Url(createHash('sha256').update(verifier).digest());
   const state = base64Url(randomBytes(16));
-  const authorizeUrl = new URL('/authorize', server);
+  const timeoutSeconds = Number(stringFlag(flags, 'timeout') || '300');
+  const callbackPort = Number(stringFlag(flags, 'callback-port') || '0');
+  const callback = await startLocalCallbackServer(state, Number.isFinite(timeoutSeconds) ? timeoutSeconds * 1000 : 300_000, callbackPort);
+  const registration = await registerOAuthClient(metadata, server, callback.redirectUri, requestedClientId, scope);
+  const authorizeUrl = new URL(metadata.authorization_endpoint || new URL('/authorize', server).toString());
   authorizeUrl.searchParams.set('response_type', 'code');
-  authorizeUrl.searchParams.set('client_id', clientId);
-  authorizeUrl.searchParams.set('redirect_uri', 'http://127.0.0.1/callback');
+  authorizeUrl.searchParams.set('client_id', registration.client_id);
+  authorizeUrl.searchParams.set('redirect_uri', callback.redirectUri);
   authorizeUrl.searchParams.set('code_challenge', challenge);
   authorizeUrl.searchParams.set('code_challenge_method', 'S256');
   authorizeUrl.searchParams.set('state', state);
-  authorizeUrl.searchParams.set('scope', 'wechat.mcp woa:context:read woa:tenant:read woa:account:read woa:content:read woa:inbox:read woa:usage:read');
+  authorizeUrl.searchParams.set('scope', scope);
 
-  await saveConfig({ ...(await loadConfig()), server, clientId, pkce: { verifier, state } });
+  await saveConfig({
+    ...(await loadConfig()),
+    server,
+    clientId: registration.client_id,
+    clientSecret: registration.client_secret,
+    pkce: { verifier, state },
+  });
+
   console.log('Open this OAuth URL in a browser to continue login:');
   console.log(authorizeUrl.toString());
-  console.log('PKCE verifier/state were stored locally with 0600 permissions; no WeChat app secret is stored by the CLI.');
+  if (!flags['no-open']) {
+    openBrowser(authorizeUrl.toString());
+  }
+  console.log(`Waiting for OAuth callback on ${callback.redirectUri} ...`);
+
+  try {
+    const code = await callback.waitForCode;
+    const tokenResponse = await exchangeAuthorizationCode(metadata, server, {
+      code,
+      verifier,
+      redirectUri: callback.redirectUri,
+      clientId: registration.client_id,
+      clientSecret: registration.client_secret,
+    });
+    await saveConfig({
+      ...(await loadConfig()),
+      server,
+      clientId: registration.client_id,
+      clientSecret: registration.client_secret,
+      accessToken: tokenResponse.access_token,
+      refreshToken: tokenResponse.refresh_token,
+      tokenType: tokenResponse.token_type,
+      scope: tokenResponse.scope || scope,
+      expiresAt: tokenResponse.expires_in ? Date.now() + tokenResponse.expires_in * 1000 : undefined,
+      pkce: undefined,
+    });
+    console.log(`OAuth login complete for ${server}. Token saved to ${CONFIG_PATH}; no WeChat app secret was stored locally.`);
+  } finally {
+    await callback.close();
+  }
+}
+
+async function discoverOAuthMetadata(server: string): Promise<OAuthServerMetadata> {
+  const fallback = {
+    authorization_endpoint: new URL('/authorize', server).toString(),
+    token_endpoint: new URL('/oauth/token', server).toString(),
+    registration_endpoint: new URL('/oauth/register', server).toString(),
+  };
+  try {
+    const response = await fetch(new URL('/.well-known/oauth-authorization-server', server));
+    if (!response.ok) return fallback;
+    return { ...fallback, ...await response.json() as OAuthServerMetadata };
+  } catch {
+    return fallback;
+  }
+}
+
+async function registerOAuthClient(
+  metadata: OAuthServerMetadata,
+  server: string,
+  redirectUri: string,
+  requestedClientId: string,
+  scope: string,
+): Promise<OAuthClientRegistration> {
+  const endpoint = metadata.registration_endpoint || new URL('/oauth/register', server).toString();
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      client_name: requestedClientId,
+      redirect_uris: [redirectUri],
+      grant_types: ['authorization_code', 'refresh_token'],
+      response_types: ['code'],
+      token_endpoint_auth_method: 'none',
+      scope,
+    }),
+  });
+  const text = await response.text();
+  const data = text ? safeJson(text) : null;
+  if (!response.ok) {
+    throw new Error(`OAuth client registration failed with ${response.status}: ${text}`);
+  }
+  const clientId = typeof (data as { client_id?: unknown })?.client_id === 'string'
+    ? (data as { client_id: string }).client_id
+    : '';
+  if (!clientId) {
+    throw new Error(`OAuth client registration did not return client_id: ${text}`);
+  }
+  return {
+    client_id: clientId,
+    client_secret: typeof (data as { client_secret?: unknown })?.client_secret === 'string'
+      ? (data as { client_secret: string }).client_secret
+      : undefined,
+  };
+}
+
+async function exchangeAuthorizationCode(
+  metadata: OAuthServerMetadata,
+  server: string,
+  input: {
+    code: string;
+    verifier: string;
+    redirectUri: string;
+    clientId: string;
+    clientSecret?: string;
+  },
+): Promise<OAuthTokenResponse> {
+  const endpoint = metadata.token_endpoint || new URL('/oauth/token', server).toString();
+  const body = new URLSearchParams();
+  body.set('grant_type', 'authorization_code');
+  body.set('code', input.code);
+  body.set('redirect_uri', input.redirectUri);
+  body.set('client_id', input.clientId);
+  body.set('code_verifier', input.verifier);
+  if (input.clientSecret) body.set('client_secret', input.clientSecret);
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const text = await response.text();
+  const data = text ? safeJson(text) : null;
+  if (!response.ok) {
+    throw new Error(`OAuth token exchange failed with ${response.status}: ${text}`);
+  }
+  const accessToken = typeof (data as { access_token?: unknown })?.access_token === 'string'
+    ? (data as { access_token: string }).access_token
+    : '';
+  if (!accessToken) {
+    throw new Error(`OAuth token exchange did not return access_token: ${text}`);
+  }
+  return data as OAuthTokenResponse;
+}
+
+async function startLocalCallbackServer(expectedState: string, timeoutMs: number, preferredPort: number): Promise<LocalCallbackServer> {
+  let server: Server | undefined;
+  let settled = false;
+  let timeout: NodeJS.Timeout | undefined;
+  let resolveCode: (code: string) => void;
+  let rejectCode: (error: Error) => void;
+  const waitForCode = new Promise<string>((resolve, reject) => {
+    resolveCode = resolve;
+    rejectCode = reject;
+  });
+
+  server = createServer((request, response) => {
+    const requestUrl = new URL(request.url || '/', `http://${request.headers.host || '127.0.0.1'}`);
+    if (requestUrl.pathname !== '/callback') {
+      response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+      response.end('Not Found');
+      return;
+    }
+
+    const error = requestUrl.searchParams.get('error');
+    const code = requestUrl.searchParams.get('code');
+    const state = requestUrl.searchParams.get('state');
+    if (error) {
+      finishCallback(response, false, `OAuth authorization failed: ${error}`);
+      if (!settled) {
+        settled = true;
+        rejectCode(new Error(`OAuth authorization failed: ${error}`));
+      }
+      return;
+    }
+    if (!code || state !== expectedState) {
+      finishCallback(response, false, 'OAuth callback state mismatch or missing code. You can close this window and retry `woa login`.');
+      if (!settled) {
+        settled = true;
+        rejectCode(new Error('OAuth callback state mismatch or missing code.'));
+      }
+      return;
+    }
+
+    finishCallback(response, true, 'OAuth authorization received. You can close this window and return to the terminal.');
+    if (!settled) {
+      settled = true;
+      resolveCode(code);
+    }
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server!.once('error', reject);
+    server!.listen(preferredPort, '127.0.0.1', () => resolve());
+  });
+
+  timeout = setTimeout(() => {
+    if (!settled) {
+      settled = true;
+      rejectCode(new Error(`OAuth callback timed out after ${Math.round(timeoutMs / 1000)} seconds.`));
+    }
+  }, timeoutMs);
+
+  const address = server.address() as AddressInfo;
+  return {
+    redirectUri: `http://127.0.0.1:${address.port}/callback`,
+    waitForCode,
+    close: async () => {
+      if (timeout) clearTimeout(timeout);
+      await new Promise<void>(resolve => server!.close(() => resolve()));
+    },
+  };
+}
+
+function finishCallback(response: import('node:http').ServerResponse, ok: boolean, message: string): void {
+  response.writeHead(ok ? 200 : 400, { 'content-type': 'text/html; charset=utf-8' });
+  response.end(`<!doctype html><meta charset="utf-8"><title>woa OAuth</title><p>${escapeHtml(message)}</p>`);
+}
+
+function openBrowser(url: string): void {
+  const command = process.platform === 'darwin'
+    ? 'open'
+    : process.platform === 'win32'
+      ? 'cmd'
+      : 'xdg-open';
+  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+  try {
+    const child = spawn(command, args, { stdio: 'ignore', detached: true });
+    child.unref();
+  } catch {
+    // Printing the URL above is the reliable fallback for headless environments.
+  }
 }
 
 async function apiGet(route: string, flags: Record<string, string | boolean>): Promise<unknown> {
@@ -298,6 +571,15 @@ function safeJson(text: string): unknown {
   } catch {
     return text;
   }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function base64Url(data: Buffer): string {
