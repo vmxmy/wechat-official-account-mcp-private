@@ -176,16 +176,91 @@ const datacubeClient = new WechatApiClient({
 });
 await datacubeClient.getUserSummary('2026-07-04', '2026-07-04');
 await datacubeClient.getUserCumulate('2026-07-04', '2026-07-04');
+await datacubeClient.getArticleRead('2026-07-04', '2026-07-04');
+await datacubeClient.getArticleShare('2026-07-04', '2026-07-04');
+await datacubeClient.getBizSummary('2026-07-04', '2026-07-04');
+await datacubeClient.getArticleTotalDetail('2026-07-04', '2026-07-04');
 await datacubeClient.getArticleSummary('2026-07-04', '2026-07-04');
 await datacubeClient.getInterfaceSummary('2026-07-04', '2026-07-04');
 check(
-  datacubeCalls.length === 4 &&
+  datacubeCalls.length === 8 &&
     datacubeCalls.every(call => call.method === 'POST') &&
     datacubeCalls.every(call => call.data?.begin_date === '2026-07-04' && call.data?.end_date === '2026-07-04') &&
     datacubeCalls.some(call => call.path === '/datacube/getusersummary') &&
+    datacubeCalls.some(call => call.path === '/datacube/getarticleread') &&
+    datacubeCalls.some(call => call.path === '/datacube/getarticleshare') &&
+    datacubeCalls.some(call => call.path === '/datacube/getbizsummary') &&
+    datacubeCalls.some(call => call.path === '/datacube/getarticletotaldetail') &&
     datacubeCalls.some(call => call.path === '/datacube/getinterfacesummary') &&
-    datacubeCalls.every(call => !call.path.startsWith('/cgi-bin/datacube/')),
-  'WechatApiClient datacube 统计接口使用根路径 /datacube 和官方 POST body',
+    datacubeCalls.every(call => !call.path.startsWith('/cgi-bin/datacube/')) &&
+    !datacubeCalls.some(call => ['/datacube/getarticlesummary', '/datacube/getarticletotal', '/datacube/getuserread', '/datacube/getusershare'].includes(call.path)),
+  'WechatApiClient datacube 使用根路径 /datacube；旧图文统计 action 已迁移到官方新版发表内容统计接口',
+);
+
+const officialPayloadCalls = [];
+const officialPayloadClient = new WechatApiClient({
+  getConfig: async () => null,
+  setConfig: async () => undefined,
+  clearConfig: async () => undefined,
+  getAccessToken: async () => ({ accessToken: 'TOKEN', expiresIn: 7200, expiresAt: Date.now() + 7200_000 }),
+  refreshAccessToken: async () => ({ accessToken: 'TOKEN', expiresIn: 7200, expiresAt: Date.now() + 7200_000 }),
+  clearAccessToken: async () => undefined,
+}, {
+  httpExecutor: {
+    get: async (path, config) => {
+      officialPayloadCalls.push({ method: 'GET', path, config });
+      return { data: { template_list: [{ template_id: 'TPL_ID', title: '模板', content: '内容', example: '示例' }], primary_industry: { first_class: 'IT', second_class: '互联网' }, secondary_industry: { first_class: '服务', second_class: '咨询' } }, status: 200, headers: {} };
+    },
+    post: async (path, data, config) => {
+      officialPayloadCalls.push({ method: 'POST', path, data, config });
+      if (path === '/cgi-bin/shorten/gen') return { data: { errcode: 0, errmsg: 'ok', short_key: 'SHORT_KEY' }, status: 200, headers: {} };
+      if (path === '/cgi-bin/shorten/fetch') return { data: { errcode: 0, errmsg: 'ok', long_data: 'LONG_DATA', create_time: 1, expire_seconds: 2 }, status: 200, headers: {} };
+      if (path === '/cgi-bin/message/template/send') return { data: { errcode: 0, errmsg: 'ok', msgid: 123 }, status: 200, headers: {} };
+      if (path === '/cgi-bin/message/custom/send') return { data: { errcode: 0, errmsg: 'ok' }, status: 200, headers: {} };
+      return { data: { errcode: 0, errmsg: 'ok' }, status: 200, headers: {} };
+    },
+    postForm: async (path, data, config) => ({ data: {}, status: 200, headers: {} }),
+  },
+});
+await officialPayloadClient.generateShortKey('LONG_DATA', 86400);
+await officialPayloadClient.fetchShortKey('SHORT_KEY');
+await officialPayloadClient.sendTemplateMessage({ touser: 'OPENID', templateId: 'TPL_ID', data: { first: { value: 'hello' } } });
+await officialPayloadClient.sendCustomMessage({ touser: 'OPENID', msgtype: 'image', image: { mediaId: 'MEDIA_ID' } });
+const templateList = await officialPayloadClient.getAllPrivateTemplates();
+const industry = await officialPayloadClient.getTemplateIndustry();
+check(
+  officialPayloadCalls.some(call => call.path === '/cgi-bin/shorten/gen' && call.data?.long_data === 'LONG_DATA' && call.data?.expire_seconds === 86400) &&
+    officialPayloadCalls.some(call => call.path === '/cgi-bin/shorten/fetch' && call.data?.short_key === 'SHORT_KEY') &&
+    officialPayloadCalls.some(call => call.path === '/cgi-bin/message/template/send' && call.data?.template_id === 'TPL_ID' && !('templateId' in call.data)) &&
+    officialPayloadCalls.some(call => call.path === '/cgi-bin/message/custom/send' && call.data?.image?.media_id === 'MEDIA_ID' && !('mediaId' in call.data.image)) &&
+    templateList.template_list[0]?.templateId === 'TPL_ID' &&
+    industry.primary_industry.firstClass === 'IT',
+  '短链、模板消息、客服消息按微信官方字段出站，并归一化官方 snake_case 返回字段',
+);
+
+let diagnosticErrorMessage = '';
+const diagnosticClient = new WechatApiClient({
+  getConfig: async () => null,
+  setConfig: async () => undefined,
+  clearConfig: async () => undefined,
+  getAccessToken: async () => ({ accessToken: 'TOKEN', expiresIn: 7200, expiresAt: Date.now() + 7200_000 }),
+  refreshAccessToken: async () => ({ accessToken: 'TOKEN', expiresIn: 7200, expiresAt: Date.now() + 7200_000 }),
+  clearAccessToken: async () => undefined,
+}, {
+  httpExecutor: {
+    get: async () => ({ data: { errcode: 65400, errmsg: 'please enable new custom service' }, status: 200, headers: {} }),
+    post: async () => ({ data: { errcode: 48001, errmsg: 'api unauthorized' }, status: 200, headers: {} }),
+    postForm: async () => ({ data: {}, status: 200, headers: {} }),
+  },
+});
+try {
+  await diagnosticClient.createQrCode({ actionName: 'QR_SCENE', sceneId: 1 });
+} catch (error) {
+  diagnosticErrorMessage = error.message;
+}
+check(
+  diagnosticErrorMessage.includes('api unauthorized') && diagnosticErrorMessage.includes('认证服务号'),
+  '微信 48001/权限受限错误会返回面向运营的认证/权限诊断',
 );
 
 console.log('\n=== Workers HTTP Executor fixture 验证 ===');

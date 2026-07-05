@@ -198,6 +198,8 @@ POST /customservice/kfaccount/uploadheadimg?access_token=ACCESS_TOKEN&kf_account
 
 修正状态（2026-07-01）：`get_records` 已改为官方 `POST /customservice/msgrecord/getmsglist`，请求字段使用 `starttime` / `endtime` / `msgid` / `number`，并按官方返回的 `recordlist` 归一化为工具内部 `records`。
 
+限制状态（2026-07-05 官方复核）：客服管理、客服消息、聊天记录接口的官方适用范围为小程序可调，公众号/服务号需“仅认证”；生产返回 `65400 please enable new custom service` 时属于微信后台能力未启用/未生效，不是 endpoint 或字段错误。工具层应返回可操作诊断：启用新版客服/客服消息能力并等待生效后重试。
+
 ### 模板消息
 
 ```http
@@ -209,9 +211,35 @@ POST /cgi-bin/template/del_private_template?access_token=ACCESS_TOKEN
 POST /cgi-bin/message/template/send?access_token=ACCESS_TOKEN
 ```
 
-当前覆盖：发送、获取全部模板、删除模板、获取行业。
+当前覆盖：发送、设置行业、添加模板、获取全部模板、删除模板、获取行业。
 
-未覆盖：设置行业、添加模板。
+修正状态（2026-07-05）：官方 `sendTemplateMessage` 请求字段为 `template_id`，不是 `templateId`；已将工具入参 `templateId` 映射为出站 `template_id`。官方返回模板列表字段为 `template_id` / `primary_industry` / `deputy_industry`，工具内部做兼容归一化。
+
+限制状态（2026-07-05 官方复核）：模板消息官方适用范围为“服务号（仅认证）”。生产返回 `48001 api unauthorized` 时应提示当前公众号未开通/未授权模板消息能力，不能靠代码重试修复。
+
+### 带参数二维码
+
+```http
+POST /cgi-bin/qrcode/create?access_token=ACCESS_TOKEN
+GET  /cgi-bin/showqrcode?ticket=TICKET
+```
+
+请求体使用 `action_name` 和 `action_info.scene`；临时二维码 `expire_seconds` 最大 `2592000` 秒；永久整型场景值 `scene_id` 官方限制为 `1-100000`。
+
+限制状态（2026-07-05 官方复核）：该接口官方适用范围为“服务号（仅认证）”。生产返回 `48001 api unauthorized` 时应提示账号类型/认证/权限问题。
+
+### 长信息与短链
+
+旧 `Account_Management/URL_Shortener.html` 已升级，新官方文档为“长信息与短链”：
+
+```http
+POST /cgi-bin/shorten/gen?access_token=ACCESS_TOKEN
+POST /cgi-bin/shorten/fetch?access_token=ACCESS_TOKEN
+```
+
+`gen` 请求体使用 `long_data` / `expire_seconds`，其中 `long_data` 不超过 4KB，`expire_seconds` 最大 `2592000` 秒；返回 `short_key`，不再返回旧实现假定的 `short_url`。`fetch` 使用 `short_key` 还原 `long_data`。
+
+限制状态（2026-07-05 官方复核）：服务号需“仅认证”。生产返回 `48001 api unauthorized` 时应提示认证/权限限制。
 
 ### 订阅通知 / 一次性订阅
 
@@ -260,16 +288,34 @@ POST /cgi-bin/media/uploadimg?access_token=ACCESS_TOKEN
 ```http
 POST /datacube/getusersummary
 POST /datacube/getusercumulate
-POST /datacube/getarticlesummary
-POST /datacube/getarticletotal
-POST /datacube/getuserread
-POST /datacube/getusershare
 POST /datacube/getupstreammsg
 POST /datacube/getinterfacesummary
 POST /datacube/getinterfacesummaryhour
 ```
 
 修正状态（2026-07-05）：生产正式调用发现 `/cgi-bin/datacube/...` 返回 HTTP 404；datacube 族 endpoint 应为根路径 `/datacube/...`，并使用 POST JSON body `begin_date` / `end_date`。
+
+图文统计旧接口：
+
+```http
+POST /datacube/getarticlesummary
+POST /datacube/getarticletotal
+POST /datacube/getuserread
+POST /datacube/getusershare
+```
+
+官方复核状态（2026-07-05）：微信服务号文档已标注上述旧图文统计接口“已停止维护，请尽快使用下面新接口进行替换”；生产返回 `47009 this api is offline, please use the new api` 时应迁移到新版发表内容统计接口，不应继续调用旧接口。
+
+新版发表内容统计接口：
+
+```http
+POST /datacube/getarticleread
+POST /datacube/getarticleshare
+POST /datacube/getbizsummary
+POST /datacube/getarticletotaldetail
+```
+
+限制：`getarticleread` / `getarticleshare` / `getbizsummary` 数据存储起始时间为 `2025-11-01`，日期范围最长 30 天；`getarticletotaldetail` 日期范围仅支持 1 天，每篇文章仅统计发表日起 30 天内数据。官方适用范围为“公众号/服务号仅认证”。
 
 这些命名与公众号数据统计接口族一致；若后续增加 schema 级参数校验，必须重新打开官方数据统计文档确认日期范围和返回字段。
 

@@ -73,6 +73,147 @@ function normalizeArrayBuffer(data: unknown): ArrayBuffer {
   throw new Error('Unexpected media response type from HTTP executor');
 }
 
+type WechatApiFeature =
+  | 'qrcode'
+  | 'shorten'
+  | 'template'
+  | 'customer_service'
+  | 'datacube_article'
+  | 'generic';
+
+function wechatErrcode(data: unknown): number {
+  const raw = (data as { errcode?: unknown } | null)?.errcode;
+  if (raw === undefined || raw === null || raw === '') {
+    return 0;
+  }
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function wechatErrmsg(data: unknown): string {
+  const errmsg = (data as { errmsg?: unknown } | null)?.errmsg;
+  return typeof errmsg === 'string' && errmsg.trim() ? errmsg : 'unknown error';
+}
+
+function wechatApiDiagnostic(errcode: number, feature: WechatApiFeature = 'generic'): string {
+  if (errcode === 48001) {
+    const featureLabel = {
+      qrcode: '带参数二维码接口（官方适用范围：认证服务号）',
+      shorten: '长信息与短链接口（官方适用范围：认证服务号）',
+      template: '模板消息接口（官方适用范围：认证服务号）',
+      customer_service: '客服接口（公众号/服务号需认证，且后台客服能力需可用）',
+      datacube_article: '数据统计接口（官方适用范围：认证服务号）',
+      generic: '当前接口',
+    }[feature];
+    return `诊断: 微信返回 api unauthorized。请确认${featureLabel}已对当前公众号开通/授权；若账号未企业认证或未拥有对应权限集，代码重试不会成功。`;
+  }
+
+  if (errcode === 65400) {
+    return '诊断: 微信客服能力不可用。请在微信公众平台启用新版客服/客服消息能力，并等待能力生效后重试。';
+  }
+
+  if (errcode === 47009) {
+    return '诊断: 微信返回该旧图文统计接口已下线。请改用 get_article_read、get_article_share、get_biz_summary 或 get_article_total_detail。';
+  }
+
+  if (errcode === 61501) {
+    return '诊断: 日期范围超过官方接口限制，请按对应接口限制缩短 beginDate/endDate。';
+  }
+
+  return '';
+}
+
+function assertWechatOk(data: unknown, operation: string, feature: WechatApiFeature = 'generic'): void {
+  const errcode = wechatErrcode(data);
+  if (errcode === 0) {
+    return;
+  }
+
+  const diagnostic = wechatApiDiagnostic(errcode, feature);
+  throw new Error(`${operation} failed: ${wechatErrmsg(data)} (${errcode})${diagnostic ? `. ${diagnostic}` : ''}`);
+}
+
+function featureForPath(path: string): WechatApiFeature {
+  if (path.includes('/qrcode/')) return 'qrcode';
+  if (path.includes('/shorten/')) return 'shorten';
+  if (path.includes('/template/') || path.includes('/message/template/')) return 'template';
+  if (path.includes('/customservice/') || path.includes('/message/custom/')) return 'customer_service';
+  if (path.includes('/datacube/')) return 'datacube_article';
+  return 'generic';
+}
+
+function pickString(record: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string') {
+      return value;
+    }
+  }
+  return '';
+}
+
+function normalizeTemplate(template: Record<string, unknown>): {
+  templateId: string;
+  title: string;
+  content: string;
+  example: string;
+  primaryIndustry?: string;
+  deputyIndustry?: string;
+} {
+  return {
+    templateId: pickString(template, 'template_id', 'templateId'),
+    title: pickString(template, 'title'),
+    content: pickString(template, 'content'),
+    example: pickString(template, 'example'),
+    primaryIndustry: pickString(template, 'primary_industry', 'primaryIndustry'),
+    deputyIndustry: pickString(template, 'deputy_industry', 'deputyIndustry'),
+  };
+}
+
+function normalizeIndustry(industry: unknown): { firstClass: string; secondClass: string } {
+  const record = (industry ?? {}) as Record<string, unknown>;
+  return {
+    firstClass: pickString(record, 'first_class', 'firstClass'),
+    secondClass: pickString(record, 'second_class', 'secondClass'),
+  };
+}
+
+function normalizeCustomMessagePayload(data: Record<string, any>): Record<string, any> {
+  const payload: Record<string, any> = {
+    touser: data.touser,
+    msgtype: data.msgtype,
+  };
+
+  const mapMedia = (value?: { mediaId?: string }) => value ? { media_id: value.mediaId } : undefined;
+
+  if (data.text) payload.text = data.text;
+  if (data.image) payload.image = mapMedia(data.image);
+  if (data.voice) payload.voice = mapMedia(data.voice);
+  if (data.video) {
+    payload.video = {
+      media_id: data.video.mediaId,
+      thumb_media_id: data.video.thumbMediaId,
+      title: data.video.title,
+      description: data.video.description,
+    };
+  }
+  if (data.music) {
+    payload.music = {
+      title: data.music.title,
+      description: data.music.description,
+      musicurl: data.music.musicurl,
+      hqmusicurl: data.music.hqmusicurl,
+      thumb_media_id: data.music.thumbMediaId,
+    };
+  }
+  if (data.news) payload.news = data.news;
+  if (data.mpnews) payload.mpnews = mapMedia(data.mpnews);
+  if (data.wxcard) payload.wxcard = { card_id: data.wxcard.cardId };
+
+  return JSON.parse(JSON.stringify(payload));
+}
+
 /**
  * 微信公众号 API 客户端
  * 封装微信公众号 API 调用
@@ -98,6 +239,37 @@ export class WechatApiClient {
 
   getInboxStore(): InboxStore | undefined {
     return this.inboxStore;
+  }
+
+  private async withTransientRetry<T>(operation: string, fn: () => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        if (attempt >= 2 || !this.isTransientNetworkError(error)) {
+          throw error;
+        }
+        logger.warn(`${operation} transient network failure, retrying once:`, (error as any)?.message ?? String(error));
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+    }
+
+    throw lastError;
+  }
+
+  private isTransientNetworkError(error: unknown): boolean {
+    const message = ((error as any)?.message ?? String(error)).toLowerCase();
+    return [
+      'fetch failed',
+      'network',
+      'econnreset',
+      'etimedout',
+      'tls',
+      'disconnect',
+      'aborted',
+    ].some(marker => message.includes(marker));
   }
 
   /**
@@ -285,9 +457,7 @@ export class WechatApiClient {
     try {
       const response = await this.httpClient.get(path, { params });
       
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`API Error: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'GET API', featureForPath(path));
       
       return response.data;
     } catch (error) {
@@ -303,9 +473,7 @@ export class WechatApiClient {
     try {
       const response = await this.httpClient.post(path, data);
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`API Error: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'POST API', featureForPath(path));
 
       return response.data;
     } catch (error) {
@@ -321,9 +489,7 @@ export class WechatApiClient {
     try {
       const response = await this.httpClient.postForm(path, formData, formHeadersConfig(formData));
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`API Error: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'POST form API', featureForPath(path));
 
       return response.data;
     } catch (error) {
@@ -661,11 +827,11 @@ export class WechatApiClient {
     }>;
   }): Promise<{ errcode: number; errmsg: string }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/menu/create', menuData);
+      const response = await this.withTransientRetry('Create menu', () =>
+        this.httpClient.post('/cgi-bin/menu/create', menuData)
+      );
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Create menu failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Create menu');
 
       return response.data;
     } catch (error) {
@@ -796,11 +962,15 @@ export class WechatApiClient {
     data: Record<string, { value: string; color?: string }>;
   }): Promise<{ errcode: number; errmsg: string; msgid: number }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/message/template/send', data);
+      const response = await this.httpClient.post('/cgi-bin/message/template/send', {
+        touser: data.touser,
+        template_id: data.templateId,
+        url: data.url,
+        topcolor: data.topcolor,
+        data: data.data,
+      });
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Send template message failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Send template message', 'template');
 
       return response.data;
     } catch (error) {
@@ -823,11 +993,12 @@ export class WechatApiClient {
     try {
       const response = await this.httpClient.get('/cgi-bin/template/get_all_private_template');
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Get templates failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Get templates', 'template');
 
-      return response.data;
+      return {
+        ...response.data,
+        template_list: (response.data.template_list ?? []).map((template: Record<string, unknown>) => normalizeTemplate(template)),
+      };
     } catch (error) {
       logger.error('Failed to get templates:', (error as any)?.message ?? String(error));
       throw error;
@@ -843,9 +1014,7 @@ export class WechatApiClient {
         template_id: templateId
       });
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Delete template failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Delete template', 'template');
 
       return response.data;
     } catch (error) {
@@ -864,11 +1033,12 @@ export class WechatApiClient {
     try {
       const response = await this.httpClient.get('/cgi-bin/template/get_industry');
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Get template industry failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Get template industry', 'template');
 
-      return response.data;
+      return {
+        primary_industry: normalizeIndustry(response.data.primary_industry),
+        secondary_industry: normalizeIndustry(response.data.secondary_industry),
+      };
     } catch (error) {
       logger.error('Failed to get template industry:', (error as any)?.message ?? String(error));
       throw error;
@@ -893,11 +1063,9 @@ export class WechatApiClient {
     wxcard?: { cardId: string };
   }): Promise<{ errcode: number; errmsg: string }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/message/custom/send', data);
+      const response = await this.httpClient.post('/cgi-bin/message/custom/send', normalizeCustomMessagePayload(data));
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Send custom message failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Send custom message', 'customer_service');
 
       return response.data;
     } catch (error) {
@@ -948,128 +1116,107 @@ export class WechatApiClient {
 
   // ==================== 数据统计 API ====================
 
+  private async getDatacubeData(path: string, beginDate: string, endDate: string, operation: string): Promise<{
+    list: Array<Record<string, unknown>>;
+    is_delay?: boolean;
+    isDelay?: boolean;
+  }> {
+    const response = await this.httpClient.post(path, {
+      begin_date: beginDate,
+      end_date: endDate,
+    });
+
+    assertWechatOk(response.data, operation, 'datacube_article');
+
+    return response.data;
+  }
+
   /**
-   * 获取图文群发每日数据
+   * 获取发表内容每日阅读数据（官方替代旧 getarticlesummary/getuserread）
    */
-  async getArticleSummary(beginDate: string, endDate: string): Promise<{
-    list: Array<{
-      refDate: string;
-      intPageReadUser: number;
-      intPageReadCount: number;
-      oriPageReadUser: number;
-      oriPageReadCount: number;
-      shareUser: number;
-      shareCount: number;
-      addToFavUser: number;
-      addToFavCount: number;
-    }>;
+  async getArticleRead(beginDate: string, endDate: string): Promise<{
+    list: Array<Record<string, unknown>>;
+    is_delay?: boolean;
   }> {
     try {
-      const response = await this.httpClient.post('/datacube/getarticlesummary', {
-        begin_date: beginDate,
-        end_date: endDate,
-      });
-
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Get article summary failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
-
-      return response.data;
+      return await this.getDatacubeData('/datacube/getarticleread', beginDate, endDate, 'Get article read');
     } catch (error) {
-      logger.error('Failed to get article summary:', (error as any)?.message ?? String(error));
+      logger.error('Failed to get article read:', (error as any)?.message ?? String(error));
       throw error;
     }
   }
 
   /**
-   * 获取图文群发总数据
+   * 获取发表内容每日分享数据（官方替代旧 getusershare）
    */
-  async getArticleTotal(beginDate: string, endDate: string): Promise<{
-    list: Array<{
-      refDate: string;
-      userSource: number;
-      readUser: number;
-      readCount: number;
-      shareUser: number;
-      shareCount: number;
-    }>;
+  async getArticleShare(beginDate: string, endDate: string): Promise<{
+    list: Array<Record<string, unknown>>;
+    is_delay?: boolean;
   }> {
     try {
-      const response = await this.httpClient.post('/datacube/getarticletotal', {
-        begin_date: beginDate,
-        end_date: endDate,
-      });
-
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Get article total failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
-
-      return response.data;
+      return await this.getDatacubeData('/datacube/getarticleshare', beginDate, endDate, 'Get article share');
     } catch (error) {
-      logger.error('Failed to get article total:', (error as any)?.message ?? String(error));
+      logger.error('Failed to get article share:', (error as any)?.message ?? String(error));
       throw error;
     }
   }
 
   /**
-   * 获取图文统计数据
+   * 获取发表内容概况总数据（官方替代旧图文概况统计）
    */
-  async getUserRead(beginDate: string, endDate: string): Promise<{
-    list: Array<{
-      refDate: string;
-      intPageReadUser: number;
-      intPageReadCount: number;
-      oriPageReadUser: number;
-      oriPageReadCount: number;
-      shareUser: number;
-      shareCount: number;
-      addToFavUser: number;
-      addToFavCount: number;
-    }>;
+  async getBizSummary(beginDate: string, endDate: string): Promise<{
+    list: Array<Record<string, unknown>>;
+    is_delay?: boolean;
   }> {
     try {
-      const response = await this.httpClient.post('/datacube/getuserread', {
-        begin_date: beginDate,
-        end_date: endDate,
-      });
-
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Get user read failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
-
-      return response.data;
+      return await this.getDatacubeData('/datacube/getbizsummary', beginDate, endDate, 'Get biz summary');
     } catch (error) {
-      logger.error('Failed to get user read:', (error as any)?.message ?? String(error));
+      logger.error('Failed to get biz summary:', (error as any)?.message ?? String(error));
       throw error;
     }
   }
 
   /**
-   * 获取图文分享转发数据
+   * 获取发表内容发表详细数据（官方替代旧 getarticletotal）
    */
-  async getUserShare(beginDate: string, endDate: string): Promise<{
-    list: Array<{
-      refDate: string;
-      sharePage: number;
-      shareUser: number;
-      shareCount: number;
-    }>;
+  async getArticleTotalDetail(beginDate: string, endDate: string): Promise<{
+    list: Array<Record<string, unknown>>;
+    is_delay?: boolean;
   }> {
     try {
-      const response = await this.httpClient.post('/datacube/getusershare', {
-        begin_date: beginDate,
-        end_date: endDate,
-      });
-
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Get user share failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
-
-      return response.data;
+      return await this.getDatacubeData('/datacube/getarticletotaldetail', beginDate, endDate, 'Get article total detail');
     } catch (error) {
-      logger.error('Failed to get user share:', (error as any)?.message ?? String(error));
+      logger.error('Failed to get article total detail:', (error as any)?.message ?? String(error));
       throw error;
     }
+  }
+
+  /**
+   * @deprecated 官方旧接口已停止维护；兼容路由到 getArticleRead。
+   */
+  async getArticleSummary(beginDate: string, endDate: string): Promise<{ list: Array<Record<string, unknown>>; is_delay?: boolean }> {
+    return this.getArticleRead(beginDate, endDate);
+  }
+
+  /**
+   * @deprecated 官方旧接口已停止维护；兼容路由到 getArticleTotalDetail。
+   */
+  async getArticleTotal(beginDate: string, endDate: string): Promise<{ list: Array<Record<string, unknown>>; is_delay?: boolean }> {
+    return this.getArticleTotalDetail(beginDate, endDate);
+  }
+
+  /**
+   * @deprecated 官方旧接口已停止维护；兼容路由到 getArticleRead。
+   */
+  async getUserRead(beginDate: string, endDate: string): Promise<{ list: Array<Record<string, unknown>>; is_delay?: boolean }> {
+    return this.getArticleRead(beginDate, endDate);
+  }
+
+  /**
+   * @deprecated 官方旧接口已停止维护；兼容路由到 getArticleShare。
+   */
+  async getUserShare(beginDate: string, endDate: string): Promise<{ list: Array<Record<string, unknown>>; is_delay?: boolean }> {
+    return this.getArticleShare(beginDate, endDate);
   }
 
   /**
@@ -1354,9 +1501,7 @@ export class WechatApiClient {
 
       const response = await this.httpClient.post('/cgi-bin/qrcode/create', requestData);
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Create QR code failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Create QR code', 'qrcode');
 
       return {
         ticket: response.data.ticket,
@@ -1379,24 +1524,57 @@ export class WechatApiClient {
   // ==================== 短链接 API ====================
 
   /**
-   * 长链接转短链接
+   * 长信息转短 key（微信官方新版“长信息与短链”接口）
    */
-  async shortUrl(longUrl: string): Promise<{ shortUrl: string }> {
+  async generateShortKey(longData: string, expireSeconds: number = 2592000): Promise<{ shortKey: string }> {
     try {
       const response = await this.httpClient.post('/cgi-bin/shorten/gen', {
-        action: 'long2short',
-        long_url: longUrl,
+        long_data: longData,
+        expire_seconds: expireSeconds,
       });
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Short URL failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Generate short key', 'shorten');
 
-      return { shortUrl: response.data.short_url };
+      return { shortKey: response.data.short_key };
     } catch (error) {
-      logger.error('Failed to create short URL:', (error as any)?.message ?? String(error));
+      logger.error('Failed to generate short key:', (error as any)?.message ?? String(error));
       throw error;
     }
+  }
+
+  /**
+   * 短 key 还原长信息
+   */
+  async fetchShortKey(shortKey: string): Promise<{
+    longData: string;
+    createTime?: number;
+    expireSeconds?: number;
+  }> {
+    try {
+      const response = await this.httpClient.post('/cgi-bin/shorten/fetch', {
+        short_key: shortKey,
+      });
+
+      assertWechatOk(response.data, 'Fetch short key', 'shorten');
+
+      return {
+        longData: response.data.long_data,
+        createTime: response.data.create_time,
+        expireSeconds: response.data.expire_seconds,
+      };
+    } catch (error) {
+      logger.error('Failed to fetch short key:', (error as any)?.message ?? String(error));
+      throw error;
+    }
+  }
+
+  /**
+   * @deprecated 微信官方旧 URL Shortener 文档已升级为“长信息与短链”。
+   * 保留该方法仅为兼容旧调用方；返回值中的 shortUrl 实际为 short_key。
+   */
+  async shortUrl(longUrl: string): Promise<{ shortUrl: string; shortKey: string }> {
+    const result = await this.generateShortKey(longUrl);
+    return { shortUrl: result.shortKey, shortKey: result.shortKey };
   }
 
   // ==================== 评论管理 API ====================
@@ -1673,9 +1851,7 @@ export class WechatApiClient {
         password,
       });
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Add kf account failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Add kf account', 'customer_service');
 
       return response.data;
     } catch (error) {
@@ -1695,9 +1871,7 @@ export class WechatApiClient {
         password,
       });
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Update kf account failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Update kf account', 'customer_service');
 
       return response.data;
     } catch (error) {
@@ -1715,9 +1889,7 @@ export class WechatApiClient {
         kf_account: kfAccount,
       });
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Delete kf account failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Delete kf account', 'customer_service');
 
       return response.data;
     } catch (error) {
@@ -1740,9 +1912,7 @@ export class WechatApiClient {
     try {
       const response = await this.httpClient.get('/cgi-bin/customservice/getkflist');
 
-      if (response.data.errcode && response.data.errcode !== 0) {
-        throw new Error(`Get kf list failed: ${response.data.errmsg} (${response.data.errcode})`);
-      }
+      assertWechatOk(response.data, 'Get kf list', 'customer_service');
 
       return response.data;
     } catch (error) {
