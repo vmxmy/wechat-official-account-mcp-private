@@ -4,6 +4,7 @@ import { authTool, authMcpTool } from './auth-tool.js';
 import { createWorkerMediaTools } from '../../worker/media-tools.js';
 import { draftTool, draftMcpTool } from './draft-tool.js';
 import { publishTool, publishMcpTool } from './publish-tool.js';
+import { contentPublishMcpTool } from './content-publish-tool.js';
 import { userMcpTool } from './user-tool.js';
 import { tagMcpTool } from './tag-tool.js';
 import { menuMcpTool } from './menu-tool.js';
@@ -58,6 +59,7 @@ const wechatOperationMcpTools: McpTool[] = [
   authMcpTool,
   draftMcpTool,
   publishMcpTool,
+  contentPublishMcpTool,
   permanentMediaTool,
   mediaUploadTool,
   uploadImgTool,
@@ -115,6 +117,7 @@ export {
   draftMcpTool,
   publishTool,
   publishMcpTool,
+  contentPublishMcpTool,
   userMcpTool,
   tagMcpTool,
   menuMcpTool,

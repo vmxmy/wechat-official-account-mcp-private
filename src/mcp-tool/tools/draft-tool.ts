@@ -17,18 +17,70 @@ const draftToolSchema = z.object({
   no_content: z.number().int().min(0).max(1).default(DEFAULT_DRAFT_BATCHGET_NO_CONTENT),
 });
 
-function formatDraftArticle(article: any) {
-  return {
+function toOfficialCropPercentList(coverInfo: any) {
+  const list = coverInfo?.cropPercentList;
+  if (!Array.isArray(list) || list.length === 0) return undefined;
+  return list.map((item: any) => ({
+    ...(item.ratio ? { ratio: item.ratio } : {}),
+    ...(item.x1 ? { x1: item.x1 } : {}),
+    ...(item.y1 ? { y1: item.y1 } : {}),
+    ...(item.x2 ? { x2: item.x2 } : {}),
+    ...(item.y2 ? { y2: item.y2 } : {}),
+  }));
+}
+
+function toOfficialImageInfo(article: any) {
+  if (article.imageInfo?.imageList?.length) {
+    return {
+      image_list: article.imageInfo.imageList.map((item: any) => ({
+        image_media_id: item.imageMediaId,
+      })),
+    };
+  }
+
+  if (article.imageMediaIds?.length) {
+    return {
+      image_list: article.imageMediaIds.map((imageMediaId: string) => ({
+        image_media_id: imageMediaId,
+      })),
+    };
+  }
+
+  return undefined;
+}
+
+export function formatDraftArticle(article: any) {
+  const articleType = article.articleType ?? (article.imageInfo || article.imageMediaIds ? 'newspic' : 'news');
+  const formatted: Record<string, unknown> = {
+    article_type: articleType,
     title: article.title,
-    author: article.author || '',
-    digest: article.digest || '',
     content: article.content,
-    content_source_url: article.contentSourceUrl || '',
-    thumb_media_id: article.thumbMediaId,
-    show_cover_pic: article.showCoverPic || 0,
     need_open_comment: article.needOpenComment || 0,
     only_fans_can_comment: article.onlyFansCanComment || 0,
   };
+
+  if (article.author) formatted.author = article.author;
+  if (article.digest) formatted.digest = article.digest;
+  if (article.contentSourceUrl) formatted.content_source_url = article.contentSourceUrl;
+
+  if (articleType === 'news') {
+    formatted.thumb_media_id = article.thumbMediaId;
+    formatted.show_cover_pic = article.showCoverPic || 0;
+    if (article.picCrop2351) formatted.pic_crop_235_1 = article.picCrop2351;
+    if (article.picCrop11) formatted.pic_crop_1_1 = article.picCrop11;
+    return formatted;
+  }
+
+  const imageInfo = toOfficialImageInfo(article);
+  if (imageInfo) formatted.image_info = imageInfo;
+
+  const cropPercentList = toOfficialCropPercentList(article.coverInfo);
+  if (cropPercentList) {
+    formatted.cover_info = { crop_percent_list: cropPercentList };
+  }
+
+  if (article.productInfo) formatted.product_info = article.productInfo;
+  return formatted;
 }
 
 /**
@@ -114,7 +166,8 @@ async function handleDraftOperations(
         `摘要: ${item.digest || '无'}\n` +
         `内容: ${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}\n` +
         `原文链接: ${item.content_source_url || '无'}\n` +
-        `封面图ID: ${item.thumb_media_id}\n` +
+        `文章类型: ${item.article_type || 'news'}\n` +
+        `封面图ID: ${item.thumb_media_id || item.image_info?.image_list?.[0]?.image_media_id || '无'}\n` +
         `显示封面: ${item.show_cover_pic ? '是' : '否'}\n`
       ).join('\n');
 
@@ -173,6 +226,7 @@ async function handleDraftOperations(
 
         return `${offset + index + 1}. 草稿ID: ${item.media_id}\n` +
                `   标题: ${firstArticle.title}${articleCount > 1 ? ` (共${articleCount}篇)` : ''}\n` +
+               `   类型: ${firstArticle.article_type || 'news'}\n` +
                `   作者: ${firstArticle.author || '未设置'}\n` +
                `   创建时间: ${item.content?.create_time ? new Date(item.content.create_time * 1000).toLocaleString() : '未知'}\n` +
                `   更新时间: ${updateTime ? new Date(updateTime * 1000).toLocaleString() : '未知'}`;
@@ -300,15 +354,34 @@ export const draftMcpTool: McpTool = {
     mediaId: z.string().optional().describe('草稿 Media ID（get、update、delete 时必需）'),
     index: z.number().int().min(0).optional().describe('草稿中的文章索引（update 时必需）'),
     articles: z.array(z.object({
+      articleType: z.enum(['news', 'newspic']).optional().describe('官方文章类型：news=图文消息，newspic=图片消息/贴图；省略时按字段自动推断'),
       title: z.string().describe('文章标题'),
       author: z.string().optional().describe('作者'),
       digest: z.string().optional().describe('摘要'),
       content: z.string().describe('文章内容'),
       contentSourceUrl: z.string().optional().describe('原文链接'),
-      thumbMediaId: z.string().describe('封面图片媒体ID'),
+      thumbMediaId: z.string().optional().describe('图文消息封面图片永久MediaID（news 必需）'),
+      imageMediaIds: z.array(z.string()).optional().describe('图片消息/贴图永久MediaID列表（newspic 必需，最多20张）'),
+      imageInfo: z.object({
+        imageList: z.array(z.object({
+          imageMediaId: z.string().describe('图片消息里的图片永久MediaID'),
+        })),
+      }).optional().describe('官方 image_info 的 camelCase 结构；可用 imageMediaIds 简写替代'),
+      coverInfo: z.object({
+        cropPercentList: z.array(z.object({
+          ratio: z.enum(['1_1', '16_9', '2.35_1']).optional(),
+          x1: z.string().optional(),
+          y1: z.string().optional(),
+          x2: z.string().optional(),
+          y2: z.string().optional(),
+        })).optional(),
+      }).optional().describe('图片消息封面裁剪信息'),
+      productInfo: z.record(z.string(), z.unknown()).optional().describe('图片消息商品信息（如已开通相关能力）'),
       showCoverPic: z.number().optional().describe('是否显示封面图片'),
       needOpenComment: z.number().optional().describe('是否开启评论'),
       onlyFansCanComment: z.number().optional().describe('是否仅粉丝可评论'),
+      picCrop2351: z.string().optional().describe('图文消息 2.35:1 封面裁剪坐标 X1_Y1_X2_Y2'),
+      picCrop11: z.string().optional().describe('图文消息 1:1 封面裁剪坐标 X1_Y1_X2_Y2'),
     })).optional().describe('文章列表（add 时可传多篇，update 时必须且仅能传一篇）'),
     offset: z.number().int().min(0).default(0).describe('偏移量（列表时使用，默认0）'),
     count: z.number().int().min(1).max(20).default(OFFICIAL_DRAFT_BATCHGET_MAX_COUNT).describe('数量（列表时使用，默认20，官方上限20）'),

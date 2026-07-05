@@ -88,9 +88,9 @@ mcpTools.forEach((tool, index) => {
 });
 
 console.log('\n=== 验证结果 ===');
-check(mcpTools.length === 26, mcpTools.length === 26
-  ? '成功！所有22个既有工具 + 4个多租户管理工具都已正确注册为MCP工具'
-  : `失败！期望26个工具，实际注册了${mcpTools.length}个工具`);
+check(mcpTools.length === 27, mcpTools.length === 27
+  ? '成功！所有23个既有/内容工具 + 4个多租户管理工具都已正确注册为MCP工具'
+  : `失败！期望27个工具，实际注册了${mcpTools.length}个工具`);
 
 const managementToolNames = ['woa_context', 'woa_tenant', 'woa_account', 'woa_audit'];
 check(
@@ -236,6 +236,47 @@ check(
     templateList.template_list[0]?.templateId === 'TPL_ID' &&
     industry.primary_industry.firstClass === 'IT',
   '短链、模板消息、客服消息按微信官方字段出站，并归一化官方 snake_case 返回字段',
+);
+
+const contentPublishCalls = [];
+const contentPublishTool = mcpTools.find(tool => tool.name === 'wechat_content_publish');
+const contentPublishResult = await contentPublishTool.handler({
+  action: 'create_and_publish',
+  contentType: 'image',
+  title: '贴图测试',
+  content: '贴图消息正文',
+  imageMediaIds: ['IMAGE_MEDIA_ID'],
+}, {
+  post: async (path, data) => {
+    contentPublishCalls.push({ path, data });
+    if (path === '/cgi-bin/draft/add') return { media_id: 'DRAFT_MEDIA_ID' };
+    if (path === '/cgi-bin/freepublish/submit') return { publish_id: 'PUBLISH_ID', msg_data_id: 'MSG_DATA_ID' };
+    return {};
+  },
+});
+const videoPublishResult = await contentPublishTool.handler({
+  action: 'create_draft',
+  contentType: 'video',
+  title: '视频测试',
+  content: '视频测试',
+}, {
+  post: async (path, data) => {
+    contentPublishCalls.push({ path, data });
+    return {};
+  },
+});
+check(
+  contentPublishCalls.some(call =>
+    call.path === '/cgi-bin/draft/add' &&
+    call.data?.articles?.[0]?.article_type === 'newspic' &&
+    call.data?.articles?.[0]?.image_info?.image_list?.[0]?.image_media_id === 'IMAGE_MEDIA_ID' &&
+    !('thumb_media_id' in call.data.articles[0])
+  ) &&
+    contentPublishCalls.some(call => call.path === '/cgi-bin/freepublish/submit' && call.data?.media_id === 'DRAFT_MEDIA_ID') &&
+    contentPublishResult.content?.[0]?.text?.includes('草稿创建并提交发布成功') &&
+    videoPublishResult.isError === true &&
+    videoPublishResult.content?.[0]?.text?.includes('未发现视频草稿发布 API'),
+  'wechat_content_publish 按官方 newspic 草稿结构发布图片消息；视频发布返回明确官方限制',
 );
 
 let diagnosticErrorMessage = '';

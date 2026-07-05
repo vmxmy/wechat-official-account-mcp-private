@@ -132,19 +132,66 @@ export const mediaIdSchema = z.string()
   .min(1, 'Media ID不能为空')
   .max(128, 'Media ID长度不正确');
 
+const cropPercentSchema = z.object({
+  ratio: z.enum(['1_1', '16_9', '2.35_1']).optional(),
+  x1: z.string().optional(),
+  y1: z.string().optional(),
+  x2: z.string().optional(),
+  y2: z.string().optional(),
+});
+
+const imageInfoSchema = z.object({
+  imageList: z.array(z.object({
+    imageMediaId: mediaIdSchema,
+  })).min(1, '图片消息至少需要1张图片').max(20, '图片消息最多支持20张图片'),
+});
+
+const coverInfoSchema = z.object({
+  cropPercentList: z.array(cropPercentSchema).max(3, '封面裁剪比例最多支持3组').optional(),
+}).optional();
+
 /**
  * 草稿文章验证 Schema (增强版)
+ *
+ * 微信官方服务号草稿接口支持：
+ * - news：图文消息，thumb_media_id 必填
+ * - newspic：图片消息，image_info.image_list[].image_media_id 必填，最多20张
  */
 export const draftArticleSchema = z.object({
+  articleType: z.enum(['news', 'newspic']).optional(),
   title: articleTitleSchema,
   author: z.string().max(32, '作者名不能超过32个字符').optional(),
   digest: z.string().max(256, '摘要不能超过256个字符').optional(),
   content: articleContentSchema,
   contentSourceUrl: urlSchema,
-  thumbMediaId: mediaIdSchema,
+  thumbMediaId: mediaIdSchema.optional(),
+  imageMediaIds: z.array(mediaIdSchema).min(1, '图片消息至少需要1张图片').max(20, '图片消息最多支持20张图片').optional(),
+  imageInfo: imageInfoSchema.optional(),
+  coverInfo: coverInfoSchema,
+  productInfo: z.record(z.string(), z.unknown()).optional(),
   showCoverPic: z.number().int().min(0).max(1).optional(),
   needOpenComment: z.number().int().min(0).max(1).optional(),
   onlyFansCanComment: z.number().int().min(0).max(1).optional(),
+  picCrop2351: z.string().optional(),
+  picCrop11: z.string().optional(),
+}).superRefine((article, ctx) => {
+  const articleType = article.articleType ?? (article.imageInfo || article.imageMediaIds ? 'newspic' : 'news');
+
+  if (articleType === 'news' && !article.thumbMediaId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['thumbMediaId'],
+      message: '图文消息(news)必须提供封面图片永久MediaID thumbMediaId',
+    });
+  }
+
+  if (articleType === 'newspic' && !article.imageInfo && !article.imageMediaIds?.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['imageMediaIds'],
+      message: '图片消息(newspic)必须提供 imageMediaIds 或 imageInfo.imageList',
+    });
+  }
 });
 
 /**

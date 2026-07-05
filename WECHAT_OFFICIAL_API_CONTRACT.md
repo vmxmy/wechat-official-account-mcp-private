@@ -119,6 +119,8 @@ GET  /cgi-bin/material/get_materialcount?access_token=ACCESS_TOKEN
 
 分页约束（2026-07-02 复核）：`POST /cgi-bin/material/batchget_material` 请求体 `count` 为必填，官方取值范围 `1~20`。工具层默认使用官方上限 `20`。
 
+素材上传复核（2026-07-05）：官方服务号素材文档将 `POST /cgi-bin/material/add_material` 定义为新增图片、语音、视频、缩略图永久素材；视频仅为素材能力，格式/大小限制为 MP4、10MB，返回 `media_id`。未在服务号发布能力文档中发现“视频草稿发布”接口。
+
 ### 草稿与发布
 
 ```http
@@ -132,7 +134,14 @@ POST /cgi-bin/freepublish/get?access_token=ACCESS_TOKEN
 POST /cgi-bin/freepublish/delete?access_token=ACCESS_TOKEN
 ```
 
-当前覆盖：`wechat_draft` 对应草稿 add/get/delete/list/count；`wechat_publish` 对应 submit/get/list/delete。
+当前覆盖：`wechat_draft` 对应草稿 add/get/delete/list/count；`wechat_publish` 对应 submit/get/list/delete；`wechat_content_publish` 提供图文/图片消息草稿创建和提交发布的统一入口。
+
+图片消息/贴图复核（2026-07-05）：官方服务号 `POST /cgi-bin/draft/add` 与 `POST /cgi-bin/draft/update` 的 `articles[].article_type` 支持：
+
+- `news`：图文消息，`thumb_media_id` 必填且必须是永久 MediaID。
+- `newspic`：图片消息（项目内称贴图/图片消息），`image_info.image_list[].image_media_id` 必填且必须是永久 MediaID，图片数量最多 20 张，首张图片即封面图；`cover_info.crop_percent_list` 可选。
+
+`POST /cgi-bin/freepublish/submit` 官方说明为“将图文草稿提交发布”，请求体只接受 `media_id`；该接口可提交上述草稿生成的图文/图片消息。未发现独立“视频发布草稿”参数或 endpoint；视频仍通过永久素材、客服消息或群发 `mpvideo` 等能力使用。
 
 修正状态（2026-07-05）：`POST /cgi-bin/freepublish/delete` 用于删除已发布文章，操作不可逆；请求体使用 `article_id` 和可选 `index`。历史代码中将 delete 参数误写为 `publish_id`，已修正为 `article_id`，并在 CLI/REST 删除路径增加显式确认保护。
 
