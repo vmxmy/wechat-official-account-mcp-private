@@ -9,6 +9,8 @@ const publishToolSchema = z.object({
   action: z.enum(['submit', 'get', 'delete', 'list']),
   mediaId: z.string().optional(),
   publishId: z.string().optional(),
+  articleId: z.string().optional(),
+  index: z.number().int().min(0).max(20).optional(),
   offset: z.number().int().min(0).default(0),
   count: z.number().int().min(1).max(20).default(OFFICIAL_FREEPUBLISH_BATCHGET_MAX_COUNT),
   noContent: z.number().int().min(0).max(1).optional(),
@@ -59,6 +61,8 @@ async function handlePublishCore(
   params: {
     mediaId?: string;
     publishId?: string;
+    articleId?: string;
+    index?: number;
     offset?: number;
     count?: number;
     noContent?: number;
@@ -115,20 +119,21 @@ async function handlePublishCore(
     }
 
     case 'delete': {
-      const { publishId: deletePublishId } = params;
+      const deleteArticleId = params.articleId ?? params.publishId;
 
-      if (!deletePublishId) {
-        throw new Error('发布ID不能为空');
+      if (!deleteArticleId) {
+        throw new Error('文章ID不能为空');
       }
 
       await apiClient.post('/cgi-bin/freepublish/delete', {
-        publish_id: deletePublishId
+        article_id: deleteArticleId,
+        ...(params.index === undefined ? {} : { index: params.index }),
       }) as any;
 
       return {
         content: [{
           type: 'text',
-          text: `发布删除成功！\n发布ID: ${deletePublishId}\n\n注意：删除发布不会删除草稿，如需删除草稿请使用草稿管理工具。`,
+          text: `发布文章删除成功！\n文章ID: ${deleteArticleId}\n索引: ${params.index ?? '未指定'}\n\n注意：删除已发布文章不可逆，且不会删除原始草稿。`,
         }],
       };
     }
@@ -165,11 +170,13 @@ async function handlePublishCore(
 async function handlePublishTool(context: WechatToolContext): Promise<WechatToolResult> {
   const { args, apiClient } = context;
   const validatedArgs = publishToolSchema.parse(args);
-  const { action, mediaId, publishId, offset, count, noContent, no_content } = validatedArgs;
+  const { action, mediaId, publishId, articleId, index, offset, count, noContent, no_content } = validatedArgs;
 
   return handlePublishCore(action, {
     mediaId,
     publishId,
+    articleId,
+    index,
     offset,
     count,
     noContent: noContent ?? no_content,
@@ -181,11 +188,13 @@ async function handlePublishTool(context: WechatToolContext): Promise<WechatTool
  */
 async function handlePublishMcpTool(args: unknown, apiClient: WechatApiClient): Promise<WechatToolResult> {
   const validatedArgs = publishToolSchema.parse(args);
-  const { action, mediaId, publishId, offset, count, noContent, no_content } = validatedArgs;
+  const { action, mediaId, publishId, articleId, index, offset, count, noContent, no_content } = validatedArgs;
 
   return handlePublishCore(action, {
     mediaId,
     publishId,
+    articleId,
+    index,
     offset,
     count,
     noContent: noContent ?? no_content,
@@ -212,7 +221,17 @@ export const publishTool: WechatToolDefinition = {
       },
       publishId: {
         type: 'string',
-        description: '发布 ID',
+        description: '发布 ID（get 查询状态时必需；delete 兼容旧参数但建议使用 articleId）',
+      },
+      articleId: {
+        type: 'string',
+        description: '已发布文章 article_id（delete 时必需）',
+      },
+      index: {
+        type: 'number',
+        minimum: 0,
+        maximum: 20,
+        description: '要删除的图文索引（delete 时可选；不传则按官方接口默认行为处理）',
       },
       offset: {
         type: 'number',
@@ -253,7 +272,9 @@ export const publishMcpTool: McpTool = {
   inputSchema: {
     action: z.enum(['submit', 'get', 'delete', 'list']).describe('操作类型：submit(提交发布), get(查询状态), delete(删除发布), list(发布列表)'),
     mediaId: z.string().optional().describe('草稿 Media ID（提交发布时必需）'),
-    publishId: z.string().optional().describe('发布 ID（查询状态、删除时必需）'),
+    publishId: z.string().optional().describe('发布 ID（查询状态时必需；delete 兼容旧参数但建议使用 articleId）'),
+    articleId: z.string().optional().describe('已发布文章 article_id（删除已发布文章时必需）'),
+    index: z.number().int().min(0).max(20).optional().describe('要删除的图文索引（删除已发布文章时可选；不传则按官方接口默认行为处理）'),
     offset: z.number().int().min(0).default(0).describe('偏移量（列表时使用，默认0）'),
     count: z.number().int().min(1).max(20).default(OFFICIAL_FREEPUBLISH_BATCHGET_MAX_COUNT).describe('数量（列表时使用，默认20，官方上限20）'),
     noContent: z.number().int().min(0).max(1).optional().describe('是否不返回 content 字段（列表时使用，默认1；传0可返回正文内容）'),

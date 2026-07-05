@@ -580,6 +580,10 @@ woa whoami
 woa usage                         # 查看当前租户套餐、用量、重置时间与升级提示
 woa tenant usage --tenant <id>     # 指定租户查看用量
 woa account configure --tenant <id> --account <id> --app-id <wx...> --app-secret <secret>
+woa draft delete <media_id> --dry-run
+woa draft delete <media_id> --confirm-delete
+woa publish delete <article_id> --dry-run
+woa publish delete <article_id> --confirm-delete
 ```
 
 CI/冒烟测试可跳过浏览器授权，直接保存已有 OAuth token：

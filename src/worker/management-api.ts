@@ -74,7 +74,9 @@ export async function handleManagementApiRequest(
           '/api/v1/tenants/:tenantId/billing/checkout',
           '/api/v1/tenants/:tenantId/accounts',
           '/api/v1/tenants/:tenantId/accounts/:accountId/drafts',
+          '/api/v1/tenants/:tenantId/accounts/:accountId/drafts/:mediaId',
           '/api/v1/tenants/:tenantId/accounts/:accountId/publishes',
+          '/api/v1/tenants/:tenantId/accounts/:accountId/publishes/:articleId',
           '/api/v1/tenants/:tenantId/accounts/:accountId/inbox',
           '/api/v1/audit',
         ],
@@ -376,6 +378,34 @@ async function handleAccountRoutes(
     return apiSuccess(data, context, quota);
   }
 
+  if (request.method === 'DELETE' && segments.length === 6 && segments[4] === 'drafts') {
+    requireScope(context, 'woa:content:write');
+    const mediaId = decodePathSegment(segments[5], 'mediaId');
+    const params = {
+      action: 'delete',
+      mediaId,
+      tenantId,
+      accountId,
+    };
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'wechat_draft',
+      action: 'delete',
+      params,
+    }, async () => {
+      const apiClient = await deps.createApiClient();
+      await apiClient.post('/cgi-bin/draft/delete', {
+        media_id: mediaId,
+      });
+      return {
+        deleted: true,
+        tenantId,
+        accountId,
+        mediaId,
+      };
+    });
+    return apiSuccess(data, context, quota);
+  }
+
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'publishes') {
     requireScope(context, 'woa:content:read');
     const url = new URL(request.url);
@@ -398,6 +428,41 @@ async function handleAccountRoutes(
         count: params.count,
         no_content: params.no_content,
       });
+    });
+    return apiSuccess(data, context, quota);
+  }
+
+  if (request.method === 'DELETE' && segments.length === 6 && segments[4] === 'publishes') {
+    requireScope(context, 'woa:content:write');
+    const url = new URL(request.url);
+    const articleId = decodePathSegment(segments[5], 'articleId');
+    const index = url.searchParams.has('index')
+      ? clampIntQuery(url, 'index', 0, 0, 20)
+      : undefined;
+    const params = {
+      action: 'delete',
+      articleId,
+      index,
+      tenantId,
+      accountId,
+    };
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'wechat_publish',
+      action: 'delete',
+      params,
+    }, async () => {
+      const apiClient = await deps.createApiClient();
+      await apiClient.post('/cgi-bin/freepublish/delete', {
+        article_id: articleId,
+        ...(index === undefined ? {} : { index }),
+      });
+      return {
+        deleted: true,
+        tenantId,
+        accountId,
+        articleId,
+        index: index ?? null,
+      };
     });
     return apiSuccess(data, context, quota);
   }
@@ -515,6 +580,21 @@ function clampIntQuery(url: URL, name: string, fallback: number, min: number, ma
     throw new ApiError('validation_error', `${name} must be between ${min} and ${max}.`, 400, { field: name, min, max });
   }
   return value;
+}
+
+function decodePathSegment(value: string | undefined, field: string): string {
+  if (!value) {
+    throw new ApiError('validation_error', `${field} is required.`, 400, { field });
+  }
+  try {
+    const decoded = decodeURIComponent(value);
+    if (!decoded.trim()) {
+      throw new Error('empty');
+    }
+    return decoded;
+  } catch {
+    throw new ApiError('validation_error', `${field} must be URL encoded path text.`, 400, { field });
+  }
 }
 
 function getInboxStore(apiClient: WechatApiClient): InboxStore {

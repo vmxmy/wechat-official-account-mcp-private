@@ -121,9 +121,19 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (root === 'draft' && sub === 'delete') {
+    await deleteDraft(leaf, parsed.flags);
+    return;
+  }
+
   if (root === 'publish' && sub === 'list') {
     const { tenantId, accountId } = await resolveTenantAccount(parsed.flags);
     console.log(JSON.stringify(await apiGet(`/api/v1/tenants/${tenantId}/accounts/${accountId}/publishes${paginationQuery(parsed.flags)}`, parsed.flags), null, 2));
+    return;
+  }
+
+  if (root === 'publish' && sub === 'delete') {
+    await deletePublish(leaf, parsed.flags);
     return;
   }
 
@@ -437,6 +447,61 @@ async function apiPost(route: string, body: unknown, flags: Record<string, strin
   return await apiRequest('POST', route, body, flags);
 }
 
+async function apiDelete(route: string, flags: Record<string, string | boolean>): Promise<unknown> {
+  return await apiRequest('DELETE', route, undefined, flags);
+}
+
+async function deleteDraft(idArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
+  const { tenantId, accountId } = await resolveTenantAccount(flags);
+  const mediaId = stringFlag(flags, 'media-id') || stringFlag(flags, 'mediaId') || idArg;
+  if (!mediaId) {
+    throw new Error('draft delete requires --media-id <media_id> or positional <media_id>.');
+  }
+  const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/drafts/${encodeURIComponent(mediaId)}`;
+  if (flags['dry-run']) {
+    printDeleteDryRun('draft', route, { tenantId, accountId, mediaId });
+    return;
+  }
+  requireDeleteConfirmation(flags, 'draft');
+  console.log(JSON.stringify(await apiDelete(route, flags), null, 2));
+}
+
+async function deletePublish(idArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
+  const { tenantId, accountId } = await resolveTenantAccount(flags);
+  const articleId = stringFlag(flags, 'article-id') || stringFlag(flags, 'articleId') || idArg;
+  if (!articleId) {
+    throw new Error('publish delete requires --article-id <article_id> or positional <article_id>.');
+  }
+  const index = optionalNonNegativeIntFlag(flags, 'index');
+  const query = index === undefined ? '' : `?index=${index}`;
+  const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/publishes/${encodeURIComponent(articleId)}${query}`;
+  if (flags['dry-run']) {
+    printDeleteDryRun('publish', route, { tenantId, accountId, articleId, index: index ?? null });
+    return;
+  }
+  requireDeleteConfirmation(flags, 'publish');
+  console.log(JSON.stringify(await apiDelete(route, flags), null, 2));
+}
+
+function printDeleteDryRun(kind: 'draft' | 'publish', route: string, target: Record<string, unknown>): void {
+  console.log(JSON.stringify({
+    success: true,
+    dryRun: true,
+    operation: `${kind}.delete`,
+    target,
+    route,
+    note: 'No remote request was sent. Add --confirm-delete without --dry-run to perform the irreversible delete.',
+  }, null, 2));
+}
+
+function requireDeleteConfirmation(flags: Record<string, string | boolean>, kind: 'draft' | 'publish'): void {
+  const value = flags['confirm-delete'];
+  const confirmed = value === true || value === 'true' || value === 'yes' || value === `CONFIRM:${kind}.delete`;
+  if (!confirmed) {
+    throw new Error(`Refusing to delete ${kind} without confirmation. Retry with --confirm-delete after verifying the target ID, or use --dry-run.`);
+  }
+}
+
 async function apiRequest(method: string, route: string, body: unknown, flags: Record<string, string | boolean>): Promise<unknown> {
   const config = await loadConfig();
   const server = normalizeServer(stringFlag(flags, 'server') || config.server || '');
@@ -554,6 +619,16 @@ function requiredString(flags: Record<string, string | boolean>, name: string, m
   return value;
 }
 
+function optionalNonNegativeIntFlag(flags: Record<string, string | boolean>, name: string): number | undefined {
+  const value = stringFlag(flags, name);
+  if (value === undefined) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || String(parsed) !== value) {
+    throw new Error(`${name} must be a non-negative integer.`);
+  }
+  return parsed;
+}
+
 function stringFlag(flags: Record<string, string | boolean>, name: string): string | undefined {
   const value = flags[name];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -597,7 +672,9 @@ Usage:
   woa account status [--tenant <tenantId>] [--account <accountId>]
   woa account configure --tenant <tenantId> --account <accountId> --app-id <wx...> --app-secret <secret>
   woa draft list [--tenant <tenantId>] [--account <accountId>] [--count 20]
+  woa draft delete <media_id> --confirm-delete [--tenant <tenantId>] [--account <accountId>]
   woa publish list [--tenant <tenantId>] [--account <accountId>] [--count 20]
+  woa publish delete <article_id> [--index <n>] --confirm-delete [--tenant <tenantId>] [--account <accountId>]
   woa inbox list [--tenant <tenantId>] [--account <accountId>] [--limit 20]
   woa mcp config codex --server <url> [--output <path>]
   woa mcp config claude --server <url> [--output <path>]
@@ -605,6 +682,7 @@ Usage:
 Runtime posture:
   - Remote-only: commands call the OAuth-protected Worker REST API or generate remote /mcp config.
   - No local MCP server, stdio transport, SSE transport, SQLite, local WeChat runtime, or filePath upload.
+  - Destructive delete commands require --confirm-delete; use --dry-run first to verify the target.
   - The CLI stores OAuth/session data only; WeChat app secrets are sent over HTTPS for account configuration and are not persisted locally.`);
 }
 

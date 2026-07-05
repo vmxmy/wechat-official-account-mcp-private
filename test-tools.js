@@ -285,6 +285,18 @@ check(
     !/appSecret|WECHAT_APP_SECRET|app_secret/i.test(woaConfig),
   'woa mcp config 生成远程 /mcp 配置且不包含微信凭据',
 );
+const woaDraftDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'draft', 'delete', 'MEDIA_ID_FOR_DELETE', '--dry-run'], { encoding: 'utf8' }));
+const woaPublishDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'publish', 'delete', 'ARTICLE_ID_FOR_DELETE', '--index', '1', '--dry-run'], { encoding: 'utf8' }));
+check(
+  woaDraftDeleteDryRun.dryRun === true &&
+    woaDraftDeleteDryRun.operation === 'draft.delete' &&
+    woaDraftDeleteDryRun.target?.mediaId === 'MEDIA_ID_FOR_DELETE' &&
+    woaPublishDeleteDryRun.dryRun === true &&
+    woaPublishDeleteDryRun.operation === 'publish.delete' &&
+    woaPublishDeleteDryRun.target?.articleId === 'ARTICLE_ID_FOR_DELETE' &&
+    woaPublishDeleteDryRun.target?.index === 1,
+  'woa CLI 删除命令默认支持 dry-run 预检，不要求本地 MCP 或微信凭据',
+);
 const workerIndexSource = readFileSync('./src/worker/index.ts', 'utf8');
 check(
   workerIndexSource.includes("'/api/v1': managementApiHandler") &&
@@ -641,6 +653,72 @@ check(
     restDraftBody.meta?.quota?.checks?.some(item => item.metric === 'tool_calls_month') &&
     restToolCallCounter?.used === 1,
   'REST draft list 成功时提交 quota 并在响应 meta 返回机器可读 quota 信息',
+);
+
+const restDeleteQuotaStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+let restDeleteDraftCall = null;
+const restDeleteDraftResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/drafts/${encodeURIComponent('MEDIA_ID_FOR_DELETE')}`, {
+    method: 'DELETE',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:write',
+    },
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    usageStore: restDeleteQuotaStore,
+    createApiClient: async () => ({
+      post: async (path, data) => {
+        restDeleteDraftCall = { path, data };
+        return { errcode: 0, errmsg: 'ok' };
+      },
+    }),
+  },
+);
+const restDeleteDraftBody = await restDeleteDraftResponse.json();
+check(
+  restDeleteDraftResponse.status === 200 &&
+    restDeleteDraftBody.data?.deleted === true &&
+    restDeleteDraftCall?.path === '/cgi-bin/draft/delete' &&
+    restDeleteDraftCall?.data?.media_id === 'MEDIA_ID_FOR_DELETE' &&
+    restDeleteDraftBody.meta?.quota?.checks?.some(item => item.metric === 'high_risk_ops_month'),
+  'REST draft delete 使用官方 media_id payload，受写权限与高风险 quota 保护',
+);
+
+let restDeletePublishCall = null;
+const restDeletePublishResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/publishes/${encodeURIComponent('ARTICLE_ID_FOR_DELETE')}?index=1`, {
+    method: 'DELETE',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:write',
+    },
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    createApiClient: async () => ({
+      post: async (path, data) => {
+        restDeletePublishCall = { path, data };
+        return { errcode: 0, errmsg: 'ok' };
+      },
+    }),
+  },
+);
+const restDeletePublishBody = await restDeletePublishResponse.json();
+check(
+  restDeletePublishResponse.status === 200 &&
+    restDeletePublishBody.data?.deleted === true &&
+    restDeletePublishCall?.path === '/cgi-bin/freepublish/delete' &&
+    restDeletePublishCall?.data?.article_id === 'ARTICLE_ID_FOR_DELETE' &&
+    restDeletePublishCall?.data?.index === 1,
+  'REST publish delete 使用官方 article_id/index payload',
 );
 
 const restFailQuotaStore = new D1UsageQuotaStore(new MemoryUsageD1Database());

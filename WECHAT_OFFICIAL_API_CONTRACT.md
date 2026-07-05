@@ -129,9 +129,12 @@ POST /cgi-bin/draft/batchget?access_token=ACCESS_TOKEN
 GET  /cgi-bin/draft/count?access_token=ACCESS_TOKEN
 POST /cgi-bin/freepublish/submit?access_token=ACCESS_TOKEN
 POST /cgi-bin/freepublish/get?access_token=ACCESS_TOKEN
+POST /cgi-bin/freepublish/delete?access_token=ACCESS_TOKEN
 ```
 
-当前覆盖：`wechat_draft` 对应草稿 add/get/delete/list/count；`wechat_publish` 的 submit/get/list/delete 需逐项复核 raw `apiClient.get/post` 调用。
+当前覆盖：`wechat_draft` 对应草稿 add/get/delete/list/count；`wechat_publish` 对应 submit/get/list/delete。
+
+修正状态（2026-07-05）：`POST /cgi-bin/freepublish/delete` 用于删除已发布文章，操作不可逆；请求体使用 `article_id` 和可选 `index`。历史代码中将 delete 参数误写为 `publish_id`，已修正为 `article_id`，并在 CLI/REST 删除路径增加显式确认保护。
 
 分页约束（2026-07-02 复核）：
 
