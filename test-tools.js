@@ -182,9 +182,10 @@ check(
   datacubeCalls.length === 4 &&
     datacubeCalls.every(call => call.method === 'POST') &&
     datacubeCalls.every(call => call.data?.begin_date === '2026-07-04' && call.data?.end_date === '2026-07-04') &&
-    datacubeCalls.some(call => call.path === '/cgi-bin/datacube/getusersummary') &&
-    datacubeCalls.some(call => call.path === '/cgi-bin/datacube/getinterfacesummary'),
-  'WechatApiClient datacube 统计接口使用官方 POST body 而不是 GET query',
+    datacubeCalls.some(call => call.path === '/datacube/getusersummary') &&
+    datacubeCalls.some(call => call.path === '/datacube/getinterfacesummary') &&
+    datacubeCalls.every(call => !call.path.startsWith('/cgi-bin/datacube/')),
+  'WechatApiClient datacube 统计接口使用根路径 /datacube 和官方 POST body',
 );
 
 console.log('\n=== Workers HTTP Executor fixture 验证 ===');

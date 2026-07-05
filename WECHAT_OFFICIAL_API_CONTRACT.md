@@ -258,16 +258,18 @@ POST /cgi-bin/media/uploadimg?access_token=ACCESS_TOKEN
 当前项目使用的 datacube endpoint：
 
 ```http
-POST /cgi-bin/datacube/getusersummary
-POST /cgi-bin/datacube/getusercumulate
-POST /cgi-bin/datacube/getarticlesummary
-POST /cgi-bin/datacube/getarticletotal
-POST /cgi-bin/datacube/getuserread
-POST /cgi-bin/datacube/getusershare
-POST /cgi-bin/datacube/getupstreammsg
-POST /cgi-bin/datacube/getinterfacesummary
-POST /cgi-bin/datacube/getinterfacesummaryhour
+POST /datacube/getusersummary
+POST /datacube/getusercumulate
+POST /datacube/getarticlesummary
+POST /datacube/getarticletotal
+POST /datacube/getuserread
+POST /datacube/getusershare
+POST /datacube/getupstreammsg
+POST /datacube/getinterfacesummary
+POST /datacube/getinterfacesummaryhour
 ```
+
+修正状态（2026-07-05）：生产正式调用发现 `/cgi-bin/datacube/...` 返回 HTTP 404；datacube 族 endpoint 应为根路径 `/datacube/...`，并使用 POST JSON body `begin_date` / `end_date`。
 
 这些命名与公众号数据统计接口族一致；若后续增加 schema 级参数校验，必须重新打开官方数据统计文档确认日期范围和返回字段。
 

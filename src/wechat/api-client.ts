@@ -462,7 +462,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getusersummary', {
+      const response = await this.httpClient.post('/datacube/getusersummary', {
         begin_date: beginDate,
         end_date: endDate,
       });
@@ -488,7 +488,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getusercumulate', {
+      const response = await this.httpClient.post('/datacube/getusercumulate', {
         begin_date: beginDate,
         end_date: endDate,
       });
@@ -965,7 +965,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getarticlesummary', {
+      const response = await this.httpClient.post('/datacube/getarticlesummary', {
         begin_date: beginDate,
         end_date: endDate,
       });
@@ -995,7 +995,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getarticletotal', {
+      const response = await this.httpClient.post('/datacube/getarticletotal', {
         begin_date: beginDate,
         end_date: endDate,
       });
@@ -1028,7 +1028,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getuserread', {
+      const response = await this.httpClient.post('/datacube/getuserread', {
         begin_date: beginDate,
         end_date: endDate,
       });
@@ -1056,7 +1056,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getusershare', {
+      const response = await this.httpClient.post('/datacube/getusershare', {
         begin_date: beginDate,
         end_date: endDate,
       });
@@ -1084,7 +1084,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getupstreammsg', {
+      const response = await this.httpClient.post('/datacube/getupstreammsg', {
         begin_date: beginDate,
         end_date: endDate,
       });
@@ -1113,7 +1113,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getinterfacesummary', {
+      const response = await this.httpClient.post('/datacube/getinterfacesummary', {
         begin_date: beginDate,
         end_date: endDate,
       });
@@ -1143,7 +1143,7 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.post('/cgi-bin/datacube/getinterfacesummaryhour', {
+      const response = await this.httpClient.post('/datacube/getinterfacesummaryhour', {
         begin_date: beginDate,
         end_date: endDate,
       });
