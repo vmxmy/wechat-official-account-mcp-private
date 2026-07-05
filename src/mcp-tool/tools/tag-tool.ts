@@ -143,13 +143,14 @@ export const tagMcpTool: McpTool = {
         }
 
         const result = await apiClient.getTagUsers(String(validated.tagId), validated.nextOpenId);
+        const openIds = result.data?.openid ?? [];
         return {
           content: [{
             type: 'text',
             text: `标签下的用户列表:\n` +
                   `- 标签ID: ${validated.tagId}\n` +
                   `- 用户数量: ${result.count}\n` +
-                  `- 用户OpenIDs: ${result.data.openid.join(', ')}\n` +
+                  `- 用户OpenIDs: ${openIds.join(', ')}\n` +
                   `${result.next_openid ? `- 下一页起始ID: ${result.next_openid}` : ''}`
           }]
         };

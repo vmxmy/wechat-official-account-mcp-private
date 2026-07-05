@@ -22,10 +22,11 @@ export const blacklistMcpTool: McpTool = {
     switch (args.action) {
       case 'get_list': {
         const result = await apiClient.getBlackList(args.beginOpenId);
+        const openIds = result.data?.openid ?? [];
         return {
           content: [{
             type: 'text' as const,
-            text: `黑名单列表\n\n总数: ${result.total}\n本页: ${result.count}\n${result.data.openid.map(id => `- ${id}`).join('\n')}\n\n下一页起始: ${result.next_openid}`,
+            text: `黑名单列表\n\n总数: ${result.total}\n本页: ${result.count}\n${openIds.map(id => `- ${id}`).join('\n')}\n\n下一页起始: ${result.next_openid || ''}`,
           }],
         };
       }
