@@ -462,8 +462,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getusersummary', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getusersummary', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {
@@ -487,8 +488,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getusercumulate', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getusercumulate', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {
@@ -963,8 +965,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getarticlesummary', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getarticlesummary', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {
@@ -992,8 +995,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getarticletotal', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getarticletotal', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {
@@ -1024,8 +1028,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getuserread', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getuserread', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {
@@ -1051,8 +1056,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getusershare', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getusershare', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {
@@ -1078,8 +1084,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getupstreammsg', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getupstreammsg', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {
@@ -1106,8 +1113,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getinterfacesummary', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getinterfacesummary', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {
@@ -1135,8 +1143,9 @@ export class WechatApiClient {
     }>;
   }> {
     try {
-      const response = await this.httpClient.get('/cgi-bin/datacube/getinterfacesummaryhour', {
-        params: { begin_date: beginDate, end_date: endDate }
+      const response = await this.httpClient.post('/cgi-bin/datacube/getinterfacesummaryhour', {
+        begin_date: beginDate,
+        end_date: endDate,
       });
 
       if (response.data.errcode && response.data.errcode !== 0) {

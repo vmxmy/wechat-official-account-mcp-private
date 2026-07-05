@@ -8,6 +8,7 @@ import CryptoJS from 'crypto-js';
 import { mcpTools, wechatTools } from './dist/src/mcp-tool/tools/index.js';
 import { inboxMcpTool } from './dist/src/mcp-tool/tools/inbox-tool.js';
 import { logger } from './dist/src/utils/logger.js';
+import { WechatApiClient } from './dist/src/wechat/api-client.js';
 import { AccessTokenHttpExecutor } from './dist/src/wechat/http-executor.js';
 import { WorkersHttpExecutor } from './dist/src/wechat/workers-http-executor.js';
 import { D1StorageManager } from './dist/src/storage/d1-storage-manager.js';
@@ -148,6 +149,43 @@ const seamChecks = [
 for (const [ok, message] of seamChecks) {
   check(ok, message);
 }
+
+const datacubeCalls = [];
+const datacubeClient = new WechatApiClient({
+  getConfig: async () => null,
+  setConfig: async () => undefined,
+  clearConfig: async () => undefined,
+  getAccessToken: async () => ({ accessToken: 'TOKEN', expiresIn: 7200, expiresAt: Date.now() + 7200_000 }),
+  refreshAccessToken: async () => ({ accessToken: 'TOKEN', expiresIn: 7200, expiresAt: Date.now() + 7200_000 }),
+  clearAccessToken: async () => undefined,
+}, {
+  httpExecutor: {
+    get: async (path, config) => {
+      datacubeCalls.push({ method: 'GET', path, config });
+      return { data: { list: [] }, status: 200, headers: {} };
+    },
+    post: async (path, data, config) => {
+      datacubeCalls.push({ method: 'POST', path, data, config });
+      return { data: { list: [] }, status: 200, headers: {} };
+    },
+    postForm: async (path, data, config) => {
+      datacubeCalls.push({ method: 'POST_FORM', path, data, config });
+      return { data: {}, status: 200, headers: {} };
+    },
+  },
+});
+await datacubeClient.getUserSummary('2026-07-04', '2026-07-04');
+await datacubeClient.getUserCumulate('2026-07-04', '2026-07-04');
+await datacubeClient.getArticleSummary('2026-07-04', '2026-07-04');
+await datacubeClient.getInterfaceSummary('2026-07-04', '2026-07-04');
+check(
+  datacubeCalls.length === 4 &&
+    datacubeCalls.every(call => call.method === 'POST') &&
+    datacubeCalls.every(call => call.data?.begin_date === '2026-07-04' && call.data?.end_date === '2026-07-04') &&
+    datacubeCalls.some(call => call.path === '/cgi-bin/datacube/getusersummary') &&
+    datacubeCalls.some(call => call.path === '/cgi-bin/datacube/getinterfacesummary'),
+  'WechatApiClient datacube 统计接口使用官方 POST body 而不是 GET query',
+);
 
 console.log('\n=== Workers HTTP Executor fixture 验证 ===');
 
