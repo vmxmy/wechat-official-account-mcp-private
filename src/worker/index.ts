@@ -39,6 +39,7 @@ import {
   type TenantRequestContext,
 } from './tenant-context.js';
 import { D1UsageQuotaStore } from './usage-store.js';
+import { D1SaasOnboardingStore } from './saas-onboarding-store.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -152,6 +153,12 @@ async function createD1Storage(env: WorkerEnv): Promise<D1StorageManager> {
   const storage = new D1StorageManager(env.DB, env.WECHAT_MCP_SECRET_KEY);
   await storage.initialize();
   return storage;
+}
+
+async function createSaasOnboardingStore(env: WorkerEnv): Promise<D1SaasOnboardingStore> {
+  const store = new D1SaasOnboardingStore(env.DB, env.WECHAT_MCP_SECRET_KEY);
+  await store.ensureSchema();
+  return store;
 }
 
 function getAgentEnv(agent: unknown): WorkerEnv {
@@ -310,6 +317,73 @@ async function createStripeBillingServiceForEnv(
     usageStore,
     defaultSuccessUrl,
     defaultCancelUrl,
+  });
+}
+
+
+async function validateWechatCredentialsForAccount(
+  env: WorkerEnv,
+  config: WechatConfig,
+): Promise<AccessTokenInfo> {
+  const executor = await createWechatWorkersHttpExecutor(env);
+  const response = await executor.get<{
+    access_token?: string;
+    expires_in?: number;
+    errcode?: number;
+    errmsg?: string;
+  }>('/cgi-bin/token', {
+    params: {
+      grant_type: 'client_credential',
+      appid: config.appId,
+      secret: config.appSecret,
+    },
+  });
+  const result = response.data;
+  if (result.errcode || !result.access_token || !result.expires_in) {
+    const reason = result.errmsg ?? 'invalid response';
+    throw new Error(`WeChat credential validation failed: ${reason}. 请确认 AppID/AppSecret 正确，并已将平台 HTTPS relay 出口 IP 加入微信公众号 IP 白名单。`);
+  }
+  return {
+    accessToken: result.access_token,
+    expiresIn: result.expires_in,
+    expiresAt: Date.now() + result.expires_in * 1000,
+  };
+}
+
+async function resolveTrustedTenantContext(
+  env: WorkerEnv,
+  request: Request,
+  props: { userId?: string; oauthClientId?: string; scopes: string[] },
+  store: D1SaasOnboardingStore,
+  source: TenantRequestContext['source'],
+): Promise<TenantRequestContext> {
+  if (props.userId) {
+    const stored = await store.getTenantContextForOperator({
+      operatorId: props.userId,
+      oauthClientId: props.oauthClientId,
+      scopes: props.scopes,
+      requestId: request.headers.get('x-request-id'),
+    }, { source });
+    if (stored.tenants.length > 0) {
+      return stored;
+    }
+  }
+
+  const storage = await createD1Storage(env);
+  const accountContext = await storage.getDefaultAccountContext();
+  return createDefaultTenantContext({
+    source,
+    userId: props.userId || await resolveSecret(env.OAUTH_CLIENT_ID) || 'wechat-admin',
+    oauthClientId: props.oauthClientId || await resolveSecret(env.OAUTH_CLIENT_ID),
+    scopes: props.scopes,
+    requestId: request.headers.get('x-request-id'),
+    appId: accountContext?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
+    tenantId: accountContext?.tenantId,
+    tenantSlug: accountContext?.tenantSlug,
+    tenantName: accountContext?.tenantName,
+    accountId: accountContext?.accountId,
+    accountSlug: accountContext?.accountSlug,
+    accountName: accountContext?.accountName,
   });
 }
 
@@ -608,20 +682,28 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
     const { apiClient, storage, accountContext } = await createWorkerToolContext(env);
     const usageStore = new D1UsageQuotaStore(env.DB);
     await usageStore.ensureSchema();
+    const onboardingStore = await createSaasOnboardingStore(env);
     const currentConfig = await apiClient.getAuthManager().getConfig();
-    const tenantContext = createDefaultTenantContext({
-      source: 'mcp',
-      userId: this.props?.userId ?? await resolveSecret(env.OAUTH_CLIENT_ID),
-      oauthClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+    let tenantContext = await resolveTrustedTenantContext(env, new Request('https://worker.internal/mcp'), {
+      userId: this.props?.userId ?? await resolveSecret(env.OAUTH_CLIENT_ID) ?? undefined,
+      oauthClientId: await resolveSecret(env.OAUTH_CLIENT_ID) ?? undefined,
       scopes: ['wechat.mcp', 'woa:context:read', 'woa:tenant:read', 'woa:account:read', 'woa:account:write', 'woa:content:read', 'woa:content:write', 'woa:content:publish', 'woa:inbox:read', 'woa:usage:read', 'woa:audit:read'],
-      appId: currentConfig?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
-      tenantId: accountContext.tenantId,
-      tenantSlug: accountContext.tenantSlug,
-      tenantName: accountContext.tenantName,
-      accountId: accountContext.accountId,
-      accountSlug: accountContext.accountSlug,
-      accountName: accountContext.accountName,
-    });
+    }, onboardingStore, 'mcp');
+    if (tenantContext.tenants.length === 0) {
+      tenantContext = createDefaultTenantContext({
+        source: 'mcp',
+        userId: this.props?.userId ?? await resolveSecret(env.OAUTH_CLIENT_ID),
+        oauthClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
+        scopes: ['wechat.mcp', 'woa:context:read', 'woa:tenant:read', 'woa:account:read', 'woa:account:write', 'woa:content:read', 'woa:content:write', 'woa:content:publish', 'woa:inbox:read', 'woa:usage:read', 'woa:audit:read'],
+        appId: currentConfig?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
+        tenantId: accountContext.tenantId,
+        tenantSlug: accountContext.tenantSlug,
+        tenantName: accountContext.tenantName,
+        accountId: accountContext.accountId,
+        accountSlug: accountContext.accountSlug,
+        accountName: accountContext.accountName,
+      });
+    }
     const mediaTools = createWorkerMediaTools({
       mediaBucket: env.MEDIA,
       saveMedia: media => storage.saveMedia(media),
@@ -1005,14 +1087,8 @@ const managementApiHandler = {
     const url = new URL(request.url);
     const usageStore = new D1UsageQuotaStore(env.DB);
     const props = oauthPropsFromContext(ctx);
-    const trustedContext = createDefaultTenantContext({
-      source: 'rest',
-      userId: props.userId || await resolveSecret(env.OAUTH_CLIENT_ID) || 'wechat-admin',
-      oauthClientId: props.oauthClientId,
-      scopes: props.scopes,
-      requestId: request.headers.get('x-request-id'),
-      appId: await resolveSecret(env.WECHAT_APP_ID),
-    });
+    const onboardingStore = await createSaasOnboardingStore(env);
+    const trustedContext = await resolveTrustedTenantContext(env, request, props, onboardingStore, 'rest');
 
     if (url.pathname.includes('/billing/checkout') && !trustedContext.scopes.includes('woa:billing:write')) {
       return json({
@@ -1031,6 +1107,8 @@ const managementApiHandler = {
       defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
       usageStore,
       billing: await createStripeBillingServiceForEnv(env, usageStore),
+      onboardingStore,
+      validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
       trustedContext,
       createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
     });

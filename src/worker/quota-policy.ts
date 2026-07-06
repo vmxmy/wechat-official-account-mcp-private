@@ -44,7 +44,7 @@ export const PLAN_QUOTA_POLICIES: Record<SubscriptionPlan, PlanQuotaPolicy> = {
     displayName: 'Free',
     limits: {
       tool_calls_day: 50,
-      tool_calls_month: 500,
+      tool_calls_month: 300,
       published_articles_month: 30,
       media_uploads_month: 30,
       stats_queries_month: 100,
@@ -58,7 +58,7 @@ export const PLAN_QUOTA_POLICIES: Record<SubscriptionPlan, PlanQuotaPolicy> = {
     displayName: 'Plus',
     limits: {
       tool_calls_day: 500,
-      tool_calls_month: 5_000,
+      tool_calls_month: 3_000,
       published_articles_month: 300,
       media_uploads_month: 500,
       stats_queries_month: 1_000,
@@ -72,7 +72,7 @@ export const PLAN_QUOTA_POLICIES: Record<SubscriptionPlan, PlanQuotaPolicy> = {
     displayName: 'Pro',
     limits: {
       tool_calls_day: 5_000,
-      tool_calls_month: 50_000,
+      tool_calls_month: 30_000,
       published_articles_month: 3_000,
       media_uploads_month: 5_000,
       stats_queries_month: 10_000,

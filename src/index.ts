@@ -32,6 +32,7 @@ export {
   type TenantSummary,
 } from './worker/tenant-context';
 export * from './worker/management-api';
+export * from './worker/saas-onboarding-store';
 
 // Storage and WeChat runtime seams
 export * from './storage/types';

@@ -23,6 +23,12 @@ import {
   type StripeBillingService,
 } from './stripe-billing.js';
 import { normalizeSubscriptionPlan } from './quota-policy.js';
+import {
+  AccountAllowanceError,
+  D1SaasOnboardingStore,
+  DuplicateAppIdError,
+  type WechatResourceRecord,
+} from './saas-onboarding-store.js';
 
 export interface ManagementApiDeps {
   createApiClient(): Promise<WechatApiClient>;
@@ -31,6 +37,8 @@ export interface ManagementApiDeps {
   defaultClientId?: string | null;
   usageStore?: D1UsageQuotaStore;
   billing?: StripeBillingService;
+  onboardingStore?: D1SaasOnboardingStore;
+  validateWechatCredentials?(config: WechatConfig, account: AccountContext): Promise<{ accessToken: string; expiresIn: number; expiresAt: number } | null | undefined>;
   trustedContext?: TenantRequestContext;
   allowUnsafeHeaderContextForTests?: boolean;
 }
@@ -117,6 +125,28 @@ export async function handleManagementApiRequest(
           requestId: context?.requestId,
         },
       }, { status: 429 });
+    }
+    if (error instanceof AccountAllowanceError) {
+      return jsonResponse({
+        success: false,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          requestId: context?.requestId,
+        },
+      }, { status: 402 });
+    }
+    if (error instanceof DuplicateAppIdError) {
+      return jsonResponse({
+        success: false,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: { appId: error.appId },
+          requestId: context?.requestId,
+        },
+      }, { status: 409 });
     }
     if (error instanceof StripeBillingError) {
       return jsonResponse({
@@ -237,13 +267,29 @@ async function handleAccountRoutes(
   requireScope(context, 'woa:account:read');
 
   if (request.method === 'GET' && segments.length === 3) {
+    if (deps.onboardingStore) {
+      const accounts = await deps.onboardingStore.listWechatResources(tenantId);
+      return jsonResponse({ success: true, data: { accounts: accounts.map(publicWechatResource) }, requestId: context.requestId });
+    }
     const accounts = context.accounts.filter(account => account.tenantId === tenantId);
     return jsonResponse({ success: true, data: { accounts: publicAccounts(accounts) }, requestId: context.requestId });
   }
 
   if (request.method === 'POST' && segments.length === 3) {
     requireScope(context, 'woa:account:write');
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request) as Record<string, unknown>;
+    if (deps.onboardingStore) {
+      const account = await deps.onboardingStore.createWechatResource({
+        tenantId,
+        name: stringValue(body.name) ?? stringValue(body.displayName),
+        slug: stringValue(body.slug),
+      });
+      return jsonResponse({
+        success: true,
+        data: { account: publicWechatResource(account) },
+        requestId: context.requestId,
+      }, { status: 201 });
+    }
     return jsonResponse({
       success: true,
       data: {
@@ -258,12 +304,34 @@ async function handleAccountRoutes(
   const account = resolveAccountContext({ tenantId, accountId }, context, { requireAccount: true });
 
   if (request.method === 'GET' && segments.length === 4) {
+    if (deps.onboardingStore) {
+      const resource = await deps.onboardingStore.getWechatResource(tenantId, accountId);
+      return jsonResponse({ success: true, data: { account: resource ? publicWechatResource(resource) : account?.account }, requestId: context.requestId });
+    }
     return jsonResponse({ success: true, data: { account: account?.account }, requestId: context.requestId });
   }
 
   if ((request.method === 'PATCH' || request.method === 'PUT') && segments.length === 4) {
     requireScope(context, 'woa:account:write');
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request) as Record<string, unknown>;
+    if (deps.onboardingStore) {
+      let resource = await deps.onboardingStore.getWechatResource(tenantId, accountId);
+      if (!resource) {
+        throw new ApiError('account_not_found', `Account ${accountId} was not found.`, 404);
+      }
+      const name = stringValue(body.name) ?? stringValue(body.displayName);
+      if (name) {
+        resource = await deps.onboardingStore.renameWechatResource({ tenantId, resourceId: accountId, name });
+      }
+      if (body.isDefault === true || body.default === true) {
+        resource = await deps.onboardingStore.setDefaultWechatResource({ tenantId, resourceId: accountId });
+      }
+      return jsonResponse({
+        success: true,
+        data: { account: publicWechatResource(resource) },
+        requestId: context.requestId,
+      });
+    }
     return jsonResponse({
       success: true,
       data: {
@@ -277,6 +345,19 @@ async function handleAccountRoutes(
 
   if (request.method === 'POST' && segments.length === 5 && segments[4] === 'disable') {
     requireScope(context, 'woa:account:write');
+    const body = await readJsonBody(request) as Record<string, unknown>;
+    if (deps.onboardingStore) {
+      await deps.onboardingStore.softDeleteWechatResource({
+        tenantId,
+        resourceId: accountId,
+        confirmation: stringValue(body.confirmation) ?? '',
+      });
+      return jsonResponse({
+        success: true,
+        data: { accountId, deleted: true, secretsPurged: true },
+        requestId: context.requestId,
+      });
+    }
     return jsonResponse({
       success: true,
       data: {
@@ -298,13 +379,27 @@ async function handleAccountRoutes(
       action: 'configure',
       params: { action: 'configure', tenantId, accountId },
     }, async () => {
-      const apiClient = await deps.createApiClient();
-      await apiClient.getAuthManager().setConfig({
+      const config = {
         appId: body.appId,
         appSecret: body.appSecret,
         token: body.token,
         encodingAESKey: body.encodingAESKey,
-      });
+      };
+      if (deps.onboardingStore) {
+        if (!deps.validateWechatCredentials) {
+          throw new ApiError('runtime_unavailable', 'WeChat credential validation is not configured in this runtime.', 500);
+        }
+        const tokenInfo = await deps.validateWechatCredentials(config, account);
+        const resource = await deps.onboardingStore.configureValidatedWechatCredentials({
+          tenantId,
+          resourceId: accountId,
+          config,
+          tokenInfo,
+        });
+        return publicWechatResource(resource);
+      }
+      const apiClient = await deps.createApiClient();
+      await apiClient.getAuthManager().setConfig(config);
       return {
         tenantId,
         accountId,
@@ -323,6 +418,19 @@ async function handleAccountRoutes(
       action: 'status',
       params: { action: 'status', tenantId, accountId },
     }, async () => {
+      if (deps.onboardingStore) {
+        const resource = await deps.onboardingStore.getWechatResource(tenantId, accountId);
+        return {
+          account: resource ? publicWechatResource(resource) : account?.account,
+          configured: resource?.status === 'active' && resource.hasAppSecret,
+          config: resource ? {
+            appId: resource.appId,
+            hasAppSecret: resource.hasAppSecret,
+            hasToken: resource.hasWebhookToken,
+            hasEncodingAESKey: resource.hasEncodingAESKey,
+          } : null,
+        };
+      }
       const apiClient = await deps.createApiClient();
       const config = await apiClient.getAuthManager().getConfig();
       return {
@@ -627,6 +735,24 @@ function maskAccountBody(body: unknown): unknown {
     }
   }
   return copy;
+}
+
+
+function publicWechatResource(resource: WechatResourceRecord): Record<string, unknown> {
+  return {
+    tenantId: resource.tenantId,
+    accountId: resource.accountId,
+    slug: resource.slug,
+    name: resource.name,
+    appId: resource.appId,
+    status: resource.status,
+    isDefault: resource.isDefault === true,
+    hasAppSecret: resource.hasAppSecret,
+    hasWebhookToken: resource.hasWebhookToken,
+    hasEncodingAESKey: resource.hasEncodingAESKey,
+    createdAt: resource.createdAt,
+    updatedAt: resource.updatedAt,
+  };
 }
 
 function stringValue(value: unknown): string | null {
