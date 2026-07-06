@@ -46,7 +46,7 @@ const DEFAULT_SCOPES = [
   'woa:billing:write',
   'woa:audit:read',
 ].join(' ');
-const CONFIG_PATH = process.env.WOA_CLI_CONFIG || path.join(homedir(), '.config', 'wechat-official-account-mcp', 'cli.json');
+const CONFIG_PATH = process.env.WOA_CLI_CONFIG || path.join(homedir(), '.config', 'woa', 'cli.json');
 
 interface OAuthServerMetadata {
   issuer?: string;
@@ -104,14 +104,19 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
-  if (root === 'usage') {
+  if (root === 'usage' || (root === 'quota' && (!sub || sub === 'status'))) {
     const tenantId = await resolveTenantId(parsed.flags);
     console.log(JSON.stringify(await apiGet(`/api/v1/tenants/${tenantId}/usage`, parsed.flags), null, 2));
     return;
   }
 
+  if (root === 'billing' && sub === 'checkout') {
+    await billingCheckout(parsed.flags);
+    return;
+  }
+
   if (root === 'account') {
-    await handleAccountCommand(sub, parsed.flags);
+    await handleAccountCommand(sub, leaf, parsed.flags);
     return;
   }
 
@@ -151,16 +156,50 @@ async function main(argv: string[]): Promise<void> {
   throw new Error(`Unknown command: ${parsed.command.join(' ')}`);
 }
 
-async function handleAccountCommand(sub: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
+async function handleAccountCommand(
+  sub: string | undefined,
+  leaf: string | undefined,
+  flags: Record<string, string | boolean>,
+): Promise<void> {
   if (sub === 'list') {
     const tenantId = await resolveTenantId(flags);
     console.log(JSON.stringify(await apiGet(`/api/v1/tenants/${tenantId}/accounts`, flags), null, 2));
     return;
   }
 
+  if (sub === 'create') {
+    const tenantId = await resolveTenantId(flags);
+    const body = {
+      name: stringFlag(flags, 'name'),
+      appId: stringFlag(flags, 'app-id') || stringFlag(flags, 'appId'),
+      appSecret: stringFlag(flags, 'app-secret') || stringFlag(flags, 'appSecret'),
+    };
+    console.log(JSON.stringify(await apiPost(`/api/v1/tenants/${tenantId}/accounts`, body, flags), null, 2));
+    return;
+  }
+
   if (sub === 'status') {
     const { tenantId, accountId } = await resolveTenantAccount(flags);
     console.log(JSON.stringify(await apiGet(`/api/v1/tenants/${tenantId}/accounts/${accountId}/status`, flags), null, 2));
+    return;
+  }
+
+  if (sub === 'rename') {
+    const tenantId = await resolveTenantId(flags);
+    const accountId = stringFlag(flags, 'account') || stringFlag(flags, 'account-id') || leaf;
+    const name = requiredString(flags, 'name', 'account rename requires --name <display-name>.');
+    if (!accountId) throw new Error('account rename requires <accountId> or --account <accountId>.');
+    console.log(JSON.stringify(await apiPatch(`/api/v1/tenants/${tenantId}/accounts/${accountId}`, { name }, flags), null, 2));
+    return;
+  }
+
+  if (sub === 'default') {
+    const tenantId = await resolveTenantId(flags);
+    const accountId = stringFlag(flags, 'account') || stringFlag(flags, 'account-id') || leaf;
+    if (!accountId) throw new Error('account default requires <accountId> or --account <accountId>.');
+    const response = await apiPatch(`/api/v1/tenants/${tenantId}`, { defaultAccountId: accountId }, flags);
+    await saveConfig({ ...(await loadConfig()), activeTenantId: tenantId, activeAccountId: accountId });
+    console.log(JSON.stringify(response, null, 2));
     return;
   }
 
@@ -176,6 +215,18 @@ async function handleAccountCommand(sub: string | undefined, flags: Record<strin
       throw new Error('account configure requires --app-id and --app-secret. The secret is sent to the remote server and is never saved locally.');
     }
     console.log(JSON.stringify(await apiPost(`/api/v1/tenants/${tenantId}/accounts/${accountId}/configure`, body, flags), null, 2));
+    return;
+  }
+
+  if (sub === 'delete') {
+    const { tenantId, accountId } = await resolveTenantAccount({ ...flags, account: leaf || flags.account || flags['account-id'] });
+    const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/disable`;
+    if (flags['dry-run']) {
+      printDeleteDryRun('account', route, { tenantId, accountId });
+      return;
+    }
+    requireDeleteConfirmation(flags, 'account');
+    console.log(JSON.stringify(await apiPost(route, { confirmDelete: true }, flags), null, 2));
     return;
   }
 
@@ -256,6 +307,32 @@ async function login(flags: Record<string, string | boolean>): Promise<void> {
     console.log(`OAuth login complete for ${server}. Token saved to ${CONFIG_PATH}; no WeChat app secret was stored locally.`);
   } finally {
     await callback.close();
+  }
+}
+
+async function billingCheckout(flags: Record<string, string | boolean>): Promise<void> {
+  const tenantId = await resolveTenantId(flags);
+  const plan = requiredString(flags, 'plan', 'billing checkout requires --plan plus|pro.');
+  if (plan !== 'plus' && plan !== 'pro') {
+    throw new Error('billing checkout --plan must be plus or pro.');
+  }
+  const config = await loadConfig();
+  const server = normalizeServer(stringFlag(flags, 'server') || config.server || '');
+  if (!server) {
+    throw new Error('billing checkout requires --server <url> or a saved login server.');
+  }
+  const response = await apiPost(`/api/v1/tenants/${tenantId}/billing/checkout`, {
+    plan,
+    successUrl: stringFlag(flags, 'success-url') || new URL('/billing/success', server).toString(),
+    cancelUrl: stringFlag(flags, 'cancel-url') || new URL('/billing/cancel', server).toString(),
+  }, flags);
+  const url = checkoutUrl(response);
+  console.log(JSON.stringify(response, null, 2));
+  if (url) {
+    console.log(`Stripe Checkout URL: ${url}`);
+    if (!flags['no-open']) {
+      openBrowser(url);
+    }
   }
 }
 
@@ -447,6 +524,10 @@ async function apiPost(route: string, body: unknown, flags: Record<string, strin
   return await apiRequest('POST', route, body, flags);
 }
 
+async function apiPatch(route: string, body: unknown, flags: Record<string, string | boolean>): Promise<unknown> {
+  return await apiRequest('PATCH', route, body, flags);
+}
+
 async function apiDelete(route: string, flags: Record<string, string | boolean>): Promise<unknown> {
   return await apiRequest('DELETE', route, undefined, flags);
 }
@@ -483,7 +564,7 @@ async function deletePublish(idArg: string | undefined, flags: Record<string, st
   console.log(JSON.stringify(await apiDelete(route, flags), null, 2));
 }
 
-function printDeleteDryRun(kind: 'draft' | 'publish', route: string, target: Record<string, unknown>): void {
+function printDeleteDryRun(kind: 'draft' | 'publish' | 'account', route: string, target: Record<string, unknown>): void {
   console.log(JSON.stringify({
     success: true,
     dryRun: true,
@@ -494,7 +575,7 @@ function printDeleteDryRun(kind: 'draft' | 'publish', route: string, target: Rec
   }, null, 2));
 }
 
-function requireDeleteConfirmation(flags: Record<string, string | boolean>, kind: 'draft' | 'publish'): void {
+function requireDeleteConfirmation(flags: Record<string, string | boolean>, kind: 'draft' | 'publish' | 'account'): void {
   const value = flags['confirm-delete'];
   const confirmed = value === true || value === 'true' || value === 'yes' || value === `CONFIRM:${kind}.delete`;
   if (!confirmed) {
@@ -646,6 +727,15 @@ function safeJson(text: string): unknown {
   }
 }
 
+function checkoutUrl(response: unknown): string | null {
+  if (!response || typeof response !== 'object') return null;
+  const root = response as Record<string, unknown>;
+  const data = root.data && typeof root.data === 'object'
+    ? root.data as Record<string, unknown>
+    : root;
+  return typeof data.url === 'string' ? data.url : null;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -660,7 +750,7 @@ function base64Url(data: Buffer): string {
 }
 
 function printHelp(): void {
-  console.log(`woa — remote-only WeChat Official Account management CLI
+  console.log(`woa — remote-only CLI for @ziikoo/woa
 
 Usage:
   woa login --server <url> [--token <oauth-token>]
@@ -668,9 +758,15 @@ Usage:
   woa tenant list
   woa tenant usage [--tenant <tenantId>]
   woa usage [--tenant <tenantId>]
+  woa quota status [--tenant <tenantId>]
   woa account list [--tenant <tenantId>]
+  woa account create [--tenant <tenantId>] [--name <name>]
   woa account status [--tenant <tenantId>] [--account <accountId>]
+  woa account rename <accountId> --name <name> [--tenant <tenantId>]
+  woa account default <accountId> [--tenant <tenantId>]
   woa account configure --tenant <tenantId> --account <accountId> --app-id <wx...> --app-secret <secret>
+  woa account delete <accountId> --confirm-delete [--tenant <tenantId>]
+  woa billing checkout --plan plus|pro [--tenant <tenantId>] [--no-open]
   woa draft list [--tenant <tenantId>] [--account <accountId>] [--count 20]
   woa draft delete <media_id> --confirm-delete [--tenant <tenantId>] [--account <accountId>]
   woa publish list [--tenant <tenantId>] [--account <accountId>] [--count 20]
@@ -683,7 +779,8 @@ Runtime posture:
   - Remote-only: commands call the OAuth-protected Worker REST API or generate remote /mcp config.
   - No local MCP server, stdio transport, SSE transport, SQLite, local WeChat runtime, or filePath upload.
   - Destructive delete commands require --confirm-delete; use --dry-run first to verify the target.
-  - The CLI stores OAuth/session data only; WeChat app secrets are sent over HTTPS for account configuration and are not persisted locally.`);
+  - The CLI stores OAuth/session data only; WeChat app secrets are sent over HTTPS for account configuration and are not persisted locally.
+  - Native MCP config points to https://woa.ziikoo.app/mcp and never embeds OAuth tokens.`);
 }
 
 main(process.argv.slice(2)).catch(error => {
