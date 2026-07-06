@@ -14,6 +14,7 @@ export default defineConfig({
       generatedRouteTree: './src/routeTree.gen.ts',
       quoteStyle: 'single',
       semicolons: true,
+      addExtensions: true,
       autoCodeSplitting: false,
     }),
     react({
