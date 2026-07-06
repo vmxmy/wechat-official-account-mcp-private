@@ -26,7 +26,8 @@ export function requireWebSession({ context, location }: {
 }): void {
   if (context.session.status === 'unauthenticated') {
     throw redirect({
-      href: `/login?returnTo=${encodeURIComponent(location.href)}`,
+      to: '/login',
+      search: { returnTo: location.href } as never,
     });
   }
 }

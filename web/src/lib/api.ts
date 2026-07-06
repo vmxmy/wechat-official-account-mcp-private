@@ -20,15 +20,6 @@ const failureEnvelope = z.object({
   requestId: z.string().optional(),
 });
 
-type ApiSuccess<T> = {
-  success: true;
-  data: T;
-  meta?: Record<string, unknown>;
-  requestId?: string;
-};
-type ApiFailure = z.infer<typeof failureEnvelope>;
-type ApiEnvelope<T> = ApiSuccess<T> | ApiFailure;
-
 export const quotaSummarySchema = z.object({
   tenantId: z.string().optional(),
   plan: z.enum(['free', 'plus', 'pro']).catch('free'),
@@ -169,9 +160,13 @@ async function apiRequest<T extends z.ZodType>(path: string, options: {
     throw new WebApiError(`Unexpected API response for ${options.method} ${path}.`, response.status, 'invalid_response', parsed.error.flatten());
   }
 
-  const envelope = parsed.data as ApiEnvelope<z.infer<T>>;
+  const envelope = parsed.data as {
+    success: boolean;
+    data?: z.infer<T>;
+    error?: { code: string; message: string; details?: unknown };
+  };
 
-  if (!envelope.success) {
+  if (envelope.success === false && envelope.error) {
     throw new WebApiError(envelope.error.message, response.status, envelope.error.code, envelope.error.details);
   }
 
@@ -179,7 +174,7 @@ async function apiRequest<T extends z.ZodType>(path: string, options: {
     throw new WebApiError(`Remote API ${options.method} ${path} failed with HTTP ${response.status}.`, response.status);
   }
 
-  return envelope.data;
+  return envelope.data as z.infer<T>;
 }
 
 function parseJson(text: string): unknown {

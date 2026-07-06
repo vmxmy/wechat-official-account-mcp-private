@@ -19,7 +19,7 @@ export const ziikooTheme = defineTheme({
     heading: {
       family: 'Inter',
       fallbacks: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif',
-      weight: 'semibold',
+      weight: '650',
     },
     code: {
       family: 'JetBrains Mono',
