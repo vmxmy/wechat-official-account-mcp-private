@@ -11,7 +11,8 @@
   },
   "include": [
     "src/**/*",
-    "api/**/*"
+    "api/**/*",
+    "web/src/**/*"
   ],
   "exclude": [
     "src/**/*.test.ts",
@@ -29,6 +30,7 @@
     "vite.config.ts",
     "tailwind.config.js",
     "postcss.config.js",
-    "eslint.config.js"
+    "eslint.config.js",
+    "web/src/**/*.test.*"
   ]
 }

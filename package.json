@@ -1,8 +1,8 @@
 {
-  "name": "@ziikoo/wechat-official-account-mcp",
+  "name": "@ziikoo/woa",
   "version": "2.2.0",
   "type": "module",
-  "description": "微信公众号 MCP 服务 - 为 AI 应用提供完整的微信公众号 API 集成（26个工具模块，含多租户管理工具）",
+  "description": "WOA remote-only CLI and hosted Web entrypoint for WeChat Official Account MCP SaaS",
   "keywords": [
     "wechat",
     "mcp",
@@ -18,7 +18,8 @@
   "files": [
     "dist",
     "README.md",
-    "package.json"
+    "package.json",
+    "web/dist"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -32,20 +33,23 @@
     "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/issues"
   },
   "scripts": {
-    "build": "npm run clean && tsc",
-    "build:prod": "npm run clean && tsc --project tsconfig.prod.json",
+    "build": "npm run clean && tsc && npm run web:build",
+    "build:prod": "npm run clean && tsc --project tsconfig.prod.json && npm run web:build",
     "dev": "wrangler dev",
     "prepublishOnly": "npm run build:prod",
     "lint": "eslint .",
     "check": "tsc --noEmit",
     "test": "npm run build:prod && node test-tools.js",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist web/dist",
     "pack:dry": "npm pack --dry-run",
     "build:full": "./scripts/build.sh",
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
     "worker:types": "wrangler types",
-    "d1:migrate:local": "wrangler d1 migrations apply wechat-official-account-mcp --local"
+    "d1:migrate:local": "wrangler d1 migrations apply wechat-official-account-mcp --local",
+    "web:build": "vite build",
+    "web:dev": "vite --host 0.0.0.0",
+    "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"
   },
   "dependencies": {
     "@astryxdesign/core": "^0.1.3",

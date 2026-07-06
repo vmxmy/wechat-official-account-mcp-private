@@ -1,11 +1,21 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tsconfigPaths from "vite-tsconfig-paths";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 
 // https://vite.dev/config/
 export default defineConfig({
+  root: 'web',
   plugins: [
+    tanstackRouter({
+      target: 'react',
+      routesDirectory: './src/routes',
+      generatedRouteTree: './src/routeTree.gen.ts',
+      quoteStyle: 'single',
+      semicolons: true,
+      autoCodeSplitting: false,
+    }),
     react({
       babel: {
         plugins: [
@@ -20,10 +30,14 @@ export default defineConfig({
       clickable: true,
       clickUrl: 'https://www.trae.ai/solo?showJoin=1',
       autoTheme: true,
-      autoThemeTarget: '#root'
-    }), 
+      autoThemeTarget: '#root',
+    }),
     tsconfigPaths(),
   ],
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+  },
   server: {
     proxy: {
       '/api': {
@@ -41,7 +55,7 @@ export default defineConfig({
             console.error('Proxy error:', _err);
           });
         },
-      }
-    }
-  }
-})
+      },
+    },
+  },
+});

@@ -44,12 +44,14 @@ import { D1SaasOnboardingStore } from './saas-onboarding-store.js';
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
 type KVNamespaceLike = unknown;
+type AssetsBindingLike = { fetch(request: Request): Promise<Response> };
 
 export interface WorkerEnv {
   WECHAT_MCP_AGENT: DurableObjectNamespaceLike;
   TOKEN_OWNER: DurableObjectNamespaceLike;
   DB: D1DatabaseLike;
   MEDIA: unknown;
+  ASSETS?: AssetsBindingLike;
   OAUTH_KV: KVNamespaceLike;
   OAUTH_PROVIDER: OAuthHelpers;
   WECHAT_APP_ID: SecretBinding;
@@ -1144,6 +1146,10 @@ const defaultHandler = {
 
     if (url.pathname === '/authorize') {
       return await handleAuthorize(request, env);
+    }
+
+    if ((request.method === 'GET' || request.method === 'HEAD') && env.ASSETS) {
+      return await env.ASSETS.fetch(request);
     }
 
     return new Response('Not Found', { status: 404 });
