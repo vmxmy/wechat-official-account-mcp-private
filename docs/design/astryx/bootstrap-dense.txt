@@ -1,0 +1,24 @@
+
+Available docs:
+
+  color          Semantic color tokens for surfaces, text, icons, borders, and status indicators.
+  elevation      Shadow tokens for visual elevation and inset state rings.
+  getting-started Add the design system to your project and start building.
+  icons          Semantic icon names available in the design system. These adapt to the active theme's icon registry.
+  illustrations  Illustration guidelines for empty states, onboarding flows, and feature highlights.
+  layout         Frame-first app layout: choosing a shell, budgeting regions, and when to use cards vs rows.
+  migration      How to migrate an existing Tailwind, shadcn, or Radix application to the design system incrementally.
+  motion         Duration and easing tokens for animations and transitions.
+  principles     Core design principles and rules for building with the design system.
+  shape          Border radius tokens for consistent component rounding, from sharp corners to full pills.
+  spacing        Spacing scale tokens for padding, gap, and margin: the rhythmic foundation of design system layouts.
+  styling-libraries Integrate Tailwind, StyleX, Panda, Chakra, MUI, CSS-in-JS, CSS Modules, and non-CSS renderers with system tokens.
+  styling        How to customize component appearance: xstyle prop, Tailwind, StyleX, className, rest props, compound component patterns, theming hooks, and styling-library interop.
+  theme          Theme provider, custom themes, theme build for production/SSR, light/dark mode, and component style overrides.
+  tokens         Complete reference for spacing, color, radius, typography, shadow, motion, and size tokens.
+  typography     Font families, geometric type scale, weight, line-height, and semantic text tokens for consistent, accessible text styling.
+  working-with-ai How to set up AI coding tools to generate correct component code.
+
+Usage: npx astryx docs <topic>
+       npx astryx docs <topic> <section>
+
