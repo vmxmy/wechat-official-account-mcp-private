@@ -7,9 +7,9 @@ const apiErrorSchema = z.object({
   requestId: z.string().optional(),
 });
 
-const successEnvelope = <T extends z.ZodType>(data: T) => z.object({
+const successEnvelopeBase = z.object({
   success: z.literal(true),
-  data,
+  data: z.unknown(),
   meta: z.record(z.string(), z.unknown()).optional(),
   requestId: z.string().optional(),
 });
@@ -153,28 +153,33 @@ async function apiRequest<T extends z.ZodType>(path: string, options: {
   });
   const text = await response.text();
   const raw = text ? parseJson(text) : null;
-  const envelopeSchema = z.union([successEnvelope(options.schema), failureEnvelope]);
-  const parsed = envelopeSchema.safeParse(raw);
+  const envelopeKind = z.object({ success: z.boolean() }).passthrough().safeParse(raw);
 
-  if (!parsed.success) {
-    throw new WebApiError(`Unexpected API response for ${options.method} ${path}.`, response.status, 'invalid_response', parsed.error.flatten());
+  if (!envelopeKind.success) {
+    throw new WebApiError(`Unexpected API response for ${options.method} ${path}.`, response.status, 'invalid_response', envelopeKind.error.flatten());
   }
 
-  const envelope = parsed.data as {
-    success: boolean;
-    data?: z.infer<T>;
-    error?: { code: string; message: string; details?: unknown };
-  };
-
-  if (envelope.success === false && envelope.error) {
-    throw new WebApiError(envelope.error.message, response.status, envelope.error.code, envelope.error.details);
+  if (!envelopeKind.data.success) {
+    const parsedFailure = failureEnvelope.safeParse(raw);
+    if (!parsedFailure.success) {
+      throw new WebApiError(`Unexpected API response for ${options.method} ${path}.`, response.status, 'invalid_response', parsedFailure.error.flatten());
+    }
+    throw new WebApiError(parsedFailure.data.error.message, response.status, parsedFailure.data.error.code, parsedFailure.data.error.details);
   }
 
+  const parsedSuccess = successEnvelopeBase.safeParse(raw);
+  if (!parsedSuccess.success) {
+    throw new WebApiError(`Unexpected API response for ${options.method} ${path}.`, response.status, 'invalid_response', parsedSuccess.error.flatten());
+  }
+  const parsedData = options.schema.safeParse(parsedSuccess.data.data);
+  if (!parsedData.success) {
+    throw new WebApiError(`Unexpected API response data for ${options.method} ${path}.`, response.status, 'invalid_response', parsedData.error.flatten());
+  }
   if (!response.ok) {
     throw new WebApiError(`Remote API ${options.method} ${path} failed with HTTP ${response.status}.`, response.status);
   }
 
-  return envelope.data as z.infer<T>;
+  return parsedData.data;
 }
 
 function parseJson(text: string): unknown {
