@@ -82,7 +82,7 @@
 - [x] 7.5 Implement MCP config generation for Codex and Claude pointing to `https://woa.ziikoo.app/mcp` without tokens or local MCP transports.
 - [x] 7.6 Enforce destructive delete confirmation before remote delete calls.
 - [x] 7.7 Add CLI smoke tests with mocked server responses proving no WeChat secrets are stored locally and no local MCP/stdio/SSE commands are restored.
-- [ ] 7.8 Prepare npm publish workflow for `@ziikoo/woa` and track old package removal as an external npm policy task.
+- [x] 7.8 Prepare npm publish workflow for `@ziikoo/woa` and track old package removal as an external npm policy task.
 
 ## 8. MCP management onboarding
 

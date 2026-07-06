@@ -1,0 +1,70 @@
+name: Publish npm CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: npm dist-tag to publish
+        required: true
+        default: latest
+        type: choice
+        options:
+          - latest
+          - next
+  push:
+    tags:
+      - 'woa-v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish-woa
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build, verify, and publish @ziikoo/woa
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NPM_CONFIG_PROVENANCE: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test and production build
+        run: npm test
+
+      - name: Verify package identity
+        run: |
+          node -e "const p=require('./package.json'); if (p.name !== '@ziikoo/woa') throw new Error('Unexpected package name: '+p.name); if (p.bin?.woa !== 'dist/src/cli/woa.js') throw new Error('woa bin missing');"
+          npm pack --dry-run
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo '::error::NPM_TOKEN is required to publish @ziikoo/woa.'
+            exit 1
+          fi
+          TAG="${{ github.event.inputs.tag || 'latest' }}"
+          npm publish --access public --tag "$TAG"
