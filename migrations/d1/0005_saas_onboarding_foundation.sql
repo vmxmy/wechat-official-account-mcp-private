@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS web_sessions (
   session_hash TEXT NOT NULL UNIQUE,
   created_at INTEGER NOT NULL,
   last_seen_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   revoked_at INTEGER,
   FOREIGN KEY(operator_id) REFERENCES operators(id)

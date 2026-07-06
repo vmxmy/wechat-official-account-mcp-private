@@ -43,6 +43,11 @@ import {
   createStripeCheckoutService,
   handleStripeWebhookRequest,
 } from './dist/src/worker/stripe-billing.js';
+import {
+  AccountAllowanceError,
+  D1SaasOnboardingStore,
+  DuplicateAppIdError,
+} from './dist/src/worker/saas-onboarding-store.js';
 
 let failed = false;
 

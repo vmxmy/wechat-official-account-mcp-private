@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS web_sessions (
   session_hash TEXT NOT NULL UNIQUE,
   created_at INTEGER NOT NULL,
   last_seen_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   revoked_at INTEGER,
   FOREIGN KEY(operator_id) REFERENCES operators(id)
@@ -559,9 +560,9 @@ export class D1SaasOnboardingStore {
     const sessionId = input.sessionId || opaqueId('sess');
     const expiresAt = now + WEB_SESSION_TTL_MS;
     await this.db.prepare(
-      `INSERT INTO web_sessions (id, operator_id, session_hash, created_at, last_seen_at, expires_at, revoked_at)
-       VALUES (?, ?, ?, ?, ?, ?, NULL)`,
-    ).bind(sessionId, input.operatorId, await hashText(input.sessionToken), now, now, expiresAt).run();
+      `INSERT INTO web_sessions (id, operator_id, session_hash, created_at, last_seen_at, updated_at, expires_at, revoked_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+    ).bind(sessionId, input.operatorId, await hashText(input.sessionToken), now, now, now, expiresAt).run();
     return { sessionId, operatorId: input.operatorId, expiresAt, revokedAt: null };
   }
 
