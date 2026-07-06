@@ -1,10 +1,10 @@
 ## 1. Preflight and contract lock
 
 - [x] 1.1 Run `openspec validate saas-onboarding` and fix schema/format issues before implementation.
-- [ ] 1.2 Review `CONTEXT.md`, `docs/adr/0001-*.md` through `docs/adr/0117-*.md`, and `docs/design/anti-ai-slop-rules.md` before coding.
+- [x] 1.2 Review `CONTEXT.md`, `docs/adr/0001-*.md` through `docs/adr/0117-*.md`, and `docs/design/anti-ai-slop-rules.md` before coding.
 - [ ] 1.3 Snapshot current production `/health`, unauthenticated `/mcp`, authenticated `tools/list`, `woa_context`, `woa_account.status`, draft list, publish list, and Stripe webhook behavior.
 - [ ] 1.4 Confirm production secrets that will be required in Cloudflare: Resend, Turnstile, GitHub OAuth, Stripe live keys/prices/webhook secret, WeChat relay, encryption key, session/OAuth signing secrets.
-- [ ] 1.5 Write a migration runbook that explicitly notes accepted risks: direct production D1 migration without required backup, live Stripe verification, and short WeChat API downtime.
+- [x] 1.5 Write a migration runbook that explicitly notes accepted risks: direct production D1 migration without required backup, live Stripe verification, and short WeChat API downtime.
 
 ## 2. D1 schema and repository foundation
 
@@ -62,13 +62,13 @@
 - [x] 6.2 Move Web source to `web/`, configure Vite/TanStack file routes, output `web/dist`, and update Worker static asset serving and build scripts.
 - [x] 6.3 Run Astryx dense docs bootstrap and record component/template choices before implementing Web pages.
 - [x] 6.4 Implement Astryx theme CSS with required layer order, `ThemeProvider`, and `LinkProvider` with a central TanStack `AppLink` adapter.
-- [ ] 6.5 Implement shared Web API client with TypeScript types and Zod response boundaries for `/me`, onboarding, account, billing, MCP config, quotas, and sessions.
+- [x] 6.5 Implement shared Web API client with TypeScript types and Zod response boundaries for `/me`, onboarding, account, billing, MCP config, quotas, and sessions.
 - [x] 6.6 Implement TanStack Query provider, query keys, mutation invalidation, and route guards with `returnTo` redirect behavior.
 - [ ] 6.7 Implement email-first login page with Turnstile, email code request/verify, and optional GitHub login.
-- [ ] 6.8 Implement onboarding page for Tenant/resource status, platform relay allowlist guidance, AppID/AppSecret configuration, validation errors, and completion state.
+- [x] 6.8 Implement onboarding page for Tenant/resource status, platform relay allowlist guidance, AppID/AppSecret configuration, validation errors, and completion state.
 - [x] 6.9 Implement billing page and Stripe success/cancel/status routes.
 - [x] 6.10 Implement MCP config page that outputs native Streamable HTTP config for Codex/Claude without OAuth tokens.
-- [ ] 6.11 Implement security sessions page for authorized client/session listing and revocation.
+- [x] 6.11 Implement security sessions page for authorized client/session listing and revocation.
 - [x] 6.12 Implement Terms and Privacy pages with `support@ziikoo.app` contact and credential/payment/retention disclosures.
 - [ ] 6.13 Add Web tests for API client/Zod boundaries, route guards, login/onboarding/billing/security page smoke rendering, and copy/viewmodel helpers.
 - [ ] 6.14 Capture screenshots of critical Web pages and review them against `docs/design/anti-ai-slop-rules.md`.
@@ -111,7 +111,7 @@
 - [x] 10.3 Document legal/support pages and `support@ziikoo.app` contact.
 - [x] 10.4 Document video publishing as unsupported in the first release while article and image/贴图 publishing are supported.
 - [x] 10.5 Document migration behavior: legacy password removal, legacy secret purge, required reconfiguration, and accepted short downtime.
-- [ ] 10.6 Run Chinese copy anti-slop review for Web, CLI, README, and onboarding error messages.
+- [x] 10.6 Run Chinese copy anti-slop review for Web, CLI, README, and onboarding error messages.
 
 ## 11. Verification and release gates
 

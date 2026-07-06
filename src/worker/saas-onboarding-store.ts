@@ -41,6 +41,18 @@ export interface WebSessionRecord {
   revokedAt?: number | null;
 }
 
+export interface SecuritySessionRecord {
+  id: string;
+  kind: 'web' | 'oauth';
+  clientName: string;
+  clientId?: string;
+  createdAt: number;
+  lastSeenAt?: number;
+  expiresAt: number;
+  revokedAt?: number | null;
+  canRevoke: boolean;
+}
+
 export interface OAuthClientInput {
   clientId: string;
   clientName: string;
@@ -720,6 +732,62 @@ export class D1SaasOnboardingStore {
     ).bind(now, now, sessionId).run();
   }
 
+  async listSecuritySessions(operatorId: string, options: {
+    now?: number;
+    limit?: number;
+  } = {}): Promise<SecuritySessionRecord[]> {
+    await this.ensureSchema();
+    const now = options.now ?? Date.now();
+    const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
+    const webRows = await this.db.prepare(
+      `SELECT id, operator_id, created_at, last_seen_at, expires_at, revoked_at
+       FROM web_sessions
+       WHERE operator_id = ?
+       ORDER BY created_at DESC
+       LIMIT ?`,
+    ).bind(operatorId, limit).all<Record<string, unknown>>();
+    const oauthRows = await this.db.prepare(
+      `SELECT s.id, s.operator_id, s.client_id, c.client_name, s.created_at, s.updated_at, s.refresh_expires_at, s.revoked_at
+       FROM oauth_token_sessions s
+       LEFT JOIN oauth_clients c ON c.client_id = s.client_id
+       WHERE s.operator_id = ?
+       ORDER BY s.created_at DESC
+       LIMIT ?`,
+    ).bind(operatorId, limit).all<Record<string, unknown>>();
+
+    return [
+      ...(webRows.results ?? []).map(row => rowToSecuritySession(row, 'web', now)),
+      ...(oauthRows.results ?? []).map(row => rowToSecuritySession(row, 'oauth', now)),
+    ].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+  }
+
+  async revokeSecuritySession(input: {
+    operatorId: string;
+    sessionId: string;
+    now?: number;
+  }): Promise<{ revoked: boolean; kind?: 'web' | 'oauth' }> {
+    await this.ensureSchema();
+    const now = input.now ?? Date.now();
+    const webResult = await this.db.prepare(
+      `UPDATE web_sessions
+       SET revoked_at = ?, updated_at = ?
+       WHERE id = ? AND operator_id = ? AND revoked_at IS NULL`,
+    ).bind(now, now, input.sessionId, input.operatorId).run();
+    if (numberValue(webResult.meta?.changes) && numberValue(webResult.meta?.changes)! > 0) {
+      return { revoked: true, kind: 'web' };
+    }
+
+    const oauthResult = await this.db.prepare(
+      `UPDATE oauth_token_sessions
+       SET revoked_at = ?, updated_at = ?
+       WHERE id = ? AND operator_id = ? AND revoked_at IS NULL`,
+    ).bind(now, now, input.sessionId, input.operatorId).run();
+    if (numberValue(oauthResult.meta?.changes) && numberValue(oauthResult.meta?.changes)! > 0) {
+      return { revoked: true, kind: 'oauth' };
+    }
+    return { revoked: false };
+  }
+
   async bootstrapDefaultTenantForOperator(input: {
     operatorId: string;
     tenantId?: string | null;
@@ -1183,6 +1251,29 @@ function rowToWebSession(row: Record<string, unknown>): WebSessionRecord {
     operatorId: stringValue(row.operator_id) || '',
     expiresAt: numberValue(row.expires_at) ?? 0,
     revokedAt: numberValue(row.revoked_at),
+  };
+}
+
+function rowToSecuritySession(row: Record<string, unknown>, kind: SecuritySessionRecord['kind'], now: number): SecuritySessionRecord {
+  const revokedAt = numberValue(row.revoked_at);
+  const expiresAt = kind === 'oauth'
+    ? numberValue(row.refresh_expires_at) ?? 0
+    : numberValue(row.expires_at) ?? 0;
+  const clientId = stringValue(row.client_id) || undefined;
+  return {
+    id: stringValue(row.id) || '',
+    kind,
+    clientId,
+    clientName: kind === 'web'
+      ? 'Web session'
+      : stringValue(row.client_name) || clientId || 'OAuth client',
+    createdAt: numberValue(row.created_at) ?? 0,
+    lastSeenAt: (kind === 'web'
+      ? numberValue(row.last_seen_at)
+      : numberValue(row.updated_at)) ?? undefined,
+    expiresAt,
+    revokedAt,
+    canRevoke: !revokedAt && expiresAt > now,
   };
 }
 

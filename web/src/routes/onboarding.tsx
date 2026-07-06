@@ -1,7 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button, StatusDot, TextInput } from '@astryxdesign/core';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { DefinitionList, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
+import { configureAccount, getOnboardingStatus } from '../lib/api.js';
 import { requireWebSession } from '../route-guards.js';
 
 export const Route = createFileRoute('/onboarding')({
@@ -10,8 +13,41 @@ export const Route = createFileRoute('/onboarding')({
 });
 
 function OnboardingPage() {
+  const queryClient = useQueryClient();
+  const onboarding = useQuery({
+    queryKey: ['onboarding'],
+    queryFn: getOnboardingStatus,
+  });
   const [appId, setAppId] = useState('');
+  const [appSecret, setAppSecret] = useState('');
+  const [webhookToken, setWebhookToken] = useState('');
+  const [encodingAESKey, setEncodingAESKey] = useState('');
   const [resourceName, setResourceName] = useState('默认微信公众号资源');
+  const status = onboarding.data;
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!status?.tenantId || !status.resourceId) {
+        throw new Error('当前 Tenant 尚未创建可配置的微信公众号资源，请先完成登录引导。');
+      }
+      return await configureAccount({
+        tenantId: status.tenantId,
+        accountId: status.resourceId,
+        appId,
+        appSecret,
+        token: webhookToken,
+        encodingAESKey,
+      });
+    },
+    onSuccess: async () => {
+      setAppSecret('');
+      await queryClient.invalidateQueries({ queryKey: ['onboarding'] });
+    },
+  });
+
+  function submitCredentials(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    mutation.mutate();
+  }
 
   return (
     <>
@@ -22,10 +58,10 @@ function OnboardingPage() {
       <PageStack>
         <SurfaceSection title="Tenant 与资源状态">
           <DefinitionList items={[
-            { label: 'Tenant', value: '默认 Tenant（首次登录自动创建）' },
-            { label: '微信公众号资源', value: resourceName || '默认微信公众号资源' },
-            { label: '凭据状态', value: <span className="inline-status"><StatusDot variant="warning" label="未配置" />未配置 AppID/AppSecret</span> },
-            { label: 'Webhook', value: '可选；仅收件箱和入站消息能力需要' },
+            { label: 'Tenant', value: status?.tenantId ?? (onboarding.isLoading ? '读取中…' : '未创建') },
+            { label: '微信公众号资源', value: status?.resourceName ?? resourceName },
+            { label: '凭据状态', value: <span className="inline-status"><StatusDot variant={status?.configured ? 'success' : 'warning'} label={status?.configured ? '已配置' : '未配置'} />{status?.configured ? `已验证 ${status.appId ?? ''}` : '未配置 AppID/AppSecret'}</span> },
+            { label: 'Webhook', value: status?.webhookConfigured ? '已配置' : '可选；仅收件箱和入站消息能力需要' },
           ]} />
         </SurfaceSection>
         <SurfaceSection title="平台 relay 白名单">
@@ -37,15 +73,27 @@ function OnboardingPage() {
           </ul>
         </SurfaceSection>
         <SurfaceSection title="提交凭据">
-          <form className="form-grid" method="post" action="/api/v1/tenants/current/accounts/current/configure">
+          <form className="form-grid" onSubmit={submitCredentials}>
             <TextInput label="资源名称" htmlName="name" value={resourceName} onChange={setResourceName} />
             <TextInput label="AppID" htmlName="appId" value={appId} onChange={setAppId} placeholder="wx..." isRequired />
-            <TextInput label="AppSecret" htmlName="appSecret" type="password" value="" onChange={() => undefined} placeholder="只发送到远程 Worker，不保存在浏览器" isRequired />
+            <TextInput label="AppSecret" htmlName="appSecret" type="password" value={appSecret} onChange={setAppSecret} placeholder="只发送到远程 Worker，不保存在浏览器" isRequired />
+            <TextInput label="Webhook Token（可选）" htmlName="token" value={webhookToken} onChange={setWebhookToken} placeholder="启用收件箱前再配置也可以" />
+            <TextInput label="EncodingAESKey（可选）" htmlName="encodingAESKey" value={encodingAESKey} onChange={setEncodingAESKey} placeholder="安全模式回调需要" />
             <div className="inline-actions">
-              <Button label="验证并保存" type="submit" variant="primary" isDisabled={!appId} />
+              <Button label="验证并保存" type="submit" variant="primary" isLoading={mutation.isPending} isDisabled={!appId || !appSecret || !status?.tenantId || !status.resourceId} />
               <Button label="稍后配置 Webhook" href="/mcp" />
             </div>
           </form>
+          {mutation.error ? (
+            <p className="section-copy" style={{ marginTop: 14 }}>
+              {mutation.error instanceof Error ? mutation.error.message : '凭据验证失败，请确认微信白名单和 AppSecret。'}
+            </p>
+          ) : null}
+          {onboarding.error ? (
+            <p className="section-copy" style={{ marginTop: 14 }}>
+              {onboarding.error instanceof Error ? onboarding.error.message : '读取 onboarding 状态失败。'}
+            </p>
+          ) : null}
         </SurfaceSection>
       </PageStack>
     </>

@@ -86,6 +86,8 @@ export async function handleManagementApiRequest(
           '/api/v1/tenants/:tenantId/accounts/:accountId/publishes',
           '/api/v1/tenants/:tenantId/accounts/:accountId/publishes/:articleId',
           '/api/v1/tenants/:tenantId/accounts/:accountId/inbox',
+          '/api/v1/sessions',
+          '/api/v1/sessions/:sessionId',
           '/api/v1/audit',
         ],
       });
@@ -111,6 +113,10 @@ export async function handleManagementApiRequest(
         },
         requestId: context.requestId,
       });
+    }
+
+    if (segments[0] === 'sessions') {
+      return await handleSessionRoutes(request, segments, context, deps);
     }
 
     throw new ApiError('not_found', 'API route not found.', 404);
@@ -160,6 +166,35 @@ export async function handleManagementApiRequest(
     }
     return apiErrorToResponse(error, context?.requestId);
   }
+}
+
+async function handleSessionRoutes(
+  request: Request,
+  segments: string[],
+  context: TenantRequestContext,
+  deps: ManagementApiDeps,
+): Promise<Response> {
+  if (!deps.onboardingStore) {
+    throw new ApiError('runtime_unavailable', 'Session store is not configured in this runtime.', 503);
+  }
+
+  if (request.method === 'GET' && segments.length === 1) {
+    const sessions = await deps.onboardingStore.listSecuritySessions(context.userId);
+    return jsonResponse({ success: true, data: { sessions }, requestId: context.requestId });
+  }
+
+  if (request.method === 'DELETE' && segments.length === 2) {
+    const result = await deps.onboardingStore.revokeSecuritySession({
+      operatorId: context.userId,
+      sessionId: decodePathSegment(segments[1], 'sessionId'),
+    });
+    if (!result.revoked) {
+      throw new ApiError('session_not_found', 'Session was not found or is already revoked.', 404);
+    }
+    return jsonResponse({ success: true, data: result, requestId: context.requestId });
+  }
+
+  throw new ApiError('not_found', 'Session API route not found.', 404);
 }
 
 async function handleTenantRoutes(

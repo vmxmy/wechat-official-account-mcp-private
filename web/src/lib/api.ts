@@ -50,6 +50,8 @@ export const currentOperatorSchema = z.object({
 export const onboardingStatusSchema = z.object({
   tenantId: z.string().optional(),
   resourceId: z.string().optional(),
+  resourceName: z.string().optional(),
+  appId: z.string().optional(),
   configured: z.boolean().default(false),
   relayRequired: z.boolean().default(true),
   webhookConfigured: z.boolean().default(false),
@@ -59,9 +61,29 @@ export const onboardingStatusSchema = z.object({
 export const accountSchema = z.object({
   accountId: z.string(),
   tenantId: z.string(),
+  name: z.string().optional(),
   accountName: z.string().optional(),
   appId: z.string().optional(),
   status: z.string().optional(),
+  isDefault: z.boolean().optional(),
+  hasAppSecret: z.boolean().optional(),
+  hasWebhookToken: z.boolean().optional(),
+  hasEncodingAESKey: z.boolean().optional(),
+}).passthrough();
+
+const accountListSchema = z.object({
+  accounts: z.array(accountSchema).default([]),
+});
+
+const accountStatusSchema = z.object({
+  account: accountSchema.nullish(),
+  configured: z.boolean().default(false),
+  config: z.object({
+    appId: z.string().optional(),
+    hasAppSecret: z.boolean().optional(),
+    hasToken: z.boolean().optional(),
+    hasEncodingAESKey: z.boolean().optional(),
+  }).nullish(),
 }).passthrough();
 
 export const billingStatusSchema = z.object({
@@ -85,12 +107,19 @@ export const mcpConfigStatusSchema = z.object({
 
 export const securitySessionSchema = z.object({
   id: z.string(),
+  kind: z.enum(['web', 'oauth']).optional(),
   clientName: z.string().optional(),
-  createdAt: z.string().optional(),
-  lastSeenAt: z.string().optional(),
-  expiresAt: z.string().optional(),
+  clientId: z.string().optional(),
+  createdAt: z.union([z.string(), z.number()]).optional(),
+  lastSeenAt: z.union([z.string(), z.number()]).optional(),
+  expiresAt: z.union([z.string(), z.number()]).optional(),
+  revokedAt: z.union([z.string(), z.number()]).nullish(),
   canRevoke: z.boolean().default(true),
 }).passthrough();
+
+const securitySessionsSchema = z.object({
+  sessions: z.array(securitySessionSchema).default([]),
+});
 
 export class WebApiError extends Error {
   constructor(
@@ -108,8 +137,74 @@ export async function getCurrentOperator(): Promise<z.infer<typeof currentOperat
   return await apiGet('/api/v1/me', currentOperatorSchema);
 }
 
+export async function getAccounts(tenantId: string): Promise<z.infer<typeof accountListSchema>> {
+  return await apiGet(`/api/v1/tenants/${encodeURIComponent(tenantId)}/accounts`, accountListSchema);
+}
+
+export async function getAccountStatus(tenantId: string, accountId: string): Promise<z.infer<typeof accountStatusSchema>> {
+  return await apiGet(`/api/v1/tenants/${encodeURIComponent(tenantId)}/accounts/${encodeURIComponent(accountId)}/status`, accountStatusSchema);
+}
+
+export async function configureAccount(input: {
+  tenantId: string;
+  accountId: string;
+  appId: string;
+  appSecret: string;
+  token?: string;
+  encodingAESKey?: string;
+}): Promise<z.infer<typeof accountSchema>> {
+  return await apiPost(
+    `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}/configure`,
+    {
+      appId: input.appId,
+      appSecret: input.appSecret,
+      token: input.token || undefined,
+      encodingAESKey: input.encodingAESKey || undefined,
+    },
+    accountSchema,
+  );
+}
+
+export async function getOnboardingStatus(): Promise<z.infer<typeof onboardingStatusSchema>> {
+  const current = await getCurrentOperator();
+  const tenantId = current.defaultTenantId ?? tenantIdFromUnknown(current.tenants[0]);
+  if (!tenantId) {
+    return onboardingStatusSchema.parse({ configured: false, relayRequired: true, completionState: 'unconfigured' });
+  }
+
+  const { accounts } = await getAccounts(tenantId);
+  const defaultAccountId = current.defaultAccountId;
+  const account = accounts.find(item => item.accountId === defaultAccountId) ?? accounts.find(item => item.isDefault) ?? accounts[0];
+  if (!account) {
+    return onboardingStatusSchema.parse({ tenantId, configured: false, relayRequired: true, completionState: 'unconfigured' });
+  }
+
+  const status = await getAccountStatus(tenantId, account.accountId);
+  const appId = status.config?.appId ?? account.appId;
+  const configured = status.configured || account.status === 'active';
+  return onboardingStatusSchema.parse({
+    tenantId,
+    resourceId: account.accountId,
+    resourceName: account.name ?? account.accountName,
+    appId,
+    configured,
+    relayRequired: true,
+    webhookConfigured: Boolean(account.hasWebhookToken || status.config?.hasToken),
+    completionState: configured ? 'complete' : appId ? 'credential_pending' : 'unconfigured',
+  });
+}
+
 export async function getQuotaSummary(tenantId: string): Promise<z.infer<typeof quotaSummarySchema>> {
   return await apiGet(`/api/v1/tenants/${encodeURIComponent(tenantId)}/usage`, quotaSummarySchema);
+}
+
+export async function getBillingStatus(tenantId: string): Promise<z.infer<typeof billingStatusSchema>> {
+  const quota = await getQuotaSummary(tenantId);
+  return billingStatusSchema.parse({
+    plan: quota.plan,
+    status: quota.plan === 'free' ? 'active_free' : 'active_paid',
+    currentPeriodEnd: quota.counters.find(counter => counter.resetAt)?.resetAt,
+  });
 }
 
 export async function createCheckoutSession(input: {
@@ -130,6 +225,10 @@ export async function revokeSecuritySession(sessionId: string): Promise<unknown>
     method: 'DELETE',
     schema: z.unknown(),
   });
+}
+
+export async function getSecuritySessions(): Promise<z.infer<typeof securitySessionsSchema>> {
+  return await apiGet('/api/v1/sessions', securitySessionsSchema);
 }
 
 async function apiGet<T extends z.ZodType>(path: string, schema: T): Promise<z.infer<T>> {
@@ -188,4 +287,10 @@ function parseJson(text: string): unknown {
   } catch {
     return text;
   }
+}
+
+function tenantIdFromUnknown(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const tenantId = (value as { tenantId?: unknown }).tenantId;
+  return typeof tenantId === 'string' ? tenantId : undefined;
 }

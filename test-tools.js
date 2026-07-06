@@ -449,6 +449,36 @@ check(
     !woaHelp.includes('wechat-mcp mcp -a -s'),
   'woa CLI 帮助只宣传 remote-only 工作流并包含 billing/quota/account onboarding 命令',
 );
+const webApiClientSource = readFileSync('./web/src/lib/api.ts', 'utf8');
+check(
+  [
+    'getCurrentOperator',
+    'getOnboardingStatus',
+    'getAccounts',
+    'getAccountStatus',
+    'configureAccount',
+    'getBillingStatus',
+    'mcpConfigStatusSchema',
+    'getQuotaSummary',
+    'getSecuritySessions',
+    'revokeSecuritySession',
+  ].every(symbol => webApiClientSource.includes(symbol)) &&
+    webApiClientSource.includes('/api/v1/sessions') &&
+    webApiClientSource.includes('/api/v1/me'),
+  'Web API client 覆盖 /me、onboarding、account、billing、MCP config、quota 与 sessions 的 Zod 边界',
+);
+const onboardingRouteSource = readFileSync('./web/src/routes/onboarding.tsx', 'utf8');
+const securityRouteSource = readFileSync('./web/src/routes/security.tsx', 'utf8');
+check(
+  onboardingRouteSource.includes('getOnboardingStatus') &&
+    onboardingRouteSource.includes('configureAccount') &&
+    onboardingRouteSource.includes('mutation.mutate') &&
+    !onboardingRouteSource.includes('/api/v1/tenants/current/accounts/current/configure') &&
+    securityRouteSource.includes('getSecuritySessions') &&
+    securityRouteSource.includes('revokeSecuritySession') &&
+    securityRouteSource.includes("invalidateQueries({ queryKey: ['security-sessions'] })"),
+  'Web onboarding/security 页面使用真实 API query/mutation，未保留 current-account 静态提交路径',
+);
 const woaConfig = execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'mcp', 'config', 'codex', '--server', 'https://worker.example.test'], { encoding: 'utf8' });
 check(
   woaConfig.includes('https://worker.example.test/mcp') &&
@@ -2178,9 +2208,9 @@ class MemorySaasD1Statement {
     }
 
     if (q.startsWith('UPDATE web_sessions SET revoked_at')) {
-      const [revokedAt, updatedAt, id] = this.values;
+      const [revokedAt, updatedAt, id, operatorId] = this.values;
       const row = this.db.webSessions.get(id);
-      if (row) {
+      if (row && (!operatorId || row.operator_id === operatorId) && row.revoked_at === null) {
         row.revoked_at = revokedAt;
         row.updated_at = updatedAt;
         return { success: true, meta: { changes: 1 } };
@@ -2210,9 +2240,9 @@ class MemorySaasD1Statement {
     }
 
     if (q.startsWith('UPDATE oauth_token_sessions SET revoked_at')) {
-      const [revokedAt, updatedAt, id] = this.values;
+      const [revokedAt, updatedAt, id, operatorId] = this.values;
       const row = this.db.oauthTokenSessions.get(id);
-      if (row) {
+      if (row && (!operatorId || row.operator_id === operatorId) && row.revoked_at === null) {
         row.revoked_at = revokedAt;
         row.updated_at = updatedAt;
         return { success: true, meta: { changes: 1 } };
@@ -2438,6 +2468,32 @@ class MemorySaasD1Statement {
       };
     }
 
+    if (q.startsWith('SELECT id, operator_id, created_at, last_seen_at')) {
+      const [operatorId, limit] = this.values;
+      return {
+        success: true,
+        results: [...this.db.webSessions.values()]
+          .filter(row => row.operator_id === operatorId)
+          .sort((a, b) => b.created_at - a.created_at)
+          .slice(0, limit),
+      };
+    }
+
+    if (q.startsWith('SELECT s.id, s.operator_id')) {
+      const [operatorId, limit] = this.values;
+      return {
+        success: true,
+        results: [...this.db.oauthTokenSessions.values()]
+          .filter(row => row.operator_id === operatorId)
+          .sort((a, b) => b.created_at - a.created_at)
+          .slice(0, limit)
+          .map(row => ({
+            ...row,
+            client_name: this.db.oauthClients.get(row.client_id)?.client_name,
+          })),
+      };
+    }
+
     throw new Error(`Unsupported SaaS D1 all query: ${q}`);
   }
 }
@@ -2514,6 +2570,9 @@ const rememberedConsent = await saasStore.hasOAuthConsent({ operatorId: verified
 const tokenSession = await saasStore.issueOAuthTokenSession({ operatorId: verifiedCode.operator.operatorId, clientId: 'cli_test', accessToken: 'ACCESS', refreshToken: 'REFRESH', scopes: ['wechat.mcp'], now: 10_000 });
 const webSession = await saasStore.createWebSession({ operatorId: verifiedCode.operator.operatorId, sessionToken: 'WEB_SESSION', sessionId: 'sess_test', now: 10_000 });
 const slidingSession = await saasStore.getWebSession('WEB_SESSION', 20_000);
+const securitySessionsBeforeRevoke = await saasStore.listSecuritySessions(verifiedCode.operator.operatorId, { now: 20_000 });
+const wrongOperatorRevoke = await saasStore.revokeSecuritySession({ operatorId: 'op_other', sessionId: tokenSession.sessionId, now: 20_500 });
+const oauthScopedRevoke = await saasStore.revokeSecuritySession({ operatorId: verifiedCode.operator.operatorId, sessionId: tokenSession.sessionId, now: 20_600 });
 await saasStore.revokeWebSession('sess_test', 21_000);
 const revokedSession = await saasStore.getWebSession('WEB_SESSION', 22_000);
 check(
@@ -2522,13 +2581,48 @@ check(
     tokenSession.refreshExpiresAt === 10_000 + 30 * 24 * 60 * 60 * 1000 &&
     webSession.expiresAt === 10_000 + 7 * 24 * 60 * 60 * 1000 &&
     slidingSession?.expiresAt === 20_000 + 7 * 24 * 60 * 60 * 1000 &&
-    revokedSession === null,
-  'D1SaasOnboardingStore OAuth client/consent/token TTL 与 7天滑动 Web session/revoke 正确',
+    revokedSession === null &&
+    securitySessionsBeforeRevoke.some(item => item.id === 'sess_test' && item.kind === 'web' && item.canRevoke) &&
+    securitySessionsBeforeRevoke.some(item => item.id === tokenSession.sessionId && item.kind === 'oauth' && item.clientName === 'WOA CLI') &&
+    wrongOperatorRevoke.revoked === false &&
+    oauthScopedRevoke.revoked === true && oauthScopedRevoke.kind === 'oauth',
+  'D1SaasOnboardingStore OAuth client/consent/token TTL、7天滑动 Web session、授权列表与 operator-scoped revoke 正确',
 );
 
 const bootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: verifiedCode.operator.operatorId, tenantId: 'ten_owner', resourceId: 'acct_default_owner', now: 50_000 });
 const repeatBootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: verifiedCode.operator.operatorId, now: 51_000 });
 const ownerContext = await saasStore.getTenantContextForOperator({ operatorId: verifiedCode.operator.operatorId, scopes: ['woa:tenant:read', 'woa:account:read', 'woa:account:write'], requestId: 'req_owner' }, { source: 'rest' });
+const routeSession = await saasStore.createWebSession({ operatorId: verifiedCode.operator.operatorId, sessionToken: 'WEB_SESSION_ROUTE', sessionId: 'sess_route', now: 51_500 });
+const sessionListResponse = await handleManagementApiRequest(
+  new Request('https://worker.example.test/api/v1/sessions'),
+  {
+    trustedContext: ownerContext,
+    onboardingStore: saasStore,
+    createApiClient: async () => {
+      throw new Error('Session list must not construct WeChat api client');
+    },
+  },
+);
+const sessionListBody = await sessionListResponse.json();
+const sessionRevokeResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/sessions/${routeSession.sessionId}`, { method: 'DELETE' }),
+  {
+    trustedContext: ownerContext,
+    onboardingStore: saasStore,
+    createApiClient: async () => {
+      throw new Error('Session revoke must not construct WeChat api client');
+    },
+  },
+);
+const sessionRevokeBody = await sessionRevokeResponse.json();
+check(
+  sessionListResponse.status === 200 &&
+    sessionListBody.data?.sessions?.some(item => item.id === 'sess_route' && item.kind === 'web') &&
+    sessionRevokeResponse.status === 200 &&
+    sessionRevokeBody.data?.revoked === true &&
+    sessionRevokeBody.data?.kind === 'web',
+  'REST /api/v1/sessions 返回当前 Operator 授权列表并支持 operator-scoped revoke',
+);
 let freeAllowanceRejected = false;
 try {
   await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '第二个资源', resourceId: 'acct_second_blocked', now: 52_000 });

@@ -1,13 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button, StatusDot } from '@astryxdesign/core';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
+import { getSecuritySessions, revokeSecuritySession } from '../lib/api.js';
 import { requireWebSession } from '../route-guards.js';
-
-const sessionRows = [
-  { id: 'web-current', client: 'Web session', created: '当前浏览器', expires: '7 天滑动过期', status: '有效' },
-  { id: 'cli-example', client: 'woa CLI', created: '授权后显示', expires: 'Refresh token 30 天', status: '可撤销' },
-  { id: 'mcp-example', client: 'MCP client', created: '授权后显示', expires: 'Access token 1 小时', status: '可撤销' },
-];
 
 export const Route = createFileRoute('/security')({
   beforeLoad: requireWebSession,
@@ -15,6 +11,19 @@ export const Route = createFileRoute('/security')({
 });
 
 function SecurityPage() {
+  const queryClient = useQueryClient();
+  const sessions = useQuery({
+    queryKey: ['security-sessions'],
+    queryFn: getSecuritySessions,
+  });
+  const revoke = useMutation({
+    mutationFn: revokeSecuritySession,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['security-sessions'] });
+    },
+  });
+  const rows = sessions.data?.sessions ?? [];
+
   return (
     <>
       <PageHeader
@@ -35,20 +44,51 @@ function SecurityPage() {
                 </tr>
               </thead>
               <tbody>
-                {sessionRows.map(row => (
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>暂无可显示的授权会话。登录后会显示 Web、CLI 或 MCP 授权记录。</td>
+                  </tr>
+                ) : rows.map(row => (
                   <tr key={row.id}>
-                    <td>{row.client}</td>
-                    <td>{row.created}</td>
-                    <td>{row.expires}</td>
-                    <td><span className="inline-status"><StatusDot variant="neutral" label={row.status} />{row.status}</span></td>
-                    <td><Button label="撤销" size="sm" isDisabled={row.id === 'web-current'} /></td>
+                    <td>{row.clientName ?? row.clientId ?? row.kind ?? '未知客户端'}</td>
+                    <td>{formatTime(row.createdAt)}</td>
+                    <td>{formatTime(row.expiresAt)}</td>
+                    <td><span className="inline-status"><StatusDot variant={row.revokedAt ? 'neutral' : 'success'} label={row.revokedAt ? '已撤销' : '有效'} />{row.revokedAt ? '已撤销' : '有效'}</span></td>
+                    <td>
+                      <Button
+                        label="撤销"
+                        size="sm"
+                        isLoading={revoke.isPending}
+                        isDisabled={!row.canRevoke}
+                        clickAction={() => revoke.mutate(row.id)}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {sessions.error ? (
+            <p className="section-copy" style={{ marginTop: 14 }}>
+              {sessions.error instanceof Error ? sessions.error.message : '读取授权会话失败。'}
+            </p>
+          ) : null}
+          {revoke.error ? (
+            <p className="section-copy" style={{ marginTop: 14 }}>
+              {revoke.error instanceof Error ? revoke.error.message : '撤销失败，请刷新后重试。'}
+            </p>
+          ) : null}
         </SurfaceSection>
       </PageStack>
     </>
   );
+}
+
+function formatTime(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—';
+  const date = typeof value === 'number'
+    ? new Date(value < 1_000_000_000_000 ? value * 1000 : value)
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('zh-CN', { hour12: false });
 }
