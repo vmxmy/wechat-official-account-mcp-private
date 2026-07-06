@@ -1,0 +1,83 @@
+
+Results for "ThemeProvider LinkProvider Button Input Field Card" (20):
+
+  [component]  Field
+               Field is a low-level wrapper for custom, native, or third-party controls that do not already provide field label, description, and status UI. Use it when you need the Field shell around a control you own; use styled Astryx inputs like TextInput, Typeahead, and Select directly when they already expose label, description, and validation props.
+               → npx astryx component Field
+
+  [template]   Card Grid
+               Browsable grid of components organized by category with tabs and filters
+               → npx astryx template library
+
+  [template]   Shell Nav
+               A top + side nav app shell with a File/Edit/View/Window/Help menu bar plus command-palette search, a resizable file-tree SideNav, and a static grey-card tabbed code editor.
+               → npx astryx template shell-nav
+
+  [template]   Toolbar — Sizes
+               Small, medium, and large toolbars side by side. The size prop cascades to child buttons and inputs automatically. Use small in dense UIs like cards, medium for most cases, and large for spacious layouts.
+               → npx astryx template ToolbarSizes
+
+  [hook]       useClickableContainer
+               Makes a container element clickable while preserving nested interactive element behavior. Solves the "nested interactive elements" problem: when a card is clickable but contains buttons/links, clicking those should NOT trigger the card's action. Detects interactive ancestors between the click target and the container, and ignores text selections. Supports href navigation (including middle-click and Ctrl/Cmd+click for new tabs).
+               → npx astryx hook useClickableContainer
+
+  [template]   Card — Layout
+               A card with a structured header, content area, and footer with action buttons. Use for forms, dialogs, or settings panels that need clear sections. Pair Card with Layout to get automatic dividers between header, content, and footer. The footer aligns actions to the right by default.
+               → npx astryx template CardWithInnerLayout
+
+  [template]   useCollapsible — Custom Disclosure
+               Custom disclosure UI built directly with useCollapsible for headless open/close state.
+               → npx astryx template CollapsibleHookUsage
+
+  [template]   Dialog — Fullscreen
+               Takes over the entire viewport for content that needs maximum space. Use for documentation viewers, rich text editors, multi-step wizards, or media previews where the standard dialog width is too narrow.
+               → npx astryx template DialogFullscreenDialog
+
+  [template]   EmptyState — Container
+               Empty state wrapped in a Card for first-time setup or onboarding. Use when the user has not created any items yet, like a project list, team roster, or dashboard widget that will fill with data once they take action.
+               → npx astryx template EmptyStateContainer
+
+  [template]   useLayer — Anchored Layer
+               Low-level anchored overlay rendered with useLayer and a custom surface.
+               → npx astryx template LayerHookUsage
+
+  [template]   Layout — Basic Card
+               A card layout with header, scrollable content area, and footer with action buttons.
+               → npx astryx template LayoutBasicCardLayout
+
+  [template]   LayoutFooter — Actions
+               A fixed footer with end-aligned action buttons below scrollable content. Use LayoutFooter inside Layout for persistent actions like Save and Cancel.
+               → npx astryx template LayoutFooterActions
+
+  [template]   Layout — Full Bleed Content
+               A layout where content extends edge-to-edge with zero padding, ideal for tables or images.
+               → npx astryx template LayoutFullBleedContent
+
+  [template]   LayoutHeader — With Actions
+               A fixed page header with a title and a primary action, above scrollable content. Use LayoutHeader inside Layout for persistent page-level headers.
+               → npx astryx template LayoutHeaderWithActions
+
+  [template]   Layout — Sidebar Navigation
+               A settings page layout with a navigation sidebar panel, content area, header, and footer.
+               → npx astryx template LayoutSidebarLayout
+
+  [template]   OverflowList — Collapse From Start
+               Overflow list that hides items from the start, keeping the latest visible
+               → npx astryx template OverflowListCollapseFromStartList
+
+  [template]   OverflowList — Dropdown Actions
+               Action toolbar that collapses overflow buttons into a dropdown menu
+               → npx astryx template OverflowListOverflowDropdownActions
+
+  [template]   Resizable — Collapsible with snap points
+               A collapsible sidebar with snap points, driven by useResizable. Dragging snaps to preset widths, dragging past the minimum collapses the panel, and the expand method restores it programmatically.
+               → npx astryx template ResizableSidebar
+
+  [template]   Stack — Alignment
+               Buttons positioned at the start, center, and end of a row.
+               → npx astryx template StackAlignment
+
+  [template]   Theme — Apply Theme
+               Wrap a subtree in Theme to apply a theme to every child component in that region.
+               → npx astryx template ThemeApply
+

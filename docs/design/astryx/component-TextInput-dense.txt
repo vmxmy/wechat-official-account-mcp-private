@@ -1,0 +1,110 @@
+# TextInput
+
+TextInput collects short-form text like names, emails, or search queries. Use it for single-line values where the expected input is brief. Pair it with validation status to guide users through required or formatted fields.
+
+**Import:** `import {TextInput} from '@astryxdesign/core/TextInput';`
+
+## Anatomy
+
+| Element | Required | Description |
+|---------|----------|-------------|
+| Label | Yes | Text that identifies the field. Always rendered for accessibility even when visually hidden. |
+| Description | No | Helper text between the label and the input that provides additional context or formatting hints. |
+| Start icon | No | A leading icon inside the input that hints at the expected content, like a magnifying glass for search. |
+| Placeholder | No | Hint text shown when the input is empty. Disappears on focus. |
+| Clear button | No | A trailing × button that resets the value and returns focus to the input. |
+| Spinner | No | Loading indicator that appears during async actions like server-side validation. |
+| Status icon | No | A trailing icon (error, warning, or success) that communicates validation state. |
+
+## Best Practices
+
+- **Do:** Always provide a visible label so users know what the field is for. Only hide the label when surrounding context makes it obvious, like a search bar with a magnifying-glass icon.
+- **Do:** Use validation status with a message to explain what went wrong: "Email must include @" is better than just turning the border red.
+- **Do:** Size the input to match the expected content length so users can gauge how much to type: small for zip codes, medium for names, large for URLs.
+- **Do:** Add a clear button for search and filter inputs so users can quickly reset without selecting all text.
+- **Don't:** Don't use placeholder text as a replacement for a label; placeholders disappear on focus and are not reliably read by screen readers.
+- **Don't:** Don't use TextInput for multi-line content like comments or descriptions; use TextArea instead.
+- **Don't:** Don't mark every field as required; only flag mandatory fields so users are not overwhelmed by validation errors.
+- **Don't:** Don't wrap a disabled TextInput in Tooltip to explain why it's disabled; disabled controls swallow the hover events the wrapper needs. Use the disabledMessage prop instead.
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `type` | `'text' | 'password' | 'email'` | `'text'` | HTML input type. |
+| `label` | `string` | — | Label text for input; always rendered for a11y. **(required)** |
+| `value` | `string` | — | Current input value. **(required)** |
+| `onChange` | `(value: string, e: ChangeEvent<HTMLInputElement>) => void` | — | Fired on input value change. |
+| `changeAction` | `(value: string, e: ChangeEvent<HTMLInputElement>) => void | Promise<void>` | — | Async action after onChange (if not prevented). Triggers optimistic update+spinner while pending. |
+| `size` | `'sm' | 'md' | 'lg'` | `'md'` | Size variant of input. |
+| `isLabelHidden` | `boolean` | `false` | Visually hides label; keeps screen reader access. |
+| `description` | `string` | — | Description text between label+input. |
+| `isOptional` | `boolean` | `false` | Shows "Optional" indicator. Mutually exclusive w/ isRequired. |
+| `isRequired` | `boolean` | `false` | Shows "Required" indicator+sets aria-required. Mutually exclusive w/ isOptional. |
+| `isDisabled` | `boolean` | `false` | Disables input, prevents interaction, dims element. |
+| `disabledMessage` | `string` | — | Explains why input is disabled. With isDisabled, shows tooltip on hover/focus + keeps input focusable via aria-disabled (field becomes read-only). Use instead of wrapping a disabled TextInput in Tooltip. |
+| `isLoading` | `boolean` | `false` | Loading state w/ spinner+aria-busy. |
+| `placeholder` | `string` | — | Placeholder when input empty. |
+| `labelTooltip` | `string` | — | Tooltip in info icon at label end. |
+| `startIcon` | `IconType` | — | SVG icon at input start (e.g. heroicons or lucide). |
+| `status` | `{type: 'error' | 'warning' | 'success', message?: string}` | — | Validation status; colored border+icon. Message floats below. Error sets aria-invalid. |
+| `hasClear` | `boolean` | `false` | Shows clear button when input has value. Clears value on click. |
+| `hasAutoFocus` | `boolean` | `false` | Auto-focus input on mount. |
+| `htmlName` | `string` | — | HTML name attr for form submissions. |
+
+## Theming
+
+| Component class | Preferred data attributes | Props | States |
+|-----------------|---------------------------|-------|--------|
+| `astryx-text-input` | `data-size`, `data-status` | size, status | — |
+
+Override in defineTheme:
+```ts
+components: {
+  'astryx-text-input': {
+    base: { /* CSS properties */ },
+    'size:value': { /* variant-specific */ },
+  },
+}
+```
+
+
+Related block templates:
+
+  DialogFormDialog
+    Collects user input without navigating away from the page. Uses purpose="form" so clicking the backdrop won't close it. Use for editing profiles, creating items, or updating settings inline.
+  FieldRequired
+    Required and optional field indicators side by side. Use isRequired on fields the user must fill in, and isOptional to clarify which fields can be skipped.
+  FieldShowcase
+    A form field wrapping a text input with a label, description, and validation status.
+  FieldStatusVariants
+    All three validation states: error, warning, and success. Use error for invalid input, warning for potential issues like reserved names, and success to confirm valid entries like API keys.
+  FieldWithDescription
+    Fields with helper text below the label. Use descriptions to explain format requirements, constraints, or what happens with the data, like "At least 8 characters" or "We will send a confirmation link".
+  FormLayoutHorizontal
+    Two fields side by side for naturally paired inputs like first and last name
+  FormLayoutHorizontalLabels
+    Settings form with labels placed beside their inputs
+  FormLayoutMixedControls
+    Form with different control types: text input, selector, and checkboxes
+  FormLayoutNested
+    Address form mixing vertical and horizontal layouts for grouped fields
+  FormLayoutShowcase
+    A vertical form layout with text input fields.
+  InputGroupBasic
+    A currency field with static prefix and suffix addons around a TextInput. Use InputGroupText to clarify units or input format.
+  InputGroupShowcase
+  TextInputIcon
+    Inputs with a leading icon that hints at the expected content. Use when the icon helps users identify the field faster, like a lock for passwords or an envelope for email.
+  TextInputSearch
+    Search input with a hidden label, start icon, and clear button. Use for toolbar and header search bars where the icon provides sufficient context.
+  TextInputShowcase
+  TextInputSizes
+    Small, medium, and large inputs side by side. Use small in dense UIs like table filters, medium for most forms, and large for prominent single-field pages.
+  TextInputStates
+    Error, warning, and success validation states with status messages. Use to show users what went wrong and how to fix it.
+  TextInputTypes
+    Text, password, and email types plus field-level features: tooltip, required, optional, description, disabled, and loading.
+  ToolbarTableFilter
+    A compact toolbar with a search input, Status and Priority filter selectors, and an overflow menu. Use above a data table to let users search, filter, and access view options.
+

@@ -1,0 +1,89 @@
+# Section
+
+Section creates page regions. Use for settings groups, form sections, sidebar areas. If you want to visually separate a part of a page, use Section, not Card. Cards are for discrete items (one profile, one notification).
+
+**Import:** `import {Section} from '@astryxdesign/core/Section';`
+
+## Best Practices
+
+- **Do:** Use Section for page-level grouping: settings panels, form groups, sidebar regions. Page sections, not discrete items.
+- **Do:** Start w/ default variant. Use muted only to call attention to a specific region.
+- **Do:** Add dividers between same-background sections that need separation.
+- **Do:** Combine w/ heading + Stack for typical page section pattern.
+- **Don't:** Use Card when you mean Section. Cards = discrete items (one notification, one profile). Sections = page regions.
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `variant` | `'section' | 'transparent' | 'muted'` | `'section'` | Background variant applied to section container. |
+| `width` | `SizeValue` | — | Section width; number interpreted as pixels, string used as-is. |
+| `height` | `SizeValue` | — | Section height; number interpreted as pixels, string used as-is. |
+| `maxWidth` | `SizeValue` | — | Maximum width of section. |
+| `minHeight` | `SizeValue` | — | Minimum height of section. |
+| `children` | `ReactNode` | — | Content rendered inside section. |
+| `dividers` | `Array<'top' | 'bottom' | 'start' | 'end'>` | — | Which sides of section have divider borders. |
+| `padding` | `SpacingStep` | `4` | Internal padding via spacing scale; 0 for edge-to-edge content. |
+| `paddingBlock` | `SpacingStep` | — | Block-axis padding override; preserves inline padding from padding/theme. |
+| `xstyle` | `StyleXStyles` | — | StyleX styles for layout customization; must be stylex.create() value. |
+
+## Theming
+
+| Component class | Preferred data attributes | Props | States |
+|-----------------|---------------------------|-------|--------|
+| `astryx-section` | `data-variant` | section, transparent, muted | — |
+
+Override in defineTheme:
+```ts
+components: {
+  'astryx-section': {
+    base: { /* CSS properties */ },
+    'variant:value': { /* variant-specific */ },
+  },
+}
+```
+
+
+Related block templates:
+
+  CollapsibleSingleAccordion
+    Only one section open at a time. Use for settings pages or any list where expanding one item should close the others.
+  DividerFullBleed
+    Divider that extends past container padding to span the full width. Use inside cards or panels when you want a clean edge-to-edge separation, like between an order summary and total.
+  DividerVariants
+    Subtle, labeled, and strong dividers in a single card. Use subtle between related sections, labeled for alternatives like "or", and strong for high-contrast boundaries.
+  DividerVertical
+    Vertical dividers separating side-by-side metrics. Use between stat cards, toolbar groups, or any horizontal layout where you need a visual boundary between sections.
+  useKeyboardHintHookUsage
+    Toolbar shows an ephemeral "← → to navigate" hint on first keyboard focus via useKeyboardHint, teaching sighted keyboard users that arrows move within the group.
+  LayoutFullBleedContent
+    A layout where content extends edge-to-edge with zero padding, ideal for tables or images.
+  MediaThemeImageOverlay
+    A common image card pattern: place text and actions over a dark gradient and wrap the overlay content in MediaTheme mode="dark".
+  MediaThemeLightScrim
+    A light scrim over an image. Use MediaTheme mode="light" so text and ghost buttons use dark-on-light tokens.
+  MediaThemeShowcase
+    A compact media overlay showing MediaTheme adapting text, icons, badges, and button variants over an image-backed dark surface.
+  SectionVariants
+    All three background variants stacked: section (default surface), muted, and transparent. A quick visual reference for choosing the right variant.
+  SectionWashHighlight
+    A default section stacked with a full-width muted section. Shows how muted draws attention to a specific region like an upgrade prompt or banner.
+  SectionWithDividers
+    Adjacent sections separated by bottom dividers, like a settings page. Use dividers when stacking same-variant sections that need visual separation without a background change.
+  TablePaginatedTable
+    Paginated data table navigating through a larger dataset page by page.
+  ThemeApply
+    Wrap a subtree in Theme to apply a theme to every child component in that region.
+  ThemeNested
+    Nested Theme providers let a local region use a different theme without affecting the rest of the page.
+  ThemeShowcase
+    Two visually distinct theme providers wrapping identical content to show how Theme changes the visual treatment of child components.
+  ThemeSwitcher
+    Use state to switch the theme object passed to Theme and preview a different visual treatment.
+  ToolbarCardHeader
+    A toolbar as a card header with a left-aligned title and icon actions on the right. Use Toolbar instead of LayoutHeader when your card header has interactive actions; Toolbar adds start/end slot layout, keyboard navigation, and automatic size cascading. If the header is just a title with no actions, a LayoutHeader or Section is enough.
+  ToolbarThreeSlot
+    A toolbar with start, center, and end content using the three-column grid layout. Use when you need a centered title or heading with navigation and actions on either side.
+  ToolbarWithTabs
+    A toolbar with tabs in the start slot and an action button at the end. Use as a card or section header when content is split into tabs with a primary action alongside.
+

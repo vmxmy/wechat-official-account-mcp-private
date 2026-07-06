@@ -1,0 +1,266 @@
+# Button
+
+Button triggers an action when clicked. Use for form submissions, confirmations, navigation, or any interaction needing a clear CTA.
+
+**Import:** `import {Button} from '@astryxdesign/core/Button';`
+
+## Anatomy
+
+| Element | Required | Description |
+|---------|----------|-------------|
+| Icon | No | A leading icon that reinforces the label, like a trash icon on a Delete button. |
+| Label | Yes | The visible text describing the action. Also used as the accessible name. |
+| End content | No | A trailing badge or icon after the label, like a notification count or dropdown arrow. |
+| Spinner | No | Replaces the icon during loading to show the action is in progress. |
+
+## Best Practices
+
+- **Do:** Primary for the single most important action. Secondary or ghost for the rest.
+- **Do:** Labels that describe the action: "Save changes" not "OK" or "Click here".
+- **Do:** Show loading state for async actions so the user knows it is working.
+- **Do:** Icon-only buttons need a label for screen readers and a tooltip for sighted users.
+- **Do:** For dedicated icon-only buttons, use IconButton from @astryxdesign/core/IconButton. Separate component, not exported from @astryxdesign/core/Button.
+- **Don't:** Multiple primary buttons in one view; dilutes hierarchy.
+- **Don't:** Destructive without confirmation for irreversible actions.
+- **Don't:** Button for navigation; use a link if it only takes the user to another page.
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `label` | `string` | — | accessible label; visible text by default, aria-label when isIconOnly **(required)** |
+| `variant` | `'primary' | 'secondary' | 'ghost' | 'destructive'` | `'secondary'` | visual style variant |
+| `size` | `'sm' | 'md' | 'lg'` | `'md'` | size variant |
+| `type` | `'button' | 'submit' | 'reset'` | `'button'` | HTML button type; defaults to "button" |
+| `name` | `string` | — | HTML name for form submission |
+| `value` | `string | number | readonly string[]` | — | HTML value for form submission |
+| `form` | `string` | — | associates button with form element by ID |
+| `isLoading` | `boolean` | `false` | shows spinner+disables interaction; announces via live region |
+| `isInterruptible` | `boolean` | `false` | Keep the button clickable while a clickAction is pending: the spinner and aria-busy still show, but the button is not disabled and the action is not deduped, so a re-click lands and interrupts the in-flight action with a fresh one. |
+| `isDisabled` | `boolean` | `false` | disables button; uses aria-disabled when tooltip present |
+| `icon` | `ReactNode` | — | icon element rendered before label text |
+| `isIconOnly` | `boolean` | `false` | when true, renders square icon-only button; label becomes aria-label |
+| `children` | `ReactNode` | — | optional visible override; label is still required for a11y. Prefer <Button label="Save" /> over using children |
+| `endContent` | `ReactElement<IconProps> | ReactElement<BadgeProps>` | — | trailing icon/badge after label; ignored when isIconOnly; color inherited |
+| `tooltip` | `string` | — | tooltip on hover |
+| `onClick` | `(e: MouseEvent) => void` | — | standard click handler; fires before clickAction |
+| `clickAction` | `(e: MouseEvent) => void | Promise<void>` | — | async click handler; shows loading while promise pending |
+
+## Theming
+
+| Component class | Preferred data attributes | Props | States |
+|-----------------|---------------------------|-------|--------|
+| `astryx-button` | `data-size`, `data-variant` | primary, secondary, ghost, destructive | — |
+
+Override in defineTheme:
+```ts
+components: {
+  'astryx-button': {
+    base: { /* CSS properties */ },
+    'size:value': { /* variant-specific */ },
+  },
+}
+```
+
+**Themeable CSS variables** — additional properties that can be overridden in `defineTheme` component overrides.
+
+| CSS Variable | Default | Description |
+|-------------|---------|-------------|
+| `--button-press-scale` | `scale(0.98)` | Active press transform |
+| `--button-disabled-opacity` | `0.5` | Opacity when disabled |
+| `--button-focus-offset` | `3px` | Focus ring outline offset |
+| `--button-icon-only-aspect` | `1 / 1` | Aspect ratio for icon-only buttons |
+
+Some properties are set via standard CSS in component overrides:
+```ts
+components: {
+  astryx-button: {
+    base: {
+      borderRadius: '...',
+    },
+  },
+}
+```
+
+
+Related block templates:
+
+  AppShellMobileHookUsage
+    Custom mobile navigation trigger built with useAppShellMobile. The trigger consumes the surrounding AppShell context instead of rendering its own shell.
+  BannerCollapsibleContent
+    Combine an action button, dismiss control, and expandable detail area in one banner. Use for complex notifications like config changes or deployment summaries.
+  BannerSectionVariant
+    A full-width banner with no border radius for page-level notifications. Use at the top of a page for site-wide announcements or maintenance alerts.
+  BannerWithActionButton
+    Add a button to a banner so the user can act on the message. Use for trial expirations, payment failures, or anything that needs a response.
+  ButtonShowcase
+    All four button variants side by side: primary, secondary, ghost, and destructive. A quick visual reference for choosing the right variant.
+  ButtonSizeVariants
+    Small, medium, and large buttons side by side. Use small in dense UIs like toolbars, medium for most cases, and large for prominent CTAs.
+  ButtonVariants
+    All 4 button variants in default, disabled, and loading states. Use primary for the main action, secondary for most others, ghost for low-emphasis, and destructive for dangerous actions.
+  ButtonWithEndSlot
+    Buttons with a trailing badge showing a count or status. Use for notification counts, unread messages, or any button that needs a visual indicator.
+  ButtonWithIcon
+    Buttons with a leading icon that reinforces the label. Use when the icon helps the user identify the action faster, like a plus for "New" or a trash can for "Delete".
+  ButtonGroupBasic
+    Three related actions joined into a single connected control. Provide a group label for accessibility and keep all buttons the same variant so they read as one unit.
+  ButtonGroupShowcase
+  CardWithInnerLayout
+    A card with a structured header, content area, and footer with action buttons. Use for forms, dialogs, or settings panels that need clear sections. Pair Card with Layout to get automatic dividers between header, content, and footer. The footer aligns actions to the right by default.
+  ClickableCardWithNestedButton
+    A product card that navigates on click but has an independent "Add to cart" button inside.
+  ChatComposerFooterActions
+    Chat composer with dropdown menus for a model selector and settings in the footer, and a mic button in the send actions slot.
+  ChatComposerFullFeatured
+    Chat composer with all slots populated: collapsible attachment drawer, header actions, context progress bar, footer dropdown menus, and mic button. Shows the maximum composer configuration.
+  ChatComposerDrawerShowcase
+    Composer drawer with file tokens, a collapsible toggle, and header actions. Use as a starting point for any chat composer with attachments.
+  ChatComposerDrawerWithProgress
+    Drawer paired with a context progress bar in the header. Show context window usage when attachments consume part of the available token budget.
+  ChatMessageBubbleMetadata
+    Bubbles with name and metadata slots aligned to bubble padding. Put name on the first bubble and metadata on the last bubble in a message.
+  ChatMessageMetadataFooter
+    Assistant message with footer actions: copy, retry, thumbs up/down, and model label. Use for AI responses that need feedback or utility controls.
+  ChatMessageMetadataShowcase
+    Three-message conversation showcasing error status with retry, delivery status, and full footer actions with model label.
+  CollapsibleHookUsage
+    Custom disclosure UI built directly with useCollapsible for headless open/close state.
+  DialogConfirmationDialog
+    Asks the user to confirm a destructive action before it happens. Use before deleting projects, removing team members, revoking API keys, or any irreversible operation.
+  DialogFormDialog
+    Collects user input without navigating away from the page. Uses purpose="form" so clicking the backdrop won't close it. Use for editing profiles, creating items, or updating settings inline.
+  DialogFullscreenDialog
+    Takes over the entire viewport for content that needs maximum space. Use for documentation viewers, rich text editors, multi-step wizards, or media previews where the standard dialog width is too narrow.
+  DialogScrollingContent
+    Constrains the dialog height and scrolls the body when content overflows. Use for terms and conditions, license agreements, changelogs, or any long-form content the user needs to review before accepting.
+  DialogWithSubtitle
+    Cannot be dismissed by Escape or backdrop click; the user must explicitly choose an action. Uses purpose="required". Use for ownership transfers, legal acknowledgements, or critical decisions where skipping is not an option.
+  EmptyStateActions
+    Full empty state with icon, message, and action buttons. Use when a search returns no results, a filter clears all items, or a list has been emptied. The buttons give the user a way forward: go back, clear filters, or try a different query.
+  EmptyStateCompact
+    Smaller empty state with reduced spacing for constrained areas. Use inside sidebar panels, card widgets, or notification drawers where a full-size empty state would overwhelm the layout.
+  EmptyStateContainer
+    Empty state wrapped in a Card for first-time setup or onboarding. Use when the user has not created any items yet, like a project list, team roster, or dashboard widget that will fill with data once they take action.
+  EmptyStateShowcase
+    A no-results empty state with an icon, descriptive message, and a call-to-action button.
+  useKeyboardHintHookUsage
+    Toolbar shows an ephemeral "← → to navigate" hint on first keyboard focus via useKeyboardHint, teaching sighted keyboard users that arrows move within the group.
+  HoverCardHookUsage
+    Custom profile preview using useHoverCard with direct trigger and render control.
+  HoverCardProfileHoverCard
+    Shows a user profile summary on hover with name, role, and bio. Use on usernames, avatars, or mentions to let users preview a profile without navigating away.
+  HoverCardShowcase
+    A hover card that shows a user profile preview when hovering over a trigger button. Starts open for preview.
+  LayerHookUsage
+    Low-level anchored overlay rendered with useLayer and a custom surface.
+  LayoutBasicCardLayout
+    A card layout with header, scrollable content area, and footer with action buttons.
+  LayoutContentWidth
+    A layout using contentWidth to constrain and center content while keeping dividers full-bleed.
+  LayoutFullBleedContent
+    A layout where content extends edge-to-edge with zero padding, ideal for tables or images.
+  LayoutShowcase
+  LayoutSidebarLayout
+    A settings page layout with a navigation sidebar panel, content area, header, and footer.
+  LayoutFooterActions
+    A fixed footer with end-aligned action buttons below scrollable content. Use LayoutFooter inside Layout for persistent actions like Save and Cancel.
+  LayoutHeaderWithActions
+    A fixed page header with a title and a primary action, above scrollable content. Use LayoutHeader inside Layout for persistent page-level headers.
+  MediaThemeImageOverlay
+    A common image card pattern: place text and actions over a dark gradient and wrap the overlay content in MediaTheme mode="dark".
+  MediaThemeLightScrim
+    A light scrim over an image. Use MediaTheme mode="light" so text and ghost buttons use dark-on-light tokens.
+  MediaThemeShowcase
+    A compact media overlay showing MediaTheme adapting text, icons, badges, and button variants over an image-backed dark surface.
+  MobileNavBasicMobileNav
+    Mobile navigation drawer with sectioned nav items triggered by a menu button
+  MobileNavEndSideMobileNav
+    Navigation drawer that slides in from the right side of the screen
+  MobileNavShowcase
+  MobileNavWithoutTitleMobileNav
+    Mobile navigation drawer without a title header
+  MobileNavToggleShowcase
+    Demonstrates MobileNavToggle as a standalone hamburger button for opening the mobile navigation drawer.
+  OutlineControlled
+    Drive the active section yourself with activeId and onActiveIdChange. Providing activeId disables the built-in scroll-spy so your own logic owns the highlight.
+  OverflowListCollapseFromStartList
+    Overflow list that hides items from the start, keeping the latest visible
+  OverflowListOverflowDropdownActions
+    Action toolbar that collapses overflow buttons into a dropdown menu
+  OverflowListShowcase
+    A list of buttons that collapses overflowing items into a +N indicator.
+  OverlayHoverReveal
+    Reveals an overlay action on hover or keyboard focus. Use when actions should stay visually quiet until the media receives attention.
+  OverlayShowcase
+    A media card with an always-visible scrim and centered action content.
+  PopoverConfirmAction
+    Inline confirmation popover for destructive actions with delete and cancel buttons.
+  PopoverFilterPanel
+    Popover with checkbox filters and apply/reset actions.
+  PopoverHookUsage
+    Custom quick-actions popover using usePopover for trigger refs, ARIA attributes, and focus trapping.
+  PopoverKeyboardShortcuts
+    Popover displaying a list of keyboard shortcuts with key and description pairs.
+  PopoverSettingsPanel
+    Popover with toggle switches for managing user preferences like notifications, dark mode, and sounds.
+  PopoverShowcase
+  ResizableSidebar
+    A collapsible sidebar with snap points, driven by useResizable. Dragging snaps to preset widths, dragging past the minimum collapses the panel, and the expand method restores it programmatically.
+  SectionWashHighlight
+    A default section stacked with a full-width muted section. Shows how muted draws attention to a specific region like an upgrade prompt or banner.
+  StackAlignment
+    Buttons positioned at the start, center, and end of a row.
+  StackFillItem
+    An avatar, text, and button in a row; the text stretches to fill the available space.
+  TabListTabsWithActions
+    Page header pattern with tabs on the left and action buttons pushed to the right. When hasDivider is true, pair with a smaller button size (sm) so actions don’t overpower the tab row.
+  ThemeApply
+    Wrap a subtree in Theme to apply a theme to every child component in that region.
+  ThemeNested
+    Nested Theme providers let a local region use a different theme without affecting the rest of the page.
+  ThemeShowcase
+    Two visually distinct theme providers wrapping identical content to show how Theme changes the visual treatment of child components.
+  ThemeSwitcher
+    Use state to switch the theme object passed to Theme and preview a different visual treatment.
+  ToastAction
+    Persistent toasts with a trailing button or link so the user can act on the notification, like undoing a delete or viewing a report.
+  ToastDeduplication
+    Prevent duplicate toasts with uniqueID. Use ignore to keep the first toast, or overwrite to replace it with updated content like a progress percentage.
+  ToastDismiss
+    Show a persistent toast and dismiss it programmatically using the function returned by useToast. Use for long-running operations that need manual cleanup.
+  ToastShowcase
+    Imperative toast notifications triggered with useToast and rendered in the toast viewport.
+  ToastStacking
+    Multiple toasts stacking vertically with smooth enter and exit animations. Click repeatedly to see how toasts queue and dismiss.
+  ToastTypes
+    Info and error toast variants side by side. Info toasts auto-dismiss after 5 seconds, error toasts persist until the user dismisses them.
+  TokenizerEndContent
+    Tokenizer with an action button in the end slot. Use for inline actions like applying selections alongside the input.
+  ToolbarBulkActions
+    A compact toolbar with the muted variant for showing bulk selection actions. Use when the user selects multiple items in a list or table and needs quick access to batch operations.
+  ToolbarCardHeader
+    A toolbar as a card header with a left-aligned title and icon actions on the right. Use Toolbar instead of LayoutHeader when your card header has interactive actions; Toolbar adds start/end slot layout, keyboard navigation, and automatic size cascading. If the header is just a title with no actions, a LayoutHeader or Section is enough.
+  ToolbarSizes
+    Small, medium, and large toolbars side by side. The size prop cascades to child buttons and inputs automatically. Use small in dense UIs like cards, medium for most cases, and large for spacious layouts.
+  ToolbarThreeSlot
+    A toolbar with start, center, and end content using the three-column grid layout. Use when you need a centered title or heading with navigation and actions on either side.
+  ToolbarWithTabs
+    A toolbar with tabs in the start slot and an action button at the end. Use as a card or section header when content is split into tabs with a primary action alongside.
+  TooltipActionBarTooltips
+    Tooltips on an action button bar with contextual descriptions.
+  TooltipHookUsage
+    Tooltip using the useTooltip hook for programmatic control.
+  TooltipShowcase
+  TopNavCenteredNavigation
+    Navigation layout with center-aligned nav items flanked by a logo heading and end actions.
+  TopNavEnterpriseDashboard
+    Full-featured navigation bar with icon-labeled nav items, search, notifications, and a primary CTA.
+  TopNavHoverMenu
+    Navigation bar with a hover-triggered dropdown menu showing product items with icons and descriptions.
+  TopNavMegaMenu
+    Marketing-style navigation with a full-width mega menu featuring product items and a promotional featured card.
+  TopNavShowcase
+  TopNavWithLogo
+    Navigation bar with a branded logo icon, heading link, nav items, and a profile action.
+

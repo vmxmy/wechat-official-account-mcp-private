@@ -1,0 +1,569 @@
+# Layout
+
+Layout provides composable components for building structured page shells with header, sidebar, content, and footer slots. Use Layout for full app layouts and HStack/VStack for simple directional stacking.
+
+**Import:** `import {Layout} from '@astryxdesign/core/Layout';`
+
+## Best Practices
+
+- **Do:** Use Layout for page shells that need distinct zones like header, sidebar(s), content, and footer.
+- **Do:** Use HStack and VStack for simple directional stacking within a content area.
+- **Don't:** Use Layout for simple stacking layouts; use HStack or VStack instead.
+- **Don't:** Nest multiple Layout components; use one per page shell and compose content within its slots.
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `content` | `ReactNode` | — | Main content area (center). Children passed to `<Layout>` render here too: `<Layout>{main}</Layout>` is shorthand for `<Layout content={main} />`. |
+| `header` | `ReactNode` | — | Header slot. |
+| `footer` | `ReactNode` | — | Footer slot. |
+| `start` | `ReactNode` | — | Start panel (left in LTR). |
+| `end` | `ReactNode` | — | End panel (right in LTR). |
+| `height` | `'fill' | 'auto'` | `'fill'` | Height behavior: fill the container or grow with content. |
+
+## Components
+
+### LayoutHeader
+
+See `astryx component LayoutHeader` for props and usage.
+
+### LayoutContent
+
+See `astryx component LayoutContent` for props and usage.
+
+### LayoutFooter
+
+See `astryx component LayoutFooter` for props and usage.
+
+### LayoutPanel
+
+See `astryx component LayoutPanel` for props and usage.
+
+### Card
+
+See `astryx component Card` for props and usage.
+
+### Section
+
+See `astryx component Section` for props and usage.
+
+## Theming
+
+| Component class | Preferred data attributes | Props | States |
+|-----------------|---------------------------|-------|--------|
+| `astryx-layout` | `data-height` | height | — |
+| `astryx-layout-content` | — | — | — |
+| `astryx-layout-footer` | — | — | — |
+| `astryx-layout-header` | — | — | — |
+| `astryx-layout-panel` | — | — | — |
+
+Override in defineTheme:
+```ts
+components: {
+  'astryx-layout': {
+    base: { /* CSS properties */ },
+    'height:value': { /* variant-specific */ },
+  },
+  'astryx-layout-content': {
+    base: { /* CSS properties */ },
+  },
+}
+```
+
+
+Related block templates:
+
+  AppShellMobileHookUsage
+    Custom mobile navigation trigger built with useAppShellMobile. The trigger consumes the surrounding AppShell context instead of rendering its own shell.
+  AspectRatioShowcase
+    Three aspect ratio containers at equal height (1:1, 4:3, and 16:9), each showing an image with its ratio labeled below.
+  AvatarGroup
+    Overlap multiple avatars in a row to represent a group of people. Use for team lists, PR reviewers, or participant counts where you want to show faces without taking up much space.
+  AvatarInitialsFallback
+    Show initials instead of a photo. The avatar extracts the first and last initials from the name automatically. Use when you only have a user name, like in anonymous accounts or new user onboarding.
+  AvatarShowcase
+    Avatars at every size with an image, initials fallback, and a status dot. A quick visual reference for choosing the right size.
+  AvatarUserCard
+    Place an avatar next to a name and role to create a user card row. Use for comment headers, contact lists, profile sections, or anywhere you need to identify a person at a glance.
+  AvatarWithImage
+    Show a profile photo at different sizes. Use when you have a user photo URL. If the image fails to load, initials are shown instead.
+  AvatarWithStatus
+    Add a status dot to an avatar to show whether someone is online, away, or busy. Use in chat, messaging, or any UI where knowing availability matters.
+  AvatarGroupShowcase
+    Overlapping avatar rows with max limit and server-side overflow count. Shows team members in a compact facepile layout.
+  AvatarGroupOverflowCustomText
+    Provide short custom children such as 12+ when the overflow count needs compact product-specific formatting.
+  AvatarGroupOverflowDefault
+    Use AvatarGroupOverflow without children to render the standard +N overflow count.
+  AvatarGroupOverflowShowcase
+    Overflow indicators for hidden avatars, including the default +N label and custom count text.
+  BadgeCategoryTags
+    Tag items with color-coded categories like teams, priorities, or topics. Use the 9 non-semantic color variants when you need to distinguish groups visually.
+  BadgeCountBadges
+    Show a number inside a badge for notification counts, unread messages, or task totals. Use next to icons, nav items, or list labels.
+  BadgeShowcase
+    All semantic and color badge variants in a single view. Use semantic variants for status and color variants for categories.
+  BadgeStatusLabels
+    Show the state of an item like Active, Pending, or Failed. Use in table rows, list items, or detail pages where users need to see status at a glance.
+  BannerCollapsibleContent
+    Combine an action button, dismiss control, and expandable detail area in one banner. Use for complex notifications like config changes or deployment summaries.
+  BannerDismissable
+    Let the user close a banner after reading it. Use for maintenance notices, feature tips, or any non-critical message the user can acknowledge.
+  BannerSectionVariant
+    A full-width banner with no border radius for page-level notifications. Use at the top of a page for site-wide announcements or maintenance alerts.
+  BannerShowcase
+    All four status banners stacked: info, success, warning, and error. A quick visual reference for choosing the right status.
+  BannerStatuses
+    All 4 banner statuses: info, success, warning, and error. Use to show persistent messages like updates, confirmations, cautions, or problems at the top of a page or section.
+  BannerWithActionButton
+    Add a button to a banner so the user can act on the message. Use for trial expirations, payment failures, or anything that needs a response.
+  BlockquoteShowcase
+    Blockquote with and without citation. A quick visual reference for the blockquote component.
+  BlockquoteWithCite
+    A plain quote and a quote with a cite attribution. Use cite to credit the original author or source.
+  BreadcrumbsCustomSeparator
+    Swap the default "/" for a different character like chevrons, arrows, or dots. Use when the visual style of the page calls for a different separator.
+  BreadcrumbsSupportingVariant
+    Compare the default and supporting variants side by side. Use the supporting variant in dense UIs like admin panels where the breadcrumb should be subtle.
+  ButtonShowcase
+    All four button variants side by side: primary, secondary, ghost, and destructive. A quick visual reference for choosing the right variant.
+  ButtonSizeVariants
+    Small, medium, and large buttons side by side. Use small in dense UIs like toolbars, medium for most cases, and large for prominent CTAs.
+  ButtonVariants
+    All 4 button variants in default, disabled, and loading states. Use primary for the main action, secondary for most others, ghost for low-emphasis, and destructive for dangerous actions.
+  ButtonWithEndSlot
+    Buttons with a trailing badge showing a count or status. Use for notification counts, unread messages, or any button that needs a visual indicator.
+  ButtonWithIcon
+    Buttons with a leading icon that reinforces the label. Use when the icon helps the user identify the action faster, like a plus for "New" or a trash can for "Delete".
+  ButtonGroupShowcase
+  CalendarConstraints
+    Limit which dates can be selected using min/max bounds and custom rules like weekdays only. Use for scheduling UIs where certain dates are unavailable.
+  CalendarRangeWithValue
+    Pick a start and end date with the range highlighted between them. Use for booking dates, time-off requests, or report filters.
+  CalendarSingle
+    Pick one date from a month grid. Use for appointment dates, due dates, or any field that needs a single date.
+  CalendarTwoMonths
+    Two months side by side for selecting ranges that span a month boundary. Use in booking or travel UIs where check-in and check-out often fall in different months.
+  CardCallout
+    Muted-variant cards for tips, notes, or supplementary information. Use when content should be visually distinct but not prominent. The muted variant uses a wash background instead of the elevated default, making it feel recessed rather than raised. Works well in sidebars, help panels, or inline callouts.
+  CardShowcase
+    A card with a heading and body text showing the default container style.
+  CardVariants
+    Default, muted, and color variants side by side. Use color variants to categorize cards visually, like team colors, project tags, or content types. Each color uses the corresponding background token from the theme, so they adapt to light and dark mode automatically.
+  CardWithInnerLayout
+    A card with a structured header, content area, and footer with action buttons. Use for forms, dialogs, or settings panels that need clear sections. Pair Card with Layout to get automatic dividers between header, content, and footer. The footer aligns actions to the right by default.
+  CardWithSimpleContent
+    A card with a heading and body text. Use for summaries, descriptions, or any grouped content that needs visual separation from the page. The card handles its own border, background, and padding; just pass your content as children. Set a width to constrain it, or leave it to fill the parent.
+  ClickableCardShowcase
+    A clickable card that navigates on click. Nested interactive elements work independently.
+  ClickableCardWithNestedButton
+    A product card that navigates on click but has an independent "Add to cart" button inside.
+  SelectableCardMulti
+    Multi-select tag picker using color variant selectable cards with color-matched selection borders.
+  SelectableCardShowcase
+    A plan picker with single-select radio behavior. Cards show an accent border when selected.
+  CarouselCards
+    A horizontally scrollable row of cards with snap scrolling enabled. Use for feature grids, product lists, or any set of cards that overflows the available width. The carousel adds fade edges and navigation buttons automatically.
+  CarouselShowcase
+    A horizontal carousel of cards with scroll-snap and navigation buttons. Scroll or click the arrows to browse.
+  CarouselSnap
+    Scroll-snap carousel with navigation buttons and team member cards. Each card snaps to the start edge on scroll. Use when items should be viewed one at a time rather than as a continuous strip.
+  CenterHorizontal
+    An editor toolbar with a document title on the left and formatting actions on the right. This shows axis="horizontal", centering in one direction only. Use when content needs to be horizontally centered while other elements are positioned independently around it.
+  CenterInsideACard
+    An empty state with an icon, heading, and description centered both vertically and horizontally inside a card. This is the most common use of Center: placing content in the middle of a fixed-height area like a panel, card, or content region. The height prop defines the centering space.
+  CenterShowcase
+    Content centered horizontally and vertically inside a fixed-height container.
+  ChatComposerAttachments
+    Chat composer with removable file tokens in a collapsible drawer. Use when users can attach files or context to their message.
+  ChatComposerFooterActions
+    Chat composer with dropdown menus for a model selector and settings in the footer, and a mic button in the send actions slot.
+  ChatComposerFullFeatured
+    Chat composer with all slots populated: collapsible attachment drawer, header actions, context progress bar, footer dropdown menus, and mic button. Shows the maximum composer configuration.
+  ChatComposerShowcase
+  ChatComposerSimple
+    Minimal chat composer with a placeholder and submit handler. The simplest way to drop a message input into a page.
+  ChatComposerStreaming
+    Chat composer with streaming state and a stop button. Use when the assistant is generating a response and the user can cancel.
+  ChatComposerValidation
+    Chat composer with error and warning status messages. Status can appear above or below the composer to surface validation or system feedback.
+  ChatComposerDrawerAttachments
+    Drawer with two rows: a scrollable carousel of image thumbnails and a row of removable file tokens. Omit count to keep the drawer always expanded.
+  ChatComposerDrawerCollapsible
+    Drawer with many items and a collapse toggle. Pass count to enable the toggle; collapsed state shows a badge with the total count and a label.
+  ChatComposerDrawerFeedback
+    Chat composer drawer with a feedback prompt and selectable lettered options. Use for user confirmation workflows that require explicit action before proceeding.
+  ChatComposerDrawerShowcase
+    Composer drawer with file tokens, a collapsible toggle, and header actions. Use as a starting point for any chat composer with attachments.
+  ChatComposerDrawerWithProgress
+    Drawer paired with a context progress bar in the header. Show context window usage when attachments consume part of the available token budget.
+  ChatComposerInputControlledInput
+    Controlled chat input with live value display. Use controlled mode when you need to read or transform the input value outside the composer.
+  ChatComposerInputDisabled
+    Composer in a disabled state. Use when the input should be visible but not interactive, such as during streaming or when a prerequisite is unmet.
+  ChatComposerInputMentionTrigger
+    Chat input with an @ trigger that opens a typeahead menu for mentioning users. Selected names appear as inline tokens.
+  ChatComposerInputMultipleTriggers
+    Chat input with both @ mentions and / commands. Each trigger type renders tokens in a distinct color so users can tell them apart at a glance.
+  ChatComposerInputShowcase
+  ChatComposerInputSlashCommands
+    Chat input with a / trigger for command selection. Use for AI assistants or bots that support structured commands.
+  ChatDictationDictationInComposer
+    Dictation button placed in the sendActions slot of a chat composer. Shows the recommended integration point for voice input alongside the send button.
+  ChatDictationDictationStates
+    Dictation button in idle, listening, and speaking states side by side. Shows the three visual phases of a voice input interaction.
+  ChatDictationSizes
+    Small and medium dictation buttons side by side. Use small in compact composer densities and medium for standard layouts.
+  ChatLayoutScrollButtonLabels
+    Scroll button with different labels for context-specific notifications like new messages, unread replies, or a generic scroll prompt.
+  ChatLayoutScrollButtonStates
+    Scroll button in hidden, visible, and expanded (with label) states. The button fades in when the user scrolls up and expands when new messages arrive.
+  ChatMessageAvatarName
+    Messages with avatars and sender names. Place the name on the bubble when using bubbles, or on the message wrapper for raw content.
+  ChatMessageGhost
+    Ghost variant for messages without visible bubble boundaries. Keeps padding for alignment but renders a transparent background, useful for AI-style responses.
+  ChatMessageMultiBubble
+    Grouped bubbles using the group prop for corner radius reduction. Use first, middle, and last to visually connect related bubbles from the same sender.
+  ChatMessageShowcase
+    A user multi-bubble group with delivery status and an assistant ghost response with avatar, name, timestamp, and model info.
+  ChatMessageBubbleDensity
+    Compact, balanced, and spacious density modes side by side. Density controls bubble padding, corner radius, and spacing between grouped bubbles.
+  ChatMessageBubbleGrouping
+    Multi-bubble messages using first, middle, and last group positions. Grouped bubbles tighten corner radius on the sender side for a continuous visual flow.
+  ChatMessageBubbleMetadata
+    Bubbles with name and metadata slots aligned to bubble padding. Put name on the first bubble and metadata on the last bubble in a message.
+  ChatMessageBubbleVariants
+    Filled and ghost bubble variants for both user and assistant senders. Use filled for standard messages and ghost when content needs alignment without a visual boundary.
+  ChatMessageListDensity
+    Side-by-side comparison of compact, balanced, and spacious densities. Use compact in sidebars or panels, balanced for most full-page chat, and spacious for long-form reading. Use gap when row spacing needs to differ from density.
+  ChatMessageListFullFeatured
+    Conversation showcasing system messages, multi-bubble grouping, markdown, code blocks, and metadata. Combines date dividers, ghost bubbles, grouped messages, and rich content in a single example.
+  ChatMessageListShowcase
+    Basic AI chat conversation with user and assistant messages. The simplest way to render a message list with alternating sender bubbles, metadata, and a date divider.
+  ChatMessageMetadataFooter
+    Assistant message with footer actions: copy, retry, thumbs up/down, and model label. Use for AI responses that need feedback or utility controls.
+  ChatMessageMetadataShowcase
+    Three-message conversation showcasing error status with retry, delivery status, and full footer actions with model label.
+  ChatSendButtonCustomIcon
+    Send buttons with custom icons via sendIcon and stopIcon props. Use to match the personality of the chat experience: a paper airplane for messaging, sparkles for AI generation, or a check mark for confirmation flows.
+  ChatSendButtonInComposer
+    Send button inside ChatComposer, where it reads state from context automatically. No wiring needed; the button enables when the input has content.
+  ChatSendButtonShowcase
+    Ready, custom icon, and streaming states of the send button.
+  ChatSendButtonStates
+    Disabled, ready, and streaming states at both sizes. The button automatically toggles between send (primary) and stop (secondary) based on streaming state.
+  ChatSystemMessageVariants
+    Default and divider variants side by side. Use default for inline status updates and divider for date separators or section breaks.
+  ChatSystemMessageWithIcon
+    System messages with a leading icon that reinforces the message type. Use icons to help users scan and identify message categories at a glance.
+  ChatToolCallsToolCallsWithNodes
+    A single inline tool call above a collapsible multi-call group with diff stats. Shows both layouts side by side.
+  CheckboxInputBasic
+    Checkboxes with labels and descriptions in checked, unchecked, and disabled states. Each checkbox controls a single on/off setting. Add a description to explain what the setting does.
+  CheckboxInputIndeterminateState
+    A "select all" checkbox that controls a group of options. When only some options are checked, it shows a dash instead of a checkmark. Clicking it checks or unchecks everything.
+  CheckboxInputShowcase
+    Interactive checkboxes showing checked, unchecked, and indeterminate states with descriptions.
+  CheckboxInputStatusVariations
+    Checkboxes with error, warning, and success validation messages. Use the status prop to show feedback after form validation: errors block submission, warnings inform, and success confirms.
+  CitationShowcase
+    All citation variants at a glance: label chips and numbered badges, with and without icons and links.
+  CitationSourceList
+    A list of citation sources with icons, as you might show at the end of an AI-generated response or article footer.
+  CodeShowcase
+    Inline code snippets inside a sentence showing how Code renders alongside body text.
+  CollapsibleControlledAccordion
+    Manage the open section from parent state. Use when the open state needs to sync with a URL param, form, or external control.
+  CollapsibleHookUsage
+    Custom disclosure UI built directly with useCollapsible for headless open/close state.
+  CollapsibleMultipleAccordion
+    Several sections open at once. Use when users need to compare content across sections, like feature lists or pricing tiers.
+  CollapsibleSingleAccordion
+    Only one section open at a time. Use for settings pages or any list where expanding one item should close the others.
+  CollapsibleWithoutCard
+    Collapsible sections separated by dividers instead of cards. Use for inline disclosure in detail panels or sidebar content where cards would add too much weight.
+  CommandPaletteGroupShowcase
+    Command palette groups in both data-driven (auxiliaryData.group) and composed (CommandPaletteGroup + CommandPaletteItem) forms.
+  CommandPaletteItemShowcase
+    Command palette items with custom content via renderItem and as composed CommandPaletteItem with icons, highlighted, selected, and disabled states.
+  DateInputClearable
+    Date input with a clear button that resets the value. Use when the date field is optional and the user may need to undo their selection.
+  DateInputDateRange
+    Date input constrained to a min/max window. Use when only certain dates are valid, like booking availability or a fiscal quarter.
+  DateInputShowcase
+    A date input field with a calendar popover. Type a date or click the calendar icon to pick one.
+  DateInputWithDescription
+    Date input with helper text below the label explaining what the field expects. Use when the purpose of the date is not obvious from the label alone.
+  DateInputWithValidation
+    Date input in all three status states: error, warning, and success. Use to surface validation issues, caution the user, or confirm a valid selection.
+  DateRangeInputShowcase
+    A date range picker with a button trigger and dual-month calendar popover with preset ranges.
+  DateRangeInputWithPresets
+    Date range picker with quick-select presets for common periods. Use for analytics dashboards, report filters, or any context where users frequently select standard time windows.
+  DateRangeInputWithValidation
+    Date range input in all three status states: error, warning, and success. Use to surface booking conflicts, flag high-demand periods, or confirm an available range.
+  DateTimeInputShowcase
+    A combined date and time picker. Click to open a calendar popover with a time input below.
+  DateTimeInputWithValidation
+    DateTimeInput in all three status states: error, warning, and success. Use to surface scheduling conflicts, caution the user about edge cases, or confirm a valid datetime.
+  DialogConfirmationDialog
+    Asks the user to confirm a destructive action before it happens. Use before deleting projects, removing team members, revoking API keys, or any irreversible operation.
+  DialogFormDialog
+    Collects user input without navigating away from the page. Uses purpose="form" so clicking the backdrop won't close it. Use for editing profiles, creating items, or updating settings inline.
+  DialogFullscreenDialog
+    Takes over the entire viewport for content that needs maximum space. Use for documentation viewers, rich text editors, multi-step wizards, or media previews where the standard dialog width is too narrow.
+  DialogScrollingContent
+    Constrains the dialog height and scrolls the body when content overflows. Use for terms and conditions, license agreements, changelogs, or any long-form content the user needs to review before accepting.
+  DialogShowcase
+    Modal dialog with a header, body content, and close button.
+  DialogWithSubtitle
+    Cannot be dismissed by Escape or backdrop click; the user must explicitly choose an action. Uses purpose="required". Use for ownership transfers, legal acknowledgements, or critical decisions where skipping is not an option.
+  DialogHeaderBasic
+    A DialogHeader with a title, subtitle, and close button, placed in the header slot of a Dialog Layout. Pass onOpenChange to render the close button.
+  DividerFullBleed
+    Divider that extends past container padding to span the full width. Use inside cards or panels when you want a clean edge-to-edge separation, like between an order summary and total.
+  DividerShowcase
+    Horizontal dividers in subtle and strong variants, plus a labeled divider. A quick visual reference for separator styles.
+  DividerVariants
+    Subtle, labeled, and strong dividers in a single card. Use subtle between related sections, labeled for alternatives like "or", and strong for high-contrast boundaries.
+  DividerVertical
+    Vertical dividers separating side-by-side metrics. Use between stat cards, toolbar groups, or any horizontal layout where you need a visual boundary between sections.
+  DropdownMenuActions
+    Action menu with dividers separating safe and destructive operations. Use for row-level actions on items like documents, projects, or records.
+  DropdownMenuNoChevron
+    Overflow menu triggered by an icon-only button with no chevron or label text. Use for row-level actions in tables, cards, or lists where a text button would take too much space.
+  DropdownMenuWithDisabledItems
+    Menu with selectively disabled items based on permissions. Use when some actions require higher privileges, like admin-only operations.
+  DropdownMenuWithSections
+    Menu items organized into titled sections for easy scanning. Use when you have 6+ actions that fall into distinct categories, like Create vs Manage.
+  EmptyStateCompact
+    Smaller empty state with reduced spacing for constrained areas. Use inside sidebar panels, card widgets, or notification drawers where a full-size empty state would overwhelm the layout.
+  FieldRequired
+    Required and optional field indicators side by side. Use isRequired on fields the user must fill in, and isOptional to clarify which fields can be skipped.
+  FieldShowcase
+    A form field wrapping a text input with a label, description, and validation status.
+  FieldStatusVariants
+    All three validation states: error, warning, and success. Use error for invalid input, warning for potential issues like reserved names, and success to confirm valid entries like API keys.
+  FieldWithDescription
+    Fields with helper text below the label. Use descriptions to explain format requirements, constraints, or what happens with the data, like "At least 8 characters" or "We will send a confirmation link".
+  FieldStatusShowcase
+    Field status messages in error, warning, and success states with attached and detached variants.
+  GridResponsiveAutoFit
+    Responsive grid where cards stretch to fill remaining space
+  HStackShowcase
+    Demonstrates HStack arranging items horizontally with different gaps and alignments.
+  HeadingShowcase
+  useKeyboardHintHookUsage
+    Toolbar shows an ephemeral "← → to navigate" hint on first keyboard focus via useKeyboardHint, teaching sighted keyboard users that arrows move within the group.
+  useStreamingTextHookUsage
+    Smooth bursty generated text into a steady reveal with useStreamingText.
+  HoverCardHookUsage
+    Custom profile preview using useHoverCard with direct trigger and render control.
+  HoverCardInlineTextHoverCard
+    Shows a term definition on hover within a paragraph. Use for technical terms, jargon, or concepts that some readers may not know, like a glossary built into the text.
+  HoverCardInteractiveContent
+    Shows a page summary when hovering a link: title, description, and URL. Use for documentation links, article references, or any URL where a preview helps the user decide whether to click.
+  HoverCardProfileHoverCard
+    Shows a user profile summary on hover with name, role, and bio. Use on usernames, avatars, or mentions to let users preview a profile without navigating away.
+  HoverCardShowcase
+    A hover card that shows a user profile preview when hovering over a trigger button. Starts open for preview.
+  InputGroupShowcase
+  ItemBasicItem
+    A basic item with a label, supporting description, and end-aligned timestamp. Use this for simple rows that need consistent text alignment and spacing.
+  ItemShowcase
+  ItemWithMedia
+    Items with leading avatars and icons in the startContent slot. Keep start content small so the row stays compact and easy to scan.
+  ItemWithMetadata
+    Items with end-aligned metadata and badges. Use the endContent slot for counts, status, timestamps, and other secondary row information.
+  LayerHookUsage
+    Low-level anchored overlay rendered with useLayer and a custom surface.
+  LayoutBasicCardLayout
+    A card layout with header, scrollable content area, and footer with action buttons.
+  LayoutContentOnlyLayout
+    A minimal layout with just a content area inside a card, without header or footer.
+  LayoutContentWidth
+    A layout using contentWidth to constrain and center content while keeping dividers full-bleed.
+  LayoutDualPanelLayout
+    A file browser style layout with start panel for folders, main content for files, and end panel for details.
+  LayoutFullBleedContent
+    A layout where content extends edge-to-edge with zero padding, ideal for tables or images.
+  LayoutShowcase
+  LayoutSidebarLayout
+    A settings page layout with a navigation sidebar panel, content area, header, and footer.
+  LayoutContentBasic
+    A scrollable main content area below a fixed header. Use LayoutContent inside Layout to get automatic padding and scroll containment for the primary content.
+  LayoutContentShowcase
+    LayoutContent is the scrollable main content area within a Layout, providing automatic padding and scroll containment between the header and footer.
+  LayoutFooterActions
+    A fixed footer with end-aligned action buttons below scrollable content. Use LayoutFooter inside Layout for persistent actions like Save and Cancel.
+  LayoutFooterShowcase
+    LayoutFooter is a fixed footer slot within a Layout, pinned to the bottom for persistent actions like form buttons or navigation.
+  LayoutHeaderShowcase
+    LayoutHeader is a fixed header slot within a Layout, pinned to the top for titles, navigation, and action buttons.
+  LayoutHeaderWithActions
+    A fixed page header with a title and a primary action, above scrollable content. Use LayoutHeader inside Layout for persistent page-level headers.
+  LayoutPanelNavigation
+    A fixed-width side panel holding a navigation list next to the main content. Use LayoutPanel in the start or end slot of Layout for sidebars.
+  LayoutPanelShowcase
+    LayoutPanel is a sidebar slot within a Layout, used for navigation, detail views, or secondary content alongside the main content area.
+  MediaThemeImageOverlay
+    A common image card pattern: place text and actions over a dark gradient and wrap the overlay content in MediaTheme mode="dark".
+  MediaThemeLightScrim
+    A light scrim over an image. Use MediaTheme mode="light" so text and ghost buttons use dark-on-light tokens.
+  MediaThemeShowcase
+    A compact media overlay showing MediaTheme adapting text, icons, badges, and button variants over an image-backed dark surface.
+  OutlineControlled
+    Drive the active section yourself with activeId and onActiveIdChange. Providing activeId disables the built-in scroll-spy so your own logic owns the highlight.
+  OutlineDensity
+    Two density variants control item padding. Use compact for dense sidebars and default for standard documentation layouts. The sliding indicator automatically matches each item height.
+  OverlayBottomStrip
+    Places compact supporting content in a bottom scrim strip without covering the entire image.
+  OverlayShowcase
+    A media card with an always-visible scrim and centered action content.
+  PaginationDotsCarousel
+    A review carousel using dot pagination to step through testimonial cards. Use the dots variant for carousels, galleries, and any paged content where the total is small and visible position matters more than a page number.
+  PaginationPageSize
+    A transactions table with pagination and a page size dropdown at the bottom. Shows how pagination works as a footer below real content, with adjustable rows per page.
+  PaginationVariants
+    All four display variants stacked: dots, compact, count, and pages. A quick visual reference for choosing the right variant.
+  PaginationWithTable
+    Pagination below a data table with client-side page slicing. Use the count variant with small size for dense data views where users need to see item ranges.
+  PopoverConfirmAction
+    Inline confirmation popover for destructive actions with delete and cancel buttons.
+  PopoverFilterPanel
+    Popover with checkbox filters and apply/reset actions.
+  PopoverHookUsage
+    Custom quick-actions popover using usePopover for trigger refs, ARIA attributes, and focus trapping.
+  PopoverKeyboardShortcuts
+    Popover displaying a list of keyboard shortcuts with key and description pairs.
+  PopoverSettingsPanel
+    Popover with toggle switches for managing user preferences like notifications, dark mode, and sounds.
+  PopoverShowcase
+  PowerSearchSearchWithTable
+    Composition of PowerSearch with Table using usePowerSearchConfig to auto-generate config and filter data.
+  ResizableShowcase
+    Horizontal resizable split with a draggable handle between two panels.
+  ResizableSidebar
+    A collapsible sidebar with snap points, driven by useResizable. Dragging snaps to preset widths, dragging past the minimum collapses the panel, and the expand method restores it programmatically.
+  SectionVariants
+    All three background variants stacked: section (default surface), muted, and transparent. A quick visual reference for choosing the right variant.
+  SectionWashHighlight
+    A default section stacked with a full-width muted section. Shows how muted draws attention to a specific region like an upgrade prompt or banner.
+  SectionWithDividers
+    Adjacent sections separated by bottom dividers, like a settings page. Use dividers when stacking same-variant sections that need visual separation without a background change.
+  StackAlignment
+    Buttons positioned at the start, center, and end of a row.
+  StackDirections
+    Badges arranged horizontally and vertically in side-by-side cards.
+  StackFillItem
+    An avatar, text, and button in a row; the text stretches to fill the available space.
+  SyntaxThemeShowcase
+    A concise code block rendered with the One Dark Pro syntax preset to show how SyntaxTheme changes highlighting colors without making the page long.
+  TableColumnSettingsTable
+    Table with a column visibility picker in the toolbar. Toggle columns on and off.
+  TableInCard
+    Table composed inside a card with a heading, demonstrating container bleed alignment.
+  TextAreaStates
+    Required, disabled, and loading textareas side by side. Shows the interactive states the component supports.
+  TextAreaValidation
+    All three status variants (error, warning, and success) with status messages, plus error without a message. Use to show inline validation feedback as the user types.
+  TextInputIcon
+    Inputs with a leading icon that hints at the expected content. Use when the icon helps users identify the field faster, like a lock for passwords or an envelope for email.
+  TextInputSearch
+    Search input with a hidden label, start icon, and clear button. Use for toolbar and header search bars where the icon provides sufficient context.
+  TextInputSizes
+    Small, medium, and large inputs side by side. Use small in dense UIs like table filters, medium for most forms, and large for prominent single-field pages.
+  TextInputStates
+    Error, warning, and success validation states with status messages. Use to show users what went wrong and how to fix it.
+  TextInputTypes
+    Text, password, and email types plus field-level features: tooltip, required, optional, description, disabled, and loading.
+  ThemeApply
+    Wrap a subtree in Theme to apply a theme to every child component in that region.
+  ThemeNested
+    Nested Theme providers let a local region use a different theme without affecting the rest of the page.
+  ThemeShowcase
+    Two visually distinct theme providers wrapping identical content to show how Theme changes the visual treatment of child components.
+  ThemeSwitcher
+    Use state to switch the theme object passed to Theme and preview a different visual treatment.
+  useThemeHookUsage
+    Read resolved theme token values with useTheme for non-CSS consumers like SVG charts.
+  ThumbnailDisabled
+    Thumbnails in the disabled state with reduced opacity. The remove button and click handler are suppressed when disabled.
+  ThumbnailGallery
+    A row of clickable thumbnails with labels that open a detail view. Use for image attachment lists where users need to preview and manage uploads.
+  ThumbnailRemovable
+    Thumbnails with a remove button overlay. The close button uses APCA luminance detection to stay visible on both dark and light images.
+  ThumbnailStates
+    All visual states side by side: image loaded, placeholder, skeleton loading, and upload overlay. Demonstrates the full lifecycle of a thumbnail from empty to loaded.
+  TimeInputConstrained
+    Time inputs with min/max constraints limiting selection to specific windows. Use to prevent out-of-bounds selections for appointments, reservations, or shift scheduling.
+  TimeInputFormats
+    12-hour, 24-hour, and seconds formats side by side. Use 12h for US-centric UIs, 24h for international or technical contexts, and seconds for precise timing.
+  TimeInputIncrement
+    Time input with a custom step increment. Arrow keys jump by the specified interval (e.g. 15 minutes) for quick slot-based scheduling.
+  TimeInputStates
+    Default, disabled, error, warning, and success states. Use status messages to give users clear feedback about their time selection.
+  TimestampAutoFormat
+    Auto format that shows relative time for recent dates and switches to the full date for older ones. The default choice for most use cases.
+  TimestampFormats
+    All display formats side by side: date, date_time, time, and their system equivalents. Use date and date_time for user-facing UI, system variants for logs and dev tools.
+  TimestampRelativeFormat
+    Relative time labels from seconds to months ago, with hover tooltips showing the full date. Use in feeds, comment threads, and activity logs.
+  TimestampTimezone
+    Timestamps with the timezone abbreviation appended. Enable isTimezoneShown for audiences across time zones, like audit logs or team calendars.
+  ToastAction
+    Persistent toasts with a trailing button or link so the user can act on the notification, like undoing a delete or viewing a report.
+  ToastDeduplication
+    Prevent duplicate toasts with uniqueID. Use ignore to keep the first toast, or overwrite to replace it with updated content like a progress percentage.
+  ToastDismiss
+    Show a persistent toast and dismiss it programmatically using the function returned by useToast. Use for long-running operations that need manual cleanup.
+  ToastStacking
+    Multiple toasts stacking vertically with smooth enter and exit animations. Click repeatedly to see how toasts queue and dismiss.
+  ToastTypes
+    Info and error toast variants side by side. Info toasts auto-dismiss after 5 seconds, error toasts persist until the user dismisses them.
+  ToggleButtonColor
+    Toggle buttons with colored icons in the pressed state. Shows accent-colored toolbar formatting and semantic reaction colors (yellow star, red heart, blue bookmark).
+  ToggleButtonGroup
+    Toggle button groups in single-select and multi-select modes. Single selection acts as a view mode switcher; multiple selection forms a formatting toolbar.
+  ToggleButtonIconSwap
+    Icon-only toggle buttons that swap between outline and solid icons when pressed. Use for actions like favorite, bookmark, or mute where the icon itself communicates the state.
+  ToggleButtonLabel
+    Toggle buttons with visible text labels that show a font weight shift on press. Use when the icon alone is not enough to communicate the action.
+  ToggleButtonShowcase
+  ToggleButtonStates
+    Default, pressed, disabled, and loading states of a standalone toggle button. Shows how visual treatment changes across states.
+  ToggleButtonGroupVertical
+    A vertically stacked ToggleButtonGroup using the vertical orientation, shown with both single-select and multi-select behavior — ideal for sidebar-style option lists and vertical toolbars.
+  TokenClickable
+    Interactive tokens that respond to clicks. Use for toggleable filters or tokens that open a detail view when selected.
+  TokenColors
+    All 11 color variants in default and disabled states. Use color to categorize entities or convey status at a glance.
+  TokenEndContent
+    Tokens with trailing content like a count badge or status indicator after the label. Use for notification counts, item quantities, or compact status info.
+  TokenIcon
+    Tokens with a leading icon that identifies the entity type. Use when the icon helps users recognize the token category faster, like a user icon for people or a tag icon for labels.
+  TokenRemovable
+    Tokens with a dismiss button for selections the user can undo. Use in multi-select fields, active filters, or any list of user-chosen items.
+  TokenShowcase
+  TokenizerClear
+    Tokenizer with a built-in clear-all button for bulk removal of all selected tokens.
+  TokenizerCreatable
+    Free-text tokenizer for creating custom tags and a combined create-or-search pattern. Use when users need to enter values that may not exist in a predefined list.
+  TokenizerEndContent
+    Tokenizer with an action button in the end slot. Use for inline actions like applying selections alongside the input.
+  TokenizerIcon
+    Tokenizer with a leading search icon to visually reinforce the search behavior.
+  TokenizerMaxEntries
+    Tokenizer with a maximum selection limit. The input hides automatically when the limit is reached, preventing further additions.
+  TokenizerOverflow
+    Tokenizer with overflow truncation when unfocused. Inline mode pushes content down on expand; layer mode overlays without shifting layout.
+  TokenizerStates
+    Tokenizer in disabled, error, warning, and success states. Use to communicate validation feedback or lock a selection from editing.
+  ToolbarSizes
+    Small, medium, and large toolbars side by side. The size prop cascades to child buttons and inputs automatically. Use small in dense UIs like cards, medium for most cases, and large for spacious layouts.
+  ToolbarTableFilter
+    A compact toolbar with a search input, Status and Priority filter selectors, and an overflow menu. Use above a data table to let users search, filter, and access view options.
+  VStackShowcase
+    Demonstrates VStack arranging items vertically with different gaps.
+

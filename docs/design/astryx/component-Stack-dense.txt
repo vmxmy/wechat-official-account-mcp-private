@@ -1,0 +1,117 @@
+# Stack
+
+Stack arranges items in a row or column with consistent spacing. Use the gap prop to control the space between items.
+
+**Import:** `import {Stack} from '@astryxdesign/core/Stack';`
+
+## Best Practices
+
+- **Do:** Use the gap prop for spacing between items; don't add margins manually.
+- **Do:** Use StackItem with size="fill" to make one item stretch and fill the leftover space.
+- **Don't:** Nest stacks inside stacks; try wrap="wrap" first to let items flow to the next line.
+
+## Components
+
+### HStack
+
+Horizontal stack; left-to-right, polymorphic rendering.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `gap` | `SpacingStep` | — | Number literal spacing step: 0, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10. Use gap={4} not gap="4". |
+| `padding` | `SpacingStep` | — | Inner padding on all sides, using the spacing scale (0, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10). Matches the padding prop on Card, LayoutContent, and LayoutPanel. Pass as a JSX number expression e.g. padding={3}. |
+| `paddingInline` | `SpacingStep` | — | Inline (horizontal) padding, using the spacing scale. Overrides padding on the inline axis when both are set. |
+| `paddingBlock` | `SpacingStep` | — | Block (vertical) padding, using the spacing scale. Overrides padding on the block axis when both are set. |
+| `isScrollable` | `boolean` | `false` | Enables scrollable overflow (overflow: auto). Matches isScrollable on LayoutContent and LayoutPanel. |
+| `width` | `SizeValue` | — | Width of container. Numbers=pixels, strings=as-is (e.g. '100%'). |
+| `height` | `SizeValue` | — | Height of container. Numbers=pixels, strings=as-is (e.g. '100%'). |
+| `maxWidth` | `SizeValue` | — | Maximum width of the stack container. Numbers are treated as pixels, strings are used as-is (e.g., '100%'). |
+| `minHeight` | `SizeValue` | — | Minimum height of the stack container. Numbers are treated as pixels, strings are used as-is (e.g., '100%'). |
+| `hAlign` | `'start' | 'center' | 'end' | 'between' | 'around' | 'evenly'` | — | Horizontal (main-axis) alignment. |
+| `vAlign` | `'start' | 'center' | 'end' | 'stretch'` | `'stretch'` | Vertical (cross-axis) alignment. |
+| `justify` | `'start' | 'center' | 'end' | 'between' | 'around' | 'evenly'` | — | Main-axis alignment alias for hAlign. Mirrors CSS justify-content. |
+| `align` | `'start' | 'center' | 'end' | 'stretch'` | — | Cross-axis alignment alias for vAlign. Mirrors CSS align-items. |
+| `wrap` | `'nowrap' | 'wrap' | 'wrap-reverse'` | `'nowrap'` | Flex wrap behavior. |
+| `as` | `ElementType` | `'div'` | HTML element to render as container. |
+| `children` | `ReactNode` | — | Stack content. |
+| `xstyle` | `StyleXStyles` | — | StyleX layout styles; must be stylex.create() value. |
+
+### VStack
+
+Vertical stack; top-to-bottom, polymorphic rendering.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `gap` | `SpacingStep` | — | Number literal spacing step: 0, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10. Use gap={4} not gap="4". |
+| `padding` | `SpacingStep` | — | Inner padding on all sides, using the spacing scale (0, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10). Matches the padding prop on Card, LayoutContent, and LayoutPanel. Pass as a JSX number expression e.g. padding={3}. |
+| `paddingInline` | `SpacingStep` | — | Inline (horizontal) padding, using the spacing scale. Overrides padding on the inline axis when both are set. |
+| `paddingBlock` | `SpacingStep` | — | Block (vertical) padding, using the spacing scale. Overrides padding on the block axis when both are set. |
+| `isScrollable` | `boolean` | `false` | Enables scrollable overflow (overflow: auto). Matches isScrollable on LayoutContent and LayoutPanel. |
+| `width` | `SizeValue` | — | Width of container. Numbers=pixels, strings=as-is (e.g. '100%'). |
+| `height` | `SizeValue` | — | Height of container. Numbers=pixels, strings=as-is (e.g. '100%'). |
+| `maxWidth` | `SizeValue` | — | Maximum width of the stack container. Numbers are treated as pixels, strings are used as-is (e.g., '100%'). |
+| `minHeight` | `SizeValue` | — | Minimum height of the stack container. Numbers are treated as pixels, strings are used as-is (e.g., '100%'). |
+| `hAlign` | `'start' | 'center' | 'end' | 'stretch'` | `'stretch'` | Horizontal (cross-axis) alignment. |
+| `vAlign` | `'start' | 'center' | 'end' | 'between' | 'around' | 'evenly'` | — | Vertical (main-axis) alignment. |
+| `justify` | `'start' | 'center' | 'end' | 'between' | 'around' | 'evenly'` | — | Main-axis alignment alias for vAlign. Mirrors CSS justify-content. |
+| `align` | `'start' | 'center' | 'end' | 'stretch'` | — | Cross-axis alignment alias for hAlign. Mirrors CSS align-items. |
+| `wrap` | `'nowrap' | 'wrap' | 'wrap-reverse'` | `'nowrap'` | Flex wrap behavior. |
+| `as` | `ElementType` | `'div'` | HTML element to render as container. |
+| `children` | `ReactNode` | — | Stack content. |
+
+### StackItem
+
+Controls individual item behavior in stack; polymorphic rendering.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `size` | `'static' | 'fill'` | `'static'` | Flex grow: static=natural size, fill=expand to remaining space. |
+| `isScrollable` | `boolean` | `false` | Enables scrollable overflow (overflow: auto). StackItem already applies the flex min-height/min-width reset, so <StackItem size="fill" isScrollable> is a complete scroll region. Matches isScrollable on LayoutContent and LayoutPanel. |
+| `crossAlignSelf` | `'start' | 'center' | 'end' | 'stretch'` | — | Override cross-axis alignment for this item, ignoring parent. |
+| `as` | `ElementType` | `'div'` | HTML element to render as wrapper. |
+| `children` | `ReactNode` | — | Item content. |
+
+## Theming
+
+| Component class | Preferred data attributes | Props | States |
+|-----------------|---------------------------|-------|--------|
+| `astryx-stack` | `data-direction`, `data-gap`, `data-wrap` | direction, gap, wrap | — |
+| `astryx-stack-item` | `data-size` | size | — |
+
+Override in defineTheme:
+```ts
+components: {
+  'astryx-stack': {
+    base: { /* CSS properties */ },
+    'direction:value': { /* variant-specific */ },
+  },
+  'astryx-stack-item': {
+    base: { /* CSS properties */ },
+  },
+}
+```
+
+
+Related block templates:
+
+  ChatLayoutShowcase
+  CodeAcrossTextSizes
+    Inline code rendered inside heading, body, supporting, and label text. Code automatically matches the font size of its parent text element.
+  CodeVariousContent
+    Inline code used for variables, terminal commands, CSS properties, file paths, and keyboard shortcuts. Shows how Code adapts to different kinds of technical content.
+  CodeBlockBashCommand
+    Short terminal commands with a copy button and no line numbers. Use for install instructions or one-liner commands that readers will paste directly.
+  StackItemShowcase
+    StackItem can be used within HStack or VStack for more granular control over individual item sizing and alignment, but is optional; stack children work without it.
+  TextColors
+    All text color options (primary, secondary, disabled, placeholder, active) applied to body text to show their intended use.
+  TextHeadingLevels
+    All 6 heading levels (h1 through h6) rendered with Heading to show the full type scale.
+  TextShowcase
+  TextTypes
+    All 5 semantic text types (body, large, label, supporting, code) with their default styling from the theme.
+  TextWeight
+    The 4 font weight variants (normal, medium, semibold, bold) applied to body text.
+  TimestampColors
+    Timestamp rendered in each available color variant: primary, secondary, disabled, and active.
+

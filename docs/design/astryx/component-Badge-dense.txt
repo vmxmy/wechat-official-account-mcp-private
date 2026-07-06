@@ -1,0 +1,112 @@
+# Badge
+
+Badge is for status (Active, Failed) and category tags (Engineering, Design). It is NOT for metadata like dates, durations, counts, or descriptions; use description text (Text type="supporting") for those.
+
+**Import:** `import {Badge} from '@astryxdesign/core/Badge';`
+
+## Anatomy
+
+| Element | Required | Description |
+|---------|----------|-------------|
+| Icon | No | An optional leading icon that helps identify the badge type at a glance. |
+| Label | Yes | The text or number shown inside the badge. |
+
+## Best Practices
+
+- **Do:** Every badge steals attention. Only badge states where the user needs to act. If no follow-up is needed, use plain text.
+- **Do:** Use success/warning/error ONLY for system status requiring attention (Failed, Degraded, Action Required). These are visually loud: solid colored backgrounds.
+- **Do:** Use color variants (blue, purple, teal) for category tags that classify items: team names, content types, priority levels.
+- **Do:** Keep labels to one or two words. If more detail is needed, put it in surrounding text instead of the badge.
+- **Do:** Add an icon when it helps identify the badge type quickly, but always include a text label alongside it.
+- **Don't:** Apply "success" badges to every healthy/normal item. If most rows are green "Active", none stand out. Skip the badge for the default state; only highlight exceptions that need attention.
+- **Don't:** Use badges for metadata. Durations, counts, dates, descriptions → use Text with type="supporting" instead.
+- **Don't:** Use status variants for non-status info. "6h window", "12 types", category names are NOT statuses.
+- **Don't:** Repeat loud badges in every row. Common/default states should be plain text; reserve badges for the exceptional.
+- **Don't:** Make badges clickable; they are read-only. Use a button or link for actions.
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `variant` | `'neutral' | 'info' | 'success' | 'warning' | 'error' | 'blue' | 'cyan' | 'green' | 'orange' | 'pink' | 'purple' | 'red' | 'teal' | 'yellow'` | `'neutral'` | visual style variant |
+| `label` | `ReactNode` | — | badge text content |
+| `icon` | `ReactNode` | — | optional leading icon |
+
+## Theming
+
+| Component class | Preferred data attributes | Props | States |
+|-----------------|---------------------------|-------|--------|
+| `astryx-badge` | `data-variant` | neutral, info, success, warning, error, blue, cyan, green, orange, pink, purple, red, teal, yellow | — |
+
+Override in defineTheme:
+```ts
+components: {
+  'astryx-badge': {
+    base: { /* CSS properties */ },
+    'variant:value': { /* variant-specific */ },
+  },
+}
+```
+
+
+Related block templates:
+
+  BadgeCategoryTags
+    Tag items with color-coded categories like teams, priorities, or topics. Use the 9 non-semantic color variants when you need to distinguish groups visually.
+  BadgeCountBadges
+    Show a number inside a badge for notification counts, unread messages, or task totals. Use next to icons, nav items, or list labels.
+  BadgeShowcase
+    All semantic and color badge variants in a single view. Use semantic variants for status and color variants for categories.
+  BadgeStatusLabels
+    Show the state of an item like Active, Pending, or Failed. Use in table rows, list items, or detail pages where users need to see status at a glance.
+  ButtonWithEndSlot
+    Buttons with a trailing badge showing a count or status. Use for notification counts, unread messages, or any button that needs a visual indicator.
+  CarouselSnap
+    Scroll-snap carousel with navigation buttons and team member cards. Each card snaps to the start edge on scroll. Use when items should be viewed one at a time rather than as a continuous strip.
+  ChatComposerDrawerFeedback
+    Chat composer drawer with a feedback prompt and selectable lettered options. Use for user confirmation workflows that require explicit action before proceeding.
+  CheckboxListWithEndContent
+    Badges in the trailing slot show contextual info, like a price or status, next to each option without cluttering the label, so users can compare choices at a glance.
+  HStackBasic
+    Items arranged in a horizontal row with a consistent gap and centered vertical alignment. Use HStack whenever siblings should sit side by side.
+  HStackShowcase
+    Demonstrates HStack arranging items horizontally with different gaps and alignments.
+  ItemShowcase
+  ItemWithMedia
+    Items with leading avatars and icons in the startContent slot. Keep start content small so the row stays compact and easy to scan.
+  ItemWithMetadata
+    Items with end-aligned metadata and badges. Use the endContent slot for counts, status, timestamps, and other secondary row information.
+  LayoutShowcase
+  ListMessageList
+    Chat-style message list with avatars, preview text, and unread badges.
+  ListItemWithMedia
+    List items with leading avatars and icons. Use startContent for compact visual identifiers that help users scan the collection.
+  ListItemWithMetadata
+    List items with end-aligned metadata. Use endContent for badges, counts, timestamps, and compact status details.
+  MediaThemeShowcase
+    A compact media overlay showing MediaTheme adapting text, icons, badges, and button variants over an image-backed dark surface.
+  MetadataListItemBasic
+    Labeled key–value rows inside a MetadataList. Values accept any content, from plain text to components like Badge.
+  OverflowListOverflowBadges
+    Resizable row of badges that collapses into a count badge on overflow
+  OverlayBottomStrip
+    Places compact supporting content in a bottom scrim strip without covering the entire image.
+  SideNavEndContent
+    Side navigation items with badges, counts, and context menus as trailing content.
+  StackDirections
+    Badges arranged horizontally and vertically in side-by-side cards.
+  TabListTabsWithBadge
+    Tabs with notification badge counts rendered via endContent. Uses error variant for urgent counts and neutral for informational ones.
+  TableRichCellTable
+    Table with rich cell content using Link for emails and Badge for role labels.
+  ThemeShowcase
+    Two visually distinct theme providers wrapping identical content to show how Theme changes the visual treatment of child components.
+  TokenEndContent
+    Tokens with trailing content like a count badge or status indicator after the label. Use for notification counts, item quantities, or compact status info.
+  ToolbarBulkActions
+    A compact toolbar with the muted variant for showing bulk selection actions. Use when the user selects multiple items in a list or table and needs quick access to batch operations.
+  TreeListMailboxTree
+    Email folder tree with unread badge counts.
+  VStackShowcase
+    Demonstrates VStack arranging items vertically with different gaps.
+

@@ -1,0 +1,179 @@
+
+AppShell  ← @astryxdesign/core/AppShell
+AspectRatio  ← @astryxdesign/core/AspectRatio
+Avatar (group)
+  Avatar  ← @astryxdesign/core/Avatar
+  AvatarGroup  ← @astryxdesign/core/AvatarGroup
+  AvatarGroupOverflow  ← @astryxdesign/core/AvatarGroup
+  AvatarStatusDot  ← @astryxdesign/core/Avatar
+Badge  ← @astryxdesign/core/Badge
+Banner  ← @astryxdesign/core/Banner
+Blockquote  ← @astryxdesign/core/Blockquote
+Breadcrumbs (group)
+  BreadcrumbItem  ← @astryxdesign/core/Breadcrumbs
+  Breadcrumbs  ← @astryxdesign/core/Breadcrumbs
+Button (group)
+  Button  ← @astryxdesign/core/Button
+  ButtonGroup  ← @astryxdesign/core/ButtonGroup
+  IconButton  ← @astryxdesign/core/IconButton
+  ToggleButton  ← @astryxdesign/core/ToggleButton
+  ToggleButtonGroup  ← @astryxdesign/core/ToggleButton
+Calendar  ← @astryxdesign/core/Calendar
+Card (group)
+  Card  ← @astryxdesign/core/Card
+  ClickableCard  ← @astryxdesign/core/ClickableCard
+  SelectableCard  ← @astryxdesign/core/SelectableCard
+Carousel  ← @astryxdesign/core/Carousel
+Chat (group)
+  ChatComposer  ← @astryxdesign/core/Chat
+  ChatComposerDrawer  ← @astryxdesign/core/Chat
+  ChatComposerInput  ← @astryxdesign/core/Chat
+  ChatDictationButton  ← @astryxdesign/core/Chat
+  ChatLayout  ← @astryxdesign/core/Chat
+  ChatLayoutScrollButton  ← @astryxdesign/core/Chat
+  ChatMessage  ← @astryxdesign/core/Chat
+  ChatMessageList  ← @astryxdesign/core/Chat
+  ChatMessageMetadata  ← @astryxdesign/core/Chat
+  ChatSendButton  ← @astryxdesign/core/Chat
+  ChatSystemMessage  ← @astryxdesign/core/Chat
+  ChatTokenizedText  ← @astryxdesign/core/Chat
+  ChatToolCalls  ← @astryxdesign/core/Chat
+Checkbox (group)
+  CheckboxInput  ← @astryxdesign/core/CheckboxInput
+  CheckboxList  ← @astryxdesign/core/CheckboxList
+  CheckboxListItem  ← @astryxdesign/core/CheckboxList
+Citation  ← @astryxdesign/core/Citation
+CodeBlock  ← @astryxdesign/core/CodeBlock
+Collapsible (group)
+  Collapsible  ← @astryxdesign/core/Collapsible
+  CollapsibleGroup  ← @astryxdesign/core/Collapsible
+CommandPalette (group)
+  CommandPalette  ← @astryxdesign/core/CommandPalette
+  CommandPaletteEmpty  ← @astryxdesign/core/CommandPalette
+  CommandPaletteFooter  ← @astryxdesign/core/CommandPalette
+  CommandPaletteGroup  ← @astryxdesign/core/CommandPalette
+  CommandPaletteInput  ← @astryxdesign/core/CommandPalette
+  CommandPaletteItem  ← @astryxdesign/core/CommandPalette
+  CommandPaletteList  ← @astryxdesign/core/CommandPalette
+ContextMenu  ← @astryxdesign/core/ContextMenu
+DateInput (group)
+  DateInput  ← @astryxdesign/core/DateInput
+  DateRangeInput  ← @astryxdesign/core/DateRangeInput
+  DateTimeInput  ← @astryxdesign/core/DateTimeInput
+Dialog (group)
+  AlertDialog  ← @astryxdesign/core/AlertDialog
+  Dialog  ← @astryxdesign/core/Dialog
+  DialogHeader  ← @astryxdesign/core/Dialog
+Divider  ← @astryxdesign/core/Divider
+DropdownMenu (group)
+  DropdownMenu  ← @astryxdesign/core/DropdownMenu
+  DropdownMenuItem  ← @astryxdesign/core/DropdownMenu
+EmptyState  ← @astryxdesign/core/EmptyState
+Field (group)
+  Field  ← @astryxdesign/core/Field
+  FieldLabel  ← @astryxdesign/core/Field
+  FieldStatus  ← @astryxdesign/core/FieldStatus
+  InputGroup  ← @astryxdesign/core/InputGroup
+  InputGroupText  ← @astryxdesign/core/InputGroup
+FileInput  ← @astryxdesign/core/FileInput
+Group label for visual grouping. (group)
+  TypeaheadItem  ← @astryxdesign/core/Typeahead
+HoverCard  ← @astryxdesign/core/HoverCard
+Icon  ← @astryxdesign/core/Icon
+Item  ← @astryxdesign/core/Item
+Kbd  ← @astryxdesign/core/Kbd
+Layout (group)
+  Center  ← @astryxdesign/core/Center
+  FormLayout  ← @astryxdesign/core/FormLayout
+  Grid  ← @astryxdesign/core/Grid
+  GridSpan  ← @astryxdesign/core/Grid
+  Layout  ← @astryxdesign/core/Layout
+  LayoutContent  ← @astryxdesign/core/Layout
+  LayoutFooter  ← @astryxdesign/core/Layout
+  LayoutHeader  ← @astryxdesign/core/Layout
+  LayoutPanel  ← @astryxdesign/core/Layout
+  Section  ← @astryxdesign/core/Section
+  Stack  ← @astryxdesign/core/Stack
+Lightbox  ← @astryxdesign/core/Lightbox
+Link  ← @astryxdesign/core/Link
+List (group)
+  List  ← @astryxdesign/core/List
+  ListItem  ← @astryxdesign/core/List
+Markdown  ← @astryxdesign/core/Markdown
+MetadataList (group)
+  MetadataList  ← @astryxdesign/core/MetadataList
+  MetadataListItem  ← @astryxdesign/core/MetadataList
+MoreMenu  ← @astryxdesign/core/MoreMenu
+Navigation (group)
+  MobileNav  ← @astryxdesign/core/MobileNav
+  NavIcon  ← @astryxdesign/core/NavIcon
+  SideNav  ← @astryxdesign/core/SideNav
+  SideNavCollapseButton  ← @astryxdesign/core/SideNav
+  SideNavHeading  ← @astryxdesign/core/SideNav
+  SideNavItem  ← @astryxdesign/core/SideNav
+  SideNavSection  ← @astryxdesign/core/SideNav
+  TopNav  ← @astryxdesign/core/TopNav
+  TopNavHeading  ← @astryxdesign/core/TopNav
+  TopNavItem  ← @astryxdesign/core/TopNav
+  TopNavMegaMenu  ← @astryxdesign/core/TopNav
+  TopNavMegaMenuFeaturedCard  ← @astryxdesign/core/TopNav
+  TopNavMegaMenuItem  ← @astryxdesign/core/TopNav
+  TopNavMenu  ← @astryxdesign/core/TopNav
+NumberInput  ← @astryxdesign/core/NumberInput
+Outline  ← @astryxdesign/core/Outline
+OverflowList  ← @astryxdesign/core/OverflowList
+Overlay  ← @astryxdesign/core/Overlay
+Pagination  ← @astryxdesign/core/Pagination
+Popover  ← @astryxdesign/core/Popover
+PowerSearch  ← @astryxdesign/core/PowerSearch
+ProgressBar  ← @astryxdesign/core/ProgressBar
+Radio (group)
+  RadioList  ← @astryxdesign/core/RadioList
+  RadioListItem  ← @astryxdesign/core/RadioList
+SegmentedControl (group)
+  SegmentedControl  ← @astryxdesign/core/SegmentedControl
+  SegmentedControlItem  ← @astryxdesign/core/SegmentedControl
+Selector (group)
+  MultiSelector  ← @astryxdesign/core/MultiSelector
+  Selector  ← @astryxdesign/core/Selector
+  SelectorOption  ← @astryxdesign/core/Selector
+Skeleton  ← @astryxdesign/core/Skeleton
+Slider  ← @astryxdesign/core/Slider
+Spinner  ← @astryxdesign/core/Spinner
+StatusDot  ← @astryxdesign/core/StatusDot
+Switch  ← @astryxdesign/core/Switch
+Table (group)
+  Table  ← @astryxdesign/core/Table
+  TableCell  ← @astryxdesign/core/Table
+  TableHeaderCell  ← @astryxdesign/core/Table
+  TableRow  ← @astryxdesign/core/Table
+Tabs (group)
+  Tab  ← @astryxdesign/core/TabList
+  TabList  ← @astryxdesign/core/TabList
+  TabMenu  ← @astryxdesign/core/TabList
+Text  ← @astryxdesign/core/Text
+TextArea  ← @astryxdesign/core/TextArea
+TextInput  ← @astryxdesign/core/TextInput
+Thumbnail  ← @astryxdesign/core/Thumbnail
+TimeInput  ← @astryxdesign/core/TimeInput
+Timestamp  ← @astryxdesign/core/Timestamp
+Toast  ← @astryxdesign/core/Toast
+Token  ← @astryxdesign/core/Token
+Tokenizer  ← @astryxdesign/core/Tokenizer
+Toolbar  ← @astryxdesign/core/Toolbar
+Tooltip  ← @astryxdesign/core/Tooltip
+TreeList  ← @astryxdesign/core/TreeList
+Typeahead (group)
+  BaseTypeahead  ← @astryxdesign/core/Typeahead
+  Typeahead  ← @astryxdesign/core/Typeahead
+Utilities (group)
+  LinkProvider  ← @astryxdesign/core/Link
+  MediaTheme  ← @astryxdesign/core/theme
+  Theme  ← @astryxdesign/core
+VisuallyHidden  ← @astryxdesign/core/VisuallyHidden
+多气泡组中的位置。控制发送者侧的圆角缩减。 (group)
+  ChatMessageBubble  ← @astryxdesign/core/Chat
+
+Import from the path shown (e.g. import {Button} from '@astryxdesign/core/Button')
+Usage: npx astryx component <name>
+
