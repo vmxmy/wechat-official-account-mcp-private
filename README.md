@@ -3,7 +3,7 @@
 一个为 AI 应用提供微信公众号 API 集成的 MCP (Model Context Protocol) 服务项目。
 
 **作者**: xwang152-jack <xwang152@163.com>
-**更新日期**: 2026年07月05日
+**更新日期**: 2026年07月06日
 
 ## 🚀 项目概述
 
@@ -11,7 +11,7 @@
 
 **当前版本**: `v2.2.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**v2.2.0 + HTTP-only 更新**: 新增二维码、短链接、评论管理、黑名单、客服账号、账号管理、统一内容发布等工具，并保留入站消息收件箱；当前共 27 个 MCP 工具（23 个微信公众号运营工具 + 4 个多租户管理工具）。运行时已切换为 Cloudflare Workers Remote MCP（OAuth 保护的 `/mcp`、D1/R2/Durable Object、微信公众号 `/wx/callback/{accountId}`），本地桌面端 stdio/CLI 与 MCP-over-SSE 已移除。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
+**v2.2.0 + SaaS onboarding 更新**: 新增 hosted Web 入口（`web/`，Astryx + TanStack Router/Query）、remote-only `@ziikoo/woa` CLI、二维码、短链接、评论管理、黑名单、客服账号、账号管理、统一内容发布等能力，并保留入站消息收件箱；当前共 27 个 MCP 工具（23 个微信公众号运营工具 + 4 个多租户管理工具）。运行时已切换为 Cloudflare Workers Remote MCP（OAuth 保护的 `/mcp`、D1/R2/Durable Object、Worker assets `web/dist`、微信公众号 `/wx/callback/{accountId}`），本地桌面端 stdio 与 MCP-over-SSE 已移除。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
 
 ## 📖 文档导航
 
@@ -40,19 +40,20 @@
 
 ## 🛠️ 技术栈
 
-- **运行时**: Node.js 18+
+- **运行时**: Cloudflare Workers + Node.js 18+ tooling
 - **语言**: TypeScript
 - **协议**: MCP (Model Context Protocol)
 - **数据库**: Cloudflare D1、R2、Durable Objects
 - **HTTP 客户端**: Workers `fetch`
 - **远程运行时**: Cloudflare Workers、Agents SDK `McpAgent`、Workers OAuth Provider
 - **参数验证**: Zod
-- **构建工具**: Vite
+- **构建工具**: Vite（Web root: `web/`，output: `web/dist`）
 
 ## 📦 快速开始
 
-本项目现在是 **HTTP-only Remote MCP**：
+本项目现在是 **hosted SaaS + HTTP-only Remote MCP**：
 
+- Web 入口：Cloudflare Worker assets 服务 `web/dist`，生产域名 `https://woa.ziikoo.app`
 - MCP 入口：Cloudflare Workers `/mcp`（Streamable HTTP + OAuth）
 - 微信回调：`/wx/callback/{accountId}`（推荐，accountId 为管理面生成的不透明账号 ID）；旧 `/wx/callback` 仅在安全的单账号兼容模式下处理，否则返回迁移提示
 - 本地桌面端 stdio CLI 与 MCP-over-SSE 均已移除
@@ -550,25 +551,11 @@ src/
 }
 ```
 
-如果客户端暂不支持原生 Remote MCP，可使用 `mcp-remote` 作为本地桥接；这只是桥接远程 HTTP MCP，不是本项目的本地 stdio 服务器：
-
-```json
-{
-  "mcpServers": {
-    "wechat-official-account": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://<your-worker-domain>/mcp"
-      ]
-    }
-  }
-}
-```
+首版官方支持原生 Streamable HTTP/OAuth 客户端。不要在本项目文档中恢复本地 stdio、SSE 或桥接式本地 MCP server 配置。
 
 迁移提示：
 - 原本调用 `POST /api/wechat/tools/:toolName` 的 HTTP 消费者，应迁移为 OAuth 后的 MCP `tools/list` / `tools/call`。
-- 原本使用本地桌面 stdio CLI 的客户端，应迁移到远程 `/mcp` 或 `mcp-remote https://<your-worker-domain>/mcp`。
+- 原本使用本地桌面 stdio CLI 的客户端，应迁移到原生远程 `/mcp` Streamable HTTP/OAuth 配置。
 - 微信公众号后台的服务器地址建议迁移为 `https://<your-worker-domain>/wx/callback/{accountId}`；旧 `/wx/callback` 只在显式或可安全推断单账号时兼容处理，多账号部署会返回迁移提示。
 - `wechat_inbox` 用于查询 `/wx/callback/{accountId}` 写入的入站消息；Webhook 本身不会主动回复或调度任务。
 
@@ -579,21 +566,25 @@ src/
 安装：
 
 ```bash
-npm install -g @ziikoo/wechat-official-account-mcp
+npm install -g @ziikoo/woa
 ```
 
 不全局安装也可直接运行：
 
 ```bash
-npx -y --package @ziikoo/wechat-official-account-mcp woa login --server https://<your-worker-domain>
+npx -y --package @ziikoo/woa woa login --server https://<your-worker-domain>
 ```
 
 ```bash
 woa login --server https://<your-worker-domain>  # 打开浏览器完成 OAuth 授权并保存 access token
 woa whoami
 woa usage                         # 查看当前租户套餐、用量、重置时间与升级提示
+woa quota status                   # usage 的别名
 woa tenant usage --tenant <id>     # 指定租户查看用量
+woa account create --name "公众号"
+woa account default <accountId>
 woa account configure --tenant <id> --account <id> --app-id <wx...> --app-secret <secret>
+woa billing checkout --plan plus   # 打印并打开 Stripe Checkout URL
 woa draft delete <media_id> --dry-run
 woa draft delete <media_id> --confirm-delete
 woa publish delete <article_id> --dry-run
@@ -614,7 +605,7 @@ woa login --server https://<your-worker-domain> --token <oauth-token>
 # 安装依赖
 npm install
 
-# 构建项目
+# 构建项目（tsc + web/dist）
 npm run build
 
 # 类型检查
@@ -626,6 +617,9 @@ npm run lint
 # 运行测试
 npm test
 
+# Web 本地开发
+npm run web:dev
+
 # Workers 本地开发 / dry-run
 npm run worker:dev
 npx wrangler deploy --dry-run
@@ -634,7 +628,7 @@ npx wrangler deploy --dry-run
 ### 构建和发布
 
 ```bash
-# 构建项目
+# 构建项目（tsc + web/dist）
 npm run build
 
 # 预览 npm 包内容
@@ -647,7 +641,7 @@ npm publish
 ### OpenSpec 验证
 
 ```bash
-openspec validate migrate-to-cloudflare-workers
+openspec validate saas-onboarding
 ```
 
 ## 📝 配置说明
@@ -712,7 +706,8 @@ Workers 生产环境不要使用 `.env` 明文提交密钥；使用 `wrangler se
 
 1. 查看 [Issues](https://github.com/xwang152-jack/wechat-official-account-mcp/issues) 页面
 2. 创建新的 Issue
-3. 联系项目维护者: xwang152-jack <xwang152@163.com>
+3. SaaS 法务/账单/删除请求：support@ziikoo.app
+4. 项目维护者: xwang152-jack <xwang152@163.com>
 
 ## 🙏 致谢
 

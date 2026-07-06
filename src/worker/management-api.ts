@@ -302,6 +302,9 @@ async function handleAccountRoutes(
 
   const accountId = segments[3];
   const account = resolveAccountContext({ tenantId, accountId }, context, { requireAccount: true });
+  if (!account) {
+    throw new ApiError('account_required', 'No accessible WeChat Official Account is available for this operation.', 403);
+  }
 
   if (request.method === 'GET' && segments.length === 4) {
     if (deps.onboardingStore) {
@@ -371,7 +374,9 @@ async function handleAccountRoutes(
   if (request.method === 'POST' && segments.length === 5 && segments[4] === 'configure') {
     requireScope(context, 'woa:account:write');
     const body = await readJsonBody(request) as Partial<WechatConfig>;
-    if (!body.appId || !body.appSecret) {
+    const appId = body.appId;
+    const appSecret = body.appSecret;
+    if (typeof appId !== 'string' || typeof appSecret !== 'string' || !appId || !appSecret) {
       throw new ApiError('validation_error', 'appId and appSecret are required.', 400);
     }
     const { data, quota } = await runWithOptionalQuota(deps, context, account, {
@@ -379,11 +384,11 @@ async function handleAccountRoutes(
       action: 'configure',
       params: { action: 'configure', tenantId, accountId },
     }, async () => {
-      const config = {
-        appId: body.appId,
-        appSecret: body.appSecret,
-        token: body.token,
-        encodingAESKey: body.encodingAESKey,
+      const config: WechatConfig = {
+        appId,
+        appSecret,
+        token: typeof body.token === 'string' ? body.token : undefined,
+        encodingAESKey: typeof body.encodingAESKey === 'string' ? body.encodingAESKey : undefined,
       };
       if (deps.onboardingStore) {
         if (!deps.validateWechatCredentials) {

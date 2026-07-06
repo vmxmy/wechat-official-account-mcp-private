@@ -433,11 +433,21 @@ check(
   'REST /api/v1/me 授权请求返回用户/租户/默认账号上下文',
 );
 
+const packageManifest = JSON.parse(readFileSync('./package.json', 'utf8'));
+check(
+  packageManifest.name === '@ziikoo/woa' &&
+    packageManifest.bin?.woa === 'dist/src/cli/woa.js',
+  'npm 包元数据已切换为 @ziikoo/woa 且保留 woa bin',
+);
+
 const woaHelp = execFileSync(process.execPath, ['./dist/src/cli/woa.js', '--help'], { encoding: 'utf8' });
 check(
   woaHelp.includes('remote-only') &&
+    woaHelp.includes('woa billing checkout --plan plus|pro') &&
+    woaHelp.includes('woa quota status') &&
+    woaHelp.includes('woa account default <accountId>') &&
     !woaHelp.includes('wechat-mcp mcp -a -s'),
-  'woa CLI 帮助只宣传 remote-only 工作流，不恢复旧本地 MCP server 命令',
+  'woa CLI 帮助只宣传 remote-only 工作流并包含 billing/quota/account onboarding 命令',
 );
 const woaConfig = execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'mcp', 'config', 'codex', '--server', 'https://worker.example.test'], { encoding: 'utf8' });
 check(
@@ -447,6 +457,7 @@ check(
 );
 const woaDraftDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'draft', 'delete', 'MEDIA_ID_FOR_DELETE', '--dry-run'], { encoding: 'utf8' }));
 const woaPublishDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'publish', 'delete', 'ARTICLE_ID_FOR_DELETE', '--index', '1', '--dry-run'], { encoding: 'utf8' }));
+const woaAccountDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'account', 'delete', 'ACCOUNT_ID_FOR_DELETE', '--dry-run'], { encoding: 'utf8' }));
 check(
   woaDraftDeleteDryRun.dryRun === true &&
     woaDraftDeleteDryRun.operation === 'draft.delete' &&
@@ -454,7 +465,10 @@ check(
     woaPublishDeleteDryRun.dryRun === true &&
     woaPublishDeleteDryRun.operation === 'publish.delete' &&
     woaPublishDeleteDryRun.target?.articleId === 'ARTICLE_ID_FOR_DELETE' &&
-    woaPublishDeleteDryRun.target?.index === 1,
+    woaPublishDeleteDryRun.target?.index === 1 &&
+    woaAccountDeleteDryRun.dryRun === true &&
+    woaAccountDeleteDryRun.operation === 'account.delete' &&
+    woaAccountDeleteDryRun.target?.accountId === 'ACCOUNT_ID_FOR_DELETE',
   'woa CLI 删除命令默认支持 dry-run 预检，不要求本地 MCP 或微信凭据',
 );
 const workerIndexSource = readFileSync('./src/worker/index.ts', 'utf8');

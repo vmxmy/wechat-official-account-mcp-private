@@ -55,7 +55,7 @@ function BillingPage() {
                   label={`升级到 ${plan.name}`}
                   variant="primary"
                   isLoading={checkout.isPending}
-                  clickAction={async () => checkout.mutate(plan.plan)}
+                  clickAction={async () => checkout.mutate(plan.plan as PaidPlan)}
                 />
                 <span className="section-copy mono">woa billing checkout --plan {plan.plan}</span>
               </div>

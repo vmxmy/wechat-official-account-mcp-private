@@ -8,17 +8,17 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as SecurityRouteImport } from './routes/security';
-import { Route as OnboardingRouteImport } from './routes/onboarding';
-import { Route as McpRouteImport } from './routes/mcp';
-import { Route as LoginRouteImport } from './routes/login';
-import { Route as BillingRouteImport } from './routes/billing';
-import { Route as IndexRouteImport } from './routes/index';
-import { Route as LegalTermsRouteImport } from './routes/legal/terms';
-import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy';
-import { Route as BillingSuccessRouteImport } from './routes/billing/success';
-import { Route as BillingCancelRouteImport } from './routes/billing/cancel';
+import { Route as rootRouteImport } from './routes/__root.js';
+import { Route as SecurityRouteImport } from './routes/security.js';
+import { Route as OnboardingRouteImport } from './routes/onboarding.js';
+import { Route as McpRouteImport } from './routes/mcp.js';
+import { Route as LoginRouteImport } from './routes/login.js';
+import { Route as BillingRouteImport } from './routes/billing.js';
+import { Route as IndexRouteImport } from './routes/index.js';
+import { Route as LegalTermsRouteImport } from './routes/legal/terms.js';
+import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy.js';
+import { Route as BillingSuccessRouteImport } from './routes/billing/success.js';
+import { Route as BillingCancelRouteImport } from './routes/billing/cancel.js';
 
 const SecurityRoute = SecurityRouteImport.update({
   id: '/security',
