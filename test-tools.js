@@ -2050,6 +2050,553 @@ check(
   'D1StorageManager R2 key 按 tenant/account 命名空间隔离',
 );
 
+
+
+console.log('\n=== SaaS onboarding repository fixture 验证 ===');
+
+class MemorySaasD1Database {
+  operators = new Map();
+  identities = new Map();
+  emailCodes = new Map();
+  webSessions = new Map();
+  oauthClients = new Map();
+  oauthConsents = new Map();
+  oauthTokenSessions = new Map();
+  rateLimits = new Map();
+  tenants = new Map();
+  tenantOwners = new Map();
+  memberships = [];
+  accounts = new Map();
+  entitlements = new Map();
+  accountTokens = new Map();
+  monitoringEvents = new Map();
+  deletionRequests = new Map();
+
+  prepare(query) {
+    return new MemorySaasD1Statement(this, query);
+  }
+}
+
+class MemorySaasD1Statement {
+  values = [];
+
+  constructor(db, query) {
+    this.db = db;
+    this.query = query.replace(/\s+/g, ' ').trim();
+  }
+
+  bind(...values) {
+    this.values = values;
+    return this;
+  }
+
+  async run() {
+    const q = this.query;
+    if (/^(CREATE|CREATE INDEX)/.test(q)) return { success: true, meta: { changes: 0 } };
+
+    if (q.startsWith('INSERT INTO operators')) {
+      const [id, verifiedEmail, displayName, createdAt, updatedAt] = this.values;
+      this.db.operators.set(id, { id, verified_email: verifiedEmail, display_name: displayName, status: 'active', created_at: createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO operator_identities')) {
+      const [id, operatorId, provider, providerSubject, verifiedEmail, createdAt, updatedAt] = this.values;
+      const key = `${provider}:${providerSubject}`;
+      const existing = this.db.identities.get(key);
+      this.db.identities.set(key, { id: existing?.id ?? id, operator_id: operatorId, provider, provider_subject: providerSubject, verified_email: verifiedEmail, created_at: existing?.created_at ?? createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO operator_email_codes')) {
+      const [id, email, codeHash, purpose, maxAttempts, issuedAt, expiresAt, ipHash, providerSubject, createdAt, updatedAt] = this.values;
+      this.db.emailCodes.set(id, { id, email, code_hash: codeHash, purpose, attempts: 0, max_attempts: maxAttempts, issued_at: issuedAt, expires_at: expiresAt, consumed_at: null, ip_hash: ipHash, provider_subject: providerSubject, created_at: createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE operator_email_codes SET consumed_at')) {
+      const [consumedAt, updatedAt, id] = this.values;
+      const row = this.db.emailCodes.get(id);
+      if (row) {
+        row.consumed_at = consumedAt;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('UPDATE operator_email_codes SET attempts')) {
+      const [nextAttempts, compareAttempts, consumedAt, updatedAt, id] = this.values;
+      const row = this.db.emailCodes.get(id);
+      if (row) {
+        row.attempts = nextAttempts;
+        if (compareAttempts >= row.max_attempts) row.consumed_at = consumedAt;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO public_signup_rate_limits')) {
+      const [bucket, keyHash, windowStart, count, resetAt, createdAt, updatedAt] = this.values;
+      const key = `${bucket}:${keyHash}:${windowStart}`;
+      const existing = this.db.rateLimits.get(key);
+      this.db.rateLimits.set(key, { bucket, key_hash: keyHash, window_start: windowStart, count, reset_at: resetAt, created_at: existing?.created_at ?? createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO web_sessions')) {
+      const [id, operatorId, sessionHash, createdAt, lastSeenAt, updatedAt, expiresAt] = this.values;
+      this.db.webSessions.set(id, { id, operator_id: operatorId, session_hash: sessionHash, created_at: createdAt, last_seen_at: lastSeenAt, updated_at: updatedAt, expires_at: expiresAt, revoked_at: null });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE web_sessions SET last_seen_at')) {
+      const [lastSeenAt, expiresAt, updatedAt, id] = this.values;
+      const row = this.db.webSessions.get(id);
+      if (row) {
+        row.last_seen_at = lastSeenAt;
+        row.expires_at = expiresAt;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('UPDATE web_sessions SET revoked_at')) {
+      const [revokedAt, updatedAt, id] = this.values;
+      const row = this.db.webSessions.get(id);
+      if (row) {
+        row.revoked_at = revokedAt;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO oauth_clients')) {
+      const [clientId, clientName, clientType, redirectUrisJson, scopesJson, tenantId, secretHash, createdAt, updatedAt] = this.values;
+      const existing = this.db.oauthClients.get(clientId);
+      this.db.oauthClients.set(clientId, { client_id: clientId, client_name: clientName, client_type: clientType, redirect_uris_json: redirectUrisJson, scopes_json: scopesJson, tenant_id: tenantId, secret_hash: secretHash, status: 'active', created_at: existing?.created_at ?? createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO oauth_consents')) {
+      const [id, operatorId, clientId, scopesHash, scopesJson, createdAt, updatedAt] = this.values;
+      const key = `${operatorId}:${clientId}:${scopesHash}`;
+      const existing = this.db.oauthConsents.get(key);
+      this.db.oauthConsents.set(key, { id: existing?.id ?? id, operator_id: operatorId, client_id: clientId, scopes_hash: scopesHash, scopes_json: scopesJson, created_at: existing?.created_at ?? createdAt, updated_at: updatedAt, revoked_at: null });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO oauth_token_sessions')) {
+      const [id, operatorId, clientId, accessTokenHash, refreshTokenHash, scopesJson, accessExpiresAt, refreshExpiresAt, createdAt, updatedAt] = this.values;
+      this.db.oauthTokenSessions.set(id, { id, operator_id: operatorId, client_id: clientId, access_token_hash: accessTokenHash, refresh_token_hash: refreshTokenHash, scopes_json: scopesJson, access_expires_at: accessExpiresAt, refresh_expires_at: refreshExpiresAt, created_at: createdAt, updated_at: updatedAt, revoked_at: null });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE oauth_token_sessions SET revoked_at')) {
+      const [revokedAt, updatedAt, id] = this.values;
+      const row = this.db.oauthTokenSessions.get(id);
+      if (row) {
+        row.revoked_at = revokedAt;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO tenants')) {
+      const [id, slug, name, defaultAccountId, createdAt, updatedAt] = this.values;
+      this.db.tenants.set(id, { id, slug, name, status: 'active', default_account_id: defaultAccountId, created_at: createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO tenant_owners')) {
+      const [tenantId, operatorId, createdAt] = this.values;
+      this.db.tenantOwners.set(tenantId, { tenant_id: tenantId, operator_id: operatorId, created_at: createdAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO tenant_memberships')) {
+      const [tenantId, operatorId, scopesJson, defaultAccountId, createdAt, updatedAt] = this.values;
+      this.db.memberships.push({ tenant_id: tenantId, user_id: operatorId, role: 'owner', scopes_json: scopesJson, default_account_id: defaultAccountId, status: 'active', created_at: createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO tenant_entitlements')) {
+      const [tenantId, plan, status, createdAt, updatedAt] = this.values;
+      const existing = this.db.entitlements.get(tenantId);
+      this.db.entitlements.set(tenantId, { tenant_id: tenantId, plan, status, limits_json: existing?.limits_json ?? '{}', created_at: existing?.created_at ?? createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO wechat_accounts')) {
+      const [id, tenantId, slug, name, status, isDefault, createdAt, updatedAt] = this.values;
+      this.db.accounts.set(id, { id, tenant_id: tenantId, slug, name, app_id: null, app_secret: null, webhook_token: null, encoding_aes_key: null, status, is_default: isDefault, created_at: createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE wechat_accounts SET name')) {
+      const [name, updatedAt, tenantId, resourceId] = this.values;
+      const row = this.db.accounts.get(resourceId);
+      if (row && row.tenant_id === tenantId && row.status !== 'disabled') {
+        row.name = name;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('UPDATE wechat_accounts SET is_default = 0')) {
+      const [updatedAt, tenantId] = this.values;
+      for (const row of this.db.accounts.values()) {
+        if (row.tenant_id === tenantId) {
+          row.is_default = 0;
+          row.updated_at = updatedAt;
+        }
+      }
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE wechat_accounts SET is_default = 1')) {
+      const [updatedAt, tenantId, resourceId] = this.values;
+      const row = this.db.accounts.get(resourceId);
+      if (row && row.tenant_id === tenantId) {
+        row.is_default = 1;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('UPDATE tenants SET default_account_id')) {
+      const [defaultAccountId, updatedAt, tenantId] = this.values;
+      const row = this.db.tenants.get(tenantId);
+      if (row) {
+        row.default_account_id = defaultAccountId;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('UPDATE wechat_accounts SET app_id = NULL')) {
+      const [updatedAt, tenantId, resourceId] = this.values;
+      const row = this.db.accounts.get(resourceId);
+      if (row && row.tenant_id === tenantId) {
+        Object.assign(row, { app_id: null, app_secret: null, webhook_token: null, encoding_aes_key: null, status: 'disabled', is_default: 0, updated_at: updatedAt });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('DELETE FROM wechat_access_tokens')) {
+      const [tenantId, accountId] = this.values;
+      const changed = this.db.accountTokens.delete(`${tenantId}:${accountId}`) ? 1 : 0;
+      return { success: true, meta: { changes: changed } };
+    }
+
+    if (q.startsWith('UPDATE wechat_accounts SET app_id = ?')) {
+      const [appId, appSecret, webhookToken, encodingAESKey, updatedAt, tenantId, resourceId] = this.values;
+      const row = this.db.accounts.get(resourceId);
+      if (row && row.tenant_id === tenantId && row.status !== 'disabled') {
+        Object.assign(row, { app_id: appId, app_secret: appSecret, webhook_token: webhookToken, encoding_aes_key: encodingAESKey, status: 'active', updated_at: updatedAt });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('INSERT INTO wechat_access_tokens')) {
+      const [tenantId, accountId, accessToken, expiresIn, expiresAt, createdAt, updatedAt] = this.values;
+      const key = `${tenantId}:${accountId}`;
+      const existing = this.db.accountTokens.get(key);
+      this.db.accountTokens.set(key, { tenant_id: tenantId, account_id: accountId, access_token: accessToken, expires_in: expiresIn, expires_at: expiresAt, created_at: existing?.created_at ?? createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO monitoring_events')) {
+      const [id, eventType, tenantId, accountId, severity, metadataJson, createdAt] = this.values;
+      this.db.monitoringEvents.set(id, { id, event_type: eventType, tenant_id: tenantId, account_id: accountId, severity, metadata_json: metadataJson, created_at: createdAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO operator_deletion_requests')) {
+      const [id, operatorId, requestedAt, supportNote] = this.values;
+      this.db.deletionRequests.set(id, { id, operator_id: operatorId, status: 'requested', requested_at: requestedAt, completed_at: null, support_note: supportNote });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    throw new Error(`Unsupported SaaS D1 run query: ${q}`);
+  }
+
+  async first() {
+    const q = this.query;
+
+    if (q.startsWith('SELECT id, verified_email')) {
+      const [email] = this.values;
+      return [...this.db.operators.values()].find(row => row.verified_email === email && row.status !== 'disabled') ?? null;
+    }
+
+    if (q.startsWith('SELECT o.id')) {
+      const [provider, providerSubject] = this.values;
+      const identity = this.db.identities.get(`${provider}:${providerSubject}`);
+      return identity ? this.db.operators.get(identity.operator_id) ?? null : null;
+    }
+
+    if (q.startsWith('SELECT id, code_hash')) {
+      const [email] = this.values;
+      return [...this.db.emailCodes.values()]
+        .filter(row => row.email === email && row.consumed_at === null)
+        .sort((a, b) => b.issued_at - a.issued_at)[0] ?? null;
+    }
+
+    if (q.startsWith('SELECT count, reset_at')) {
+      const [bucket, keyHash, windowStart] = this.values;
+      return this.db.rateLimits.get(`${bucket}:${keyHash}:${windowStart}`) ?? null;
+    }
+
+    if (q.startsWith('SELECT id, operator_id, expires_at')) {
+      const [sessionHash, now] = this.values;
+      return [...this.db.webSessions.values()].find(row => row.session_hash === sessionHash && row.revoked_at === null && row.expires_at > now) ?? null;
+    }
+
+    if (q.startsWith('SELECT id FROM oauth_consents')) {
+      const [operatorId, clientId, scopesHash] = this.values;
+      return this.db.oauthConsents.get(`${operatorId}:${clientId}:${scopesHash}`) ?? null;
+    }
+
+    if (q.startsWith('SELECT id FROM wechat_accounts WHERE app_id')) {
+      const [appId, tenantId, resourceId] = this.values;
+      return [...this.db.accounts.values()].find(row => row.app_id === appId && row.status !== 'disabled' && !(row.tenant_id === tenantId && row.id === resourceId)) ?? null;
+    }
+
+    if (q.startsWith('SELECT COUNT(*) AS count')) {
+      const [tenantId] = this.values;
+      return { count: [...this.db.accounts.values()].filter(row => row.tenant_id === tenantId && row.status !== 'disabled').length };
+    }
+
+    if (q.startsWith('SELECT plan, status')) {
+      const [tenantId] = this.values;
+      return this.db.entitlements.get(tenantId) ?? null;
+    }
+
+    if (q.startsWith('SELECT id, tenant_id, slug')) {
+      const [tenantId, resourceId] = this.values;
+      const row = this.db.accounts.get(resourceId);
+      return row && row.tenant_id === tenantId && row.status !== 'disabled' ? row : null;
+    }
+
+    throw new Error(`Unsupported SaaS D1 first query: ${q}`);
+  }
+
+  async all() {
+    const q = this.query;
+
+    if (q.startsWith('SELECT t.id AS tenant_id')) {
+      const [operatorId] = this.values;
+      const rows = [];
+      for (const membership of this.db.memberships.filter(row => row.user_id === operatorId && row.status === 'active')) {
+        const tenant = this.db.tenants.get(membership.tenant_id);
+        if (tenant && tenant.status !== 'disabled') {
+          rows.push({
+            tenant_id: tenant.id,
+            tenant_slug: tenant.slug,
+            tenant_name: tenant.name,
+            tenant_status: tenant.status,
+            tenant_default_account_id: tenant.default_account_id,
+            role: membership.role,
+            scopes_json: membership.scopes_json,
+            member_default_account_id: membership.default_account_id,
+          });
+        }
+      }
+      return { success: true, results: rows.sort((a, b) => this.db.tenants.get(a.tenant_id).created_at - this.db.tenants.get(b.tenant_id).created_at) };
+    }
+
+    if (q.startsWith('SELECT id, tenant_id, slug')) {
+      const [tenantId] = this.values;
+      return {
+        success: true,
+        results: [...this.db.accounts.values()]
+          .filter(row => row.tenant_id === tenantId && row.status !== 'disabled')
+          .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.created_at - b.created_at),
+      };
+    }
+
+    throw new Error(`Unsupported SaaS D1 all query: ${q}`);
+  }
+}
+
+const saasMigrationSql = readFileSync('./migrations/d1/0005_saas_onboarding_foundation.sql', 'utf8');
+const requiredSaasTables = [
+  'operators',
+  'operator_identities',
+  'operator_email_codes',
+  'web_sessions',
+  'oauth_clients',
+  'oauth_consents',
+  'oauth_token_sessions',
+  'public_signup_rate_limits',
+  'tenant_owners',
+  'r2_media_retention_metadata',
+  'inbound_message_retention_metadata',
+  'monitoring_events',
+  'operator_deletion_requests',
+];
+check(
+  requiredSaasTables.every(table => saasMigrationSql.includes(`CREATE TABLE IF NOT EXISTS ${table}`)) && /updated_at INTEGER NOT NULL/.test(saasMigrationSql),
+  '0005 migration 声明 Operator/email-code/session/OAuth/retention/monitoring/deletion 基础表',
+);
+check(
+  !/DROP TABLE|ALTER TABLE/i.test(saasMigrationSql),
+  '0005 migration additive-only，不破坏既有 Workers/D1 表',
+);
+check(
+  PLAN_QUOTA_POLICIES.free.limits.tool_calls_month === 300 &&
+    PLAN_QUOTA_POLICIES.plus.limits.tool_calls_month === 3000 &&
+    PLAN_QUOTA_POLICIES.pro.limits.tool_calls_month === 30000,
+  'Free/Plus/Pro 每月 tool-call allowance 对齐 OpenSpec 300/3000/30000',
+);
+
+const saasDb = new MemorySaasD1Database();
+const saasStore = new D1SaasOnboardingStore(saasDb, 'STORAGE_SECRET');
+await saasStore.ensureSchema();
+const issuedCode = await saasStore.issueEmailCode({ email: 'Owner@Example.COM', code: '123456', codeId: 'code_ok', now: 1000 });
+const verifiedCode = await saasStore.verifyEmailCode({ email: 'owner@example.com', code: '123456', displayName: '公众号运营者', now: 1000 + 60_000 });
+const existingOperator = await saasStore.createOrResolveOperatorByEmail({ email: 'OWNER@example.com', now: 1000 + 61_000 });
+await saasStore.linkOperatorIdentity({ operatorId: verifiedCode.operator.operatorId, provider: 'github', providerSubject: 'gh_123', verifiedEmail: 'owner@example.com', now: 1000 + 62_000 });
+const githubOperator = await saasStore.findOperatorByProviderSubject('github', 'gh_123');
+const expiredCode = await saasStore.issueEmailCode({ email: 'late@example.com', code: '654321', codeId: 'code_expired', now: 1000 });
+const expiredVerify = await saasStore.verifyEmailCode({ email: 'late@example.com', code: '654321', now: 1000 + 11 * 60_000 });
+await saasStore.issueEmailCode({ email: 'tries@example.com', code: '111111', codeId: 'code_attempts', now: 2000 });
+let attemptResult;
+for (let i = 0; i < 5; i += 1) {
+  attemptResult = await saasStore.verifyEmailCode({ email: 'tries@example.com', code: '000000', now: 3000 + i });
+}
+const rate1 = await saasStore.recordRateLimitHit({ bucket: 'email', key: 'owner@example.com', windowMs: 60_000, limit: 1, now: 1000 });
+const rate2 = await saasStore.recordRateLimitHit({ bucket: 'email', key: 'owner@example.com', windowMs: 60_000, limit: 1, now: 1001 });
+check(
+  issuedCode.expiresAt === 1000 + 10 * 60_000 &&
+    verifiedCode.ok === true &&
+    existingOperator.created === false &&
+    githubOperator?.operatorId === verifiedCode.operator.operatorId &&
+    expiredCode.codeId === 'code_expired' &&
+    expiredVerify.ok === false && expiredVerify.reason === 'expired' &&
+    attemptResult.ok === false && attemptResult.reason === 'attempt_limit' &&
+    rate1.allowed === true && rate2.allowed === false,
+  'D1SaasOnboardingStore email-code 身份创建/复用/GitHub 绑定/过期/5次尝试/限流语义正确',
+);
+
+await saasStore.registerOAuthClient({ clientId: 'cli_test', clientName: 'WOA CLI', redirectUris: ['http://127.0.0.1:8787/callback'], scopes: ['wechat.mcp'], now: 10_000 });
+let invalidRedirectRejected = false;
+try {
+  await saasStore.registerOAuthClient({ clientId: 'bad_cli', clientName: 'Bad', redirectUris: ['http://evil.example/callback'], scopes: ['wechat.mcp'], now: 10_000 });
+} catch {
+  invalidRedirectRejected = true;
+}
+await saasStore.rememberOAuthConsent({ operatorId: verifiedCode.operator.operatorId, clientId: 'cli_test', scopes: ['woa:account:read', 'wechat.mcp'], now: 10_000 });
+const rememberedConsent = await saasStore.hasOAuthConsent({ operatorId: verifiedCode.operator.operatorId, clientId: 'cli_test', scopes: ['wechat.mcp', 'woa:account:read'] });
+const tokenSession = await saasStore.issueOAuthTokenSession({ operatorId: verifiedCode.operator.operatorId, clientId: 'cli_test', accessToken: 'ACCESS', refreshToken: 'REFRESH', scopes: ['wechat.mcp'], now: 10_000 });
+const webSession = await saasStore.createWebSession({ operatorId: verifiedCode.operator.operatorId, sessionToken: 'WEB_SESSION', sessionId: 'sess_test', now: 10_000 });
+const slidingSession = await saasStore.getWebSession('WEB_SESSION', 20_000);
+await saasStore.revokeWebSession('sess_test', 21_000);
+const revokedSession = await saasStore.getWebSession('WEB_SESSION', 22_000);
+check(
+  invalidRedirectRejected && rememberedConsent &&
+    tokenSession.accessExpiresAt === 10_000 + 60 * 60 * 1000 &&
+    tokenSession.refreshExpiresAt === 10_000 + 30 * 24 * 60 * 60 * 1000 &&
+    webSession.expiresAt === 10_000 + 7 * 24 * 60 * 60 * 1000 &&
+    slidingSession?.expiresAt === 20_000 + 7 * 24 * 60 * 60 * 1000 &&
+    revokedSession === null,
+  'D1SaasOnboardingStore OAuth client/consent/token TTL 与 7天滑动 Web session/revoke 正确',
+);
+
+const bootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: verifiedCode.operator.operatorId, tenantId: 'ten_owner', resourceId: 'acct_default_owner', now: 50_000 });
+const repeatBootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: verifiedCode.operator.operatorId, now: 51_000 });
+const ownerContext = await saasStore.getTenantContextForOperator({ operatorId: verifiedCode.operator.operatorId, scopes: ['woa:tenant:read', 'woa:account:read', 'woa:account:write'], requestId: 'req_owner' }, { source: 'rest' });
+let freeAllowanceRejected = false;
+try {
+  await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '第二个资源', resourceId: 'acct_second_blocked', now: 52_000 });
+} catch (error) {
+  freeAllowanceRejected = error instanceof AccountAllowanceError;
+}
+await saasStore.upsertTenantEntitlement({ tenantId: 'ten_owner', plan: 'plus', now: 53_000 });
+const secondResource = await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '第二个资源', resourceId: 'acct_second', now: 54_000 });
+const renamedResource = await saasStore.renameWechatResource({ tenantId: 'ten_owner', resourceId: 'acct_second', name: '已验证公众号', now: 55_000 });
+await saasStore.setDefaultWechatResource({ tenantId: 'ten_owner', resourceId: 'acct_second', now: 56_000 });
+const defaultSwitchedContext = await saasStore.getTenantContextForOperator(verifiedCode.operator.operatorId, { source: 'mcp' });
+const failedBefore = await saasStore.getWechatResource('ten_owner', 'acct_second');
+let failedValidationDidNotPersist = false;
+try {
+  await saasStore.validateAndPersistWechatCredentials({
+    tenantId: 'ten_owner',
+    resourceId: 'acct_second',
+    config: { appId: 'wx_failed', appSecret: 'SHOULD_NOT_PERSIST' },
+    validate: async () => { throw new Error('invalid credential'); },
+    now: 57_000,
+  });
+} catch {
+  const failedAfter = await saasStore.getWechatResource('ten_owner', 'acct_second');
+  failedValidationDidNotPersist = failedBefore.hasAppSecret === false && failedAfter.hasAppSecret === false && failedAfter.appId === undefined;
+}
+const configured = await saasStore.configureValidatedWechatCredentials({
+  tenantId: 'ten_owner',
+  resourceId: 'acct_second',
+  config: { appId: 'wx_valid', appSecret: 'APP_SECRET', token: 'WEBHOOK_TOKEN', encodingAESKey: 'abcdefghijklmnopqrstuvwxyzABCDEFG123456789' },
+  tokenInfo: { accessToken: 'ACCESS_TOKEN', expiresIn: 7200, expiresAt: 99_999 },
+  now: 58_000,
+});
+const thirdResource = await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '第三个资源', resourceId: 'acct_third', now: 59_000 });
+let duplicateDenied = false;
+try {
+  await saasStore.configureValidatedWechatCredentials({
+    tenantId: 'ten_owner',
+    resourceId: thirdResource.accountId,
+    config: { appId: 'wx_valid', appSecret: 'OTHER_SECRET' },
+    now: 60_000,
+  });
+} catch (error) {
+  duplicateDenied = error instanceof DuplicateAppIdError;
+}
+await saasStore.softDeleteWechatResource({ tenantId: 'ten_owner', resourceId: 'acct_second', confirmation: 'DELETE acct_second', now: 61_000 });
+const released = await saasStore.configureValidatedWechatCredentials({
+  tenantId: 'ten_owner',
+  resourceId: thirdResource.accountId,
+  config: { appId: 'wx_valid', appSecret: 'OTHER_SECRET' },
+  now: 62_000,
+});
+const rawStoredSecond = saasDb.accounts.get('acct_second');
+const rawStoredThird = saasDb.accounts.get('acct_third');
+check(
+  bootstrap.created === true && bootstrap.tenant.tenantId.startsWith('ten_') && bootstrap.resource.status === 'unconfigured' &&
+    repeatBootstrap.created === false && ownerContext.defaultAccountId === 'acct_default_owner' &&
+    freeAllowanceRejected && secondResource.status === 'unconfigured' && renamedResource.name === '已验证公众号' &&
+    defaultSwitchedContext.defaultAccountId === 'acct_second' && failedValidationDidNotPersist &&
+    configured.status === 'active' && configured.hasAppSecret && configured.hasWebhookToken && configured.hasEncodingAESKey &&
+    duplicateDenied && rawStoredSecond.app_secret === null && rawStoredSecond.status === 'disabled' &&
+    released.appId === 'wx_valid' && rawStoredThird.app_secret.startsWith('enc:'),
+  'D1SaasOnboardingStore 首登 bootstrap、Free 账号上限、Plus 创建、重命名/默认切换、凭据验证非持久化、AppID 唯一与删除释放正确',
+);
+
+const otherOperator = await saasStore.createOrResolveOperatorByEmail({ email: 'other@example.com', operatorId: 'op_other', now: 70_000 });
+const otherBootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: otherOperator.operator.operatorId, tenantId: 'ten_other', resourceId: 'acct_other', now: 71_000 });
+const forbiddenResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${otherBootstrap.tenant.tenantId}/accounts`, { headers: { authorization: 'Bearer TEST' } }),
+  {
+    trustedContext: ownerContext,
+    createApiClient: async () => { throw new Error('cross-tenant denial must not construct WeChat API client'); },
+  },
+);
+await saasStore.recordMonitoringEvent({ eventType: 'credential_validation_failed', tenantId: 'ten_owner', accountId: 'acct_third', metadata: { appSecret: 'RAW_SECRET', reason: 'relay' }, eventId: 'mon_test', now: 80_000 });
+const deletionRequestId = await saasStore.requestOperatorDeletion({ operatorId: verifiedCode.operator.operatorId, requestId: 'del_test', supportNote: '请求删除', now: 81_000 });
+check(
+  forbiddenResponse.status === 403 &&
+    JSON.parse(saasDb.monitoringEvents.get('mon_test').metadata_json).appSecret === '***' &&
+    deletionRequestId === 'del_test' && saasDb.deletionRequests.get('del_test').status === 'requested',
+  'SaaS repository 跨租户 REST 访问拒绝，监控事件脱敏，Operator 删除请求可审计记录',
+);
+
 console.log('\n=== WeChat webhook / inbox fixture 验证 ===');
 
 class MemoryInboxStore {
