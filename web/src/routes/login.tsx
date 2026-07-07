@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, Link, TextInput } from '@astryxdesign/core';
+import { Button, Card, Divider, Heading, Link, Text, TextInput } from '@astryxdesign/core';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
-import { PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 
 const loginSearchSchema = z.object({
   returnTo: z.string().optional(),
@@ -28,60 +27,99 @@ function LoginPage() {
     const parsed = emailSchema.safeParse(email);
     return parsed.success ? undefined : parsed.error.issues[0]?.message;
   }, [email]);
+  const errorCode = notice?.get('error');
+  const isCodeSent = notice?.get('sent') === '1';
 
   return (
-    <>
-      <PageHeader
-        title="邮箱优先登录"
-        description="输入邮箱获取 6 位验证码。Turnstile 校验和频率限制由 Worker API 处理；GitHub 仅作为可选身份提供方。"
-      />
-      <PageStack>
-        <SurfaceSection title="请求验证码">
-          <form className="form-grid" method="post" action="/api/v1/auth/email-code/request">
-            <input type="hidden" name="returnTo" value={returnTo} />
-            <TextInput
-              label="邮箱"
-              type="email"
-              htmlName="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="operator@example.com"
-              status={emailError ? { type: 'error', message: emailError } : undefined}
-              isRequired
-            />
-            {turnstileSiteKey ? (
-              <div className="cf-turnstile" data-sitekey={turnstileSiteKey} />
-            ) : (
-              <div className="section-copy">当前构建未配置 Turnstile site key；生产环境必须配置后端 secret 并启用小组件。</div>
-            )}
-            {notice?.get('sent') === '1' ? (
-              <div className="section-copy">验证码已发送，请查收邮箱并在下方输入 6 位数字。</div>
-            ) : null}
-            {notice?.get('error') ? (
-              <div className="form-error">登录请求未完成：{loginErrorMessage(notice.get('error'))}</div>
-            ) : null}
-            <div className="inline-actions">
-              <Button label="发送验证码" type="submit" variant="primary" isDisabled={!!emailError || !email} />
-              <Button label="使用 GitHub 登录" href={githubLoginHref} />
+    <div className="auth-page">
+      <div className="auth-shell">
+        <div className="auth-brand-block">
+          <div className="auth-logo" aria-hidden="true">WOA</div>
+          <Heading level={1} type="display-3" justify="center" textWrap="balance">登录 WOA</Heading>
+          <Text type="supporting" as="p" justify="center" textWrap="pretty">
+            使用同一个账户管理微信公众号 MCP、OAuth 授权、用量和订阅。
+          </Text>
+        </div>
+
+        <Card padding={8} width="100%" maxWidth={440}>
+          <div className="auth-card-stack">
+            <div className="auth-card-header">
+              <Heading level={2}>继续登录</Heading>
+              <Text type="supporting" as="p">
+                推荐使用 GitHub；邮箱验证码可作为备用登录方式。
+              </Text>
             </div>
-          </form>
-        </SurfaceSection>
-        <SurfaceSection title="输入验证码">
-          <form className="form-grid" method="post" action="/api/v1/auth/email-code/verify">
-            <input type="hidden" name="returnTo" value={returnTo} />
-            <TextInput label="邮箱" type="email" htmlName="email" value={email} onChange={setEmail} isRequired />
-            <TextInput label="6 位验证码" htmlName="code" value={code} onChange={setCode} placeholder="123456" isRequired />
-            <Button label="完成登录" type="submit" variant="primary" isDisabled={!email || code.length < 6} />
-          </form>
-          <p className="section-copy" style={{ marginTop: 14 }}>
-            旧共享授权密码将在新身份系统上线时移除。已有 CLI/MCP 客户端需要重新授权。
-          </p>
-          <p className="section-copy" style={{ marginTop: 8 }}>
-            无法收信？联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>。
-          </p>
-        </SurfaceSection>
-      </PageStack>
-    </>
+
+            {errorCode ? (
+              <div className="form-error" role="alert">登录请求未完成：{loginErrorMessage(errorCode)}</div>
+            ) : null}
+
+            <Button
+              label="使用 GitHub 继续"
+              href={githubLoginHref}
+              variant="primary"
+              className="auth-full-width"
+            />
+
+            <Divider label="或使用邮箱验证码" />
+
+            <form className="auth-form" method="post" action="/api/v1/auth/email-code/request">
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <TextInput
+                label="邮箱地址"
+                type="email"
+                htmlName="email"
+                value={email}
+                onChange={setEmail}
+                placeholder="operator@example.com"
+                status={emailError ? { type: 'error', message: emailError } : undefined}
+                isRequired
+                hasAutoFocus
+              />
+              {turnstileSiteKey ? (
+                <div className="auth-turnstile cf-turnstile" data-sitekey={turnstileSiteKey} />
+              ) : (
+                <Text type="supporting" as="p">当前构建未配置 Turnstile site key；生产环境必须配置后端 secret 并启用小组件。</Text>
+              )}
+              {isCodeSent ? (
+                <div className="auth-success" role="status">验证码已发送，请查收邮箱并在下方输入 6 位数字。</div>
+              ) : null}
+              <Button
+                label="发送验证码"
+                type="submit"
+                className="auth-full-width"
+                isDisabled={!!emailError || !email}
+              />
+            </form>
+
+            <form className="auth-form" method="post" action="/api/v1/auth/email-code/verify">
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <input type="hidden" name="email" value={email} />
+              <TextInput
+                label="6 位验证码"
+                htmlName="code"
+                value={code}
+                onChange={setCode}
+                placeholder="123456"
+                description="验证码有效期有限；如未收到，可重新发送。"
+                isRequired
+              />
+              <Button
+                label="完成登录"
+                type="submit"
+                variant="primary"
+                className="auth-full-width"
+                isDisabled={!email || code.length < 6}
+              />
+            </form>
+          </div>
+        </Card>
+
+        <Text type="supporting" as="p" justify="center">
+          无法登录？联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>
+        </Text>
+      </div>
+    </div>
   );
 }
 
@@ -97,6 +135,14 @@ function loginErrorMessage(code: string | null): string {
       return 'GitHub 登录暂未配置，请使用邮箱验证码。';
     case 'github_oauth_failed':
       return 'GitHub 登录暂不可用，请稍后重试或使用邮箱验证码。';
+    case 'turnstile':
+      return '人机校验未通过，请刷新后重试。';
+    case 'rate_limited':
+      return '验证码请求过于频繁，请稍后重试。';
+    case 'email_delivery_failed':
+      return '验证码邮件发送失败，请稍后重试。';
+    case 'invalid_email':
+      return '请输入有效邮箱。';
     default:
       return code ?? 'unknown';
   }
