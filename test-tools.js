@@ -160,6 +160,17 @@ check(
   'GitHub OAuth 登录链接使用文档导航，/auth callback 会到达 Worker 而不是 SPA router',
 );
 
+const providersSource = readFileSync('./web/src/providers.tsx', 'utf8');
+const webCssEntrySource = readFileSync('./web/src/styles/index.css', 'utf8');
+check(
+  providersSource.includes("./ziikoo-woa.js") &&
+    providersSource.includes('ziikooWoaTheme') &&
+    webCssEntrySource.includes('../ziikoo-woa.css') &&
+    existsSync('./web/src/ziikoo-woa.css') &&
+    existsSync('./web/src/ziikoo-woa.js'),
+  'Astryx 自定义主题使用预构建 ziikoo-woa CSS/JS，避免运行时 style injection',
+);
+
 console.log('\n=== HTTP/Storage Seam 验证 ===');
 
 class FakeExecutor {

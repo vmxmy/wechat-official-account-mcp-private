@@ -1,3 +1,6 @@
-@import '@astryxdesign/core/reset.css';
-@import '@astryxdesign/core/astryx.css';
-@import './theme.css';
+@layer reset, astryx, astryx-theme, theme;
+
+@import '@astryxdesign/core/reset.css' layer(reset);
+@import '@astryxdesign/core/astryx.css' layer(astryx);
+@import '../ziikoo-woa.css';
+@import './theme.css' layer(theme);
