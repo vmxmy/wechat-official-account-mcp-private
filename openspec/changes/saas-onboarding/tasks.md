@@ -23,7 +23,7 @@
 
 - [x] 3.1 Implement Resend-backed email code request route with Turnstile verification, IP/email/provider rate limits, 10-minute expiry, and 5-attempt invalidation.
 - [x] 3.2 Implement email code verification route that creates or resolves Operator identity and starts the Web/OAuth authorization session.
-- [ ] 3.3 Implement optional GitHub OAuth login at `/auth/github/callback`, verified-email linking, and email-code completion when GitHub lacks verified email.
+- [x] 3.3 Implement optional GitHub OAuth login at `/auth/github/callback`, verified-email linking, and email-code completion when GitHub lacks verified email.
 - [x] 3.4 Implement first-login bootstrap that creates default Tenant and one unconfigured WeChat resource for Operators without memberships.
 - [x] 3.5 Implement HttpOnly 7-day sliding Web session issuance, validation, logout, and server-side revocation.
 - [x] 3.6 Replace legacy shared authorization-password logic with email/GitHub identity login and consent pages.
@@ -64,7 +64,7 @@
 - [x] 6.4 Implement Astryx theme CSS with required layer order, `ThemeProvider`, and `LinkProvider` with a central TanStack `AppLink` adapter.
 - [x] 6.5 Implement shared Web API client with TypeScript types and Zod response boundaries for `/me`, onboarding, account, billing, MCP config, quotas, and sessions.
 - [x] 6.6 Implement TanStack Query provider, query keys, mutation invalidation, and route guards with `returnTo` redirect behavior.
-- [ ] 6.7 Implement email-first login page with Turnstile, email code request/verify, and optional GitHub login.
+- [x] 6.7 Implement email-first login page with Turnstile, email code request/verify, and optional GitHub login.
 - [x] 6.8 Implement onboarding page for Tenant/resource status, platform relay allowlist guidance, AppID/AppSecret configuration, validation errors, and completion state.
 - [x] 6.9 Implement billing page and Stripe success/cancel/status routes.
 - [x] 6.10 Implement MCP config page that outputs native Streamable HTTP config for Codex/Claude without OAuth tokens.

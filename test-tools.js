@@ -49,6 +49,12 @@ import {
   DuplicateAppIdError,
 } from './dist/src/worker/saas-onboarding-store.js';
 import { removedMcpTransportResponseForRequest } from './dist/src/worker/transport-guards.js';
+import {
+  createGitHubAuthorizeUrl,
+  exchangeGitHubOAuthCode,
+  fetchGitHubOAuthProfile,
+  selectVerifiedGitHubEmail,
+} from './dist/src/worker/github-oauth.js';
 
 let failed = false;
 
@@ -2647,9 +2653,97 @@ check(
 
 const authWorkerIndexSource = readFileSync('./src/worker/index.ts', 'utf8');
 const webLoginSource = readFileSync('./web/src/routes/login.tsx', 'utf8');
+const githubAuthorizeUrl = new URL(createGitHubAuthorizeUrl({
+  clientId: 'github_client_fixture',
+  redirectUri: 'https://worker.example.test/auth/github/callback',
+  state: 'STATE_FIXTURE',
+}));
+const githubOAuthCalls = [];
+const githubAccessToken = await exchangeGitHubOAuthCode({
+  clientId: 'github_client_fixture',
+  clientSecret: 'github_secret_fixture',
+  code: 'CODE_FIXTURE',
+  redirectUri: 'https://worker.example.test/auth/github/callback',
+  fetch: async (input, init = {}) => {
+    githubOAuthCalls.push({
+      url: String(input),
+      method: init.method,
+      accept: new Headers(init.headers).get('accept'),
+      bodyText: init.body instanceof URLSearchParams ? init.body.toString() : String(init.body ?? ''),
+    });
+    return new Response(JSON.stringify({ access_token: 'gho_fixture', token_type: 'bearer', scope: 'user:email' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  },
+});
+const githubProfileCalls = [];
+const githubProfile = await fetchGitHubOAuthProfile({
+  accessToken: githubAccessToken,
+  fetch: async (input, init = {}) => {
+    githubProfileCalls.push({
+      url: String(input),
+      authorization: new Headers(init.headers).get('authorization'),
+      apiVersion: new Headers(init.headers).get('x-github-api-version'),
+    });
+    if (String(input).endsWith('/user')) {
+      return new Response(JSON.stringify({ id: 123, login: 'octocat', name: 'Mona Octocat', email: 'public@example.com' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify([
+      { email: 'secondary@example.com', primary: false, verified: true },
+      { email: 'primary@example.com', primary: true, verified: true },
+      { email: 'unverified@example.com', primary: false, verified: false },
+    ]), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  },
+});
+const githubProfileWithoutVerifiedEmail = await fetchGitHubOAuthProfile({
+  accessToken: 'gho_no_verified_email',
+  fetch: async input => {
+    if (String(input).endsWith('/user')) {
+      return new Response(JSON.stringify({ id: '456', login: 'noemail', name: null, email: 'public@example.com' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify([{ email: 'public@example.com', primary: true, verified: false }]), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  },
+});
+check(
+  githubAuthorizeUrl.origin + githubAuthorizeUrl.pathname === 'https://github.com/login/oauth/authorize' &&
+    githubAuthorizeUrl.searchParams.get('client_id') === 'github_client_fixture' &&
+    githubAuthorizeUrl.searchParams.get('redirect_uri') === 'https://worker.example.test/auth/github/callback' &&
+    githubAuthorizeUrl.searchParams.get('scope') === 'read:user user:email' &&
+    githubAccessToken === 'gho_fixture' &&
+    githubOAuthCalls[0]?.url === 'https://github.com/login/oauth/access_token' &&
+    githubOAuthCalls[0]?.method === 'POST' &&
+    githubOAuthCalls[0]?.accept === 'application/json' &&
+    githubOAuthCalls[0]?.bodyText.includes('client_secret=github_secret_fixture') &&
+    githubProfile.providerSubject === '123' &&
+    githubProfile.login === 'octocat' &&
+    githubProfile.displayName === 'Mona Octocat' &&
+    githubProfile.verifiedEmail === 'primary@example.com' &&
+    githubProfileCalls.some(call => call.url === 'https://api.github.com/user' && call.authorization === 'Bearer gho_fixture') &&
+    githubProfileCalls.some(call => call.url === 'https://api.github.com/user/emails' && call.apiVersion === '2022-11-28') &&
+    selectVerifiedGitHubEmail([{ email: 'unverified@example.com', primary: true, verified: false }]) === null &&
+    githubProfileWithoutVerifiedEmail.verifiedEmail === null &&
+    githubProfileWithoutVerifiedEmail.fallbackEmail === 'public@example.com',
+  'GitHub OAuth helper 按官方 Web flow 换 token、读取 /user + /user/emails，并只信任 verified email',
+);
 check(
   authWorkerIndexSource.includes('/api/v1/auth/email-code/request') &&
     authWorkerIndexSource.includes('/api/v1/auth/email-code/verify') &&
+    authWorkerIndexSource.includes('exchangeGitHubOAuthCode') &&
+    authWorkerIndexSource.includes('fetchGitHubOAuthProfile') &&
+    authWorkerIndexSource.includes('github_verified_email_required') &&
     authWorkerIndexSource.includes('handlePublicAuthRequest') &&
     authWorkerIndexSource.includes('handleWebSessionManagementApiRequest') &&
     authWorkerIndexSource.includes('renderAuthorizationConsentForm') &&
@@ -2657,9 +2751,11 @@ check(
     authWorkerIndexSource.includes('sessionCookie(sessionToken, request)') &&
     !authWorkerIndexSource.includes('授权密码不正确') &&
     webLoginSource.includes('cf-turnstile') &&
+    webLoginSource.includes('/auth/github/callback?returnTo=') &&
+    webLoginSource.includes('github_verified_email_required') &&
     webLoginSource.includes('/api/v1/auth/email-code/request') &&
     webLoginSource.includes('/api/v1/auth/email-code/verify'),
-  'Worker/Web email-code 登录 contract 已接入公开路由、HttpOnly session、首登 bootstrap、Turnstile 挂载与 consent 授权页，并移除共享密码提示',
+  'Worker/Web email-code + GitHub 登录 contract 已接入公开路由、HttpOnly session、首登 bootstrap、Turnstile 挂载与 consent 授权页，并移除共享密码提示',
 );
 
 let freeAllowanceRejected = false;

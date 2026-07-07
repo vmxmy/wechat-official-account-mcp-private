@@ -41,6 +41,11 @@ import {
 import { D1UsageQuotaStore } from './usage-store.js';
 import { D1SaasOnboardingStore } from './saas-onboarding-store.js';
 import { removedMcpTransportResponseForRequest } from './transport-guards.js';
+import {
+  createGitHubAuthorizeUrl,
+  exchangeGitHubOAuthCode,
+  fetchGitHubOAuthProfile,
+} from './github-oauth.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -99,7 +104,9 @@ type WechatMcpAgentStub = {
 const WORKER_SHARED_MCP_TOOLS = workerSharedMcpTools;
 const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000;
 const WOA_SESSION_COOKIE = 'woa_session';
+const GITHUB_OAUTH_COOKIE = 'woa_github_oauth';
 const WEB_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const GITHUB_OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60;
 const EMAIL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const EMAIL_RATE_LIMIT_PER_WINDOW = 5;
 const IP_RATE_LIMIT_PER_WINDOW = 30;
@@ -172,6 +179,30 @@ function sessionCookie(token: string, request: Request): string {
 function clearSessionCookie(request: Request): string {
   const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
   return `${WOA_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+}
+
+function githubOAuthStateCookie(state: string, returnTo: string, request: Request): string {
+  const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
+  const value = encodeURIComponent(JSON.stringify({ state, returnTo }));
+  return `${GITHUB_OAUTH_COOKIE}=${value}; Path=/auth/github/callback; HttpOnly; SameSite=Lax; Max-Age=${GITHUB_OAUTH_STATE_MAX_AGE_SECONDS}${secure}`;
+}
+
+function clearGitHubOAuthStateCookie(request: Request): string {
+  const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
+  return `${GITHUB_OAUTH_COOKIE}=; Path=/auth/github/callback; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+}
+
+function getGitHubOAuthStateCookie(request: Request): { state: string; returnTo: string } | null {
+  const raw = parseCookieHeader(request.headers.get('cookie'))[GITHUB_OAUTH_COOKIE];
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { state?: unknown; returnTo?: unknown };
+    const state = String(parsed.state ?? '');
+    if (!state) return null;
+    return { state, returnTo: safeReturnTo(parsed.returnTo) };
+  } catch {
+    return null;
+  }
 }
 
 function safeReturnTo(value: unknown, fallback = '/onboarding'): string {
@@ -547,14 +578,132 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
     return response;
   }
 
-  if (url.pathname === '/auth/github/callback') {
-    return json({
-      success: false,
-      error: {
-        code: 'github_login_not_configured',
-        message: 'GitHub 登录入口已预留；请先配置 GITHUB_CLIENT_ID/GITHUB_CLIENT_SECRET 并启用完整回调实现。邮箱验证码登录可直接使用。',
-      },
-    }, { status: 501 });
+  if (request.method === 'GET' && url.pathname === '/auth/github/callback') {
+    const clientId = await resolveSecret(env.GITHUB_CLIENT_ID);
+    const clientSecret = await resolveSecret(env.GITHUB_CLIENT_SECRET);
+    const returnTo = safeReturnTo(url.searchParams.get('returnTo'));
+    if (!clientId || !clientSecret) {
+      return jsonOrRedirect(request, {
+        success: false,
+        error: {
+          code: 'github_login_not_configured',
+          message: 'GitHub 登录未配置，请先使用邮箱验证码登录。',
+        },
+      }, `/login?returnTo=${encodeURIComponent(returnTo)}&error=github_not_configured`, { status: wantsJson(request) ? 503 : 303 });
+    }
+
+    const oauthError = url.searchParams.get('error');
+    if (oauthError) {
+      const response = jsonOrRedirect(request, {
+        success: false,
+        error: {
+          code: 'github_oauth_denied',
+          message: 'GitHub 授权未完成，请重试或改用邮箱验证码。',
+          details: { error: oauthError },
+        },
+      }, `/login?returnTo=${encodeURIComponent(returnTo)}&error=github_denied`, { status: wantsJson(request) ? 400 : 303 });
+      response.headers.append('set-cookie', clearGitHubOAuthStateCookie(request));
+      return response;
+    }
+
+    const code = url.searchParams.get('code');
+    if (!code) {
+      const state = randomOpaqueToken();
+      const redirectUri = new URL('/auth/github/callback', request.url).toString();
+      const authorizeUrl = createGitHubAuthorizeUrl({ clientId, redirectUri, state });
+      const response = wantsJson(request)
+        ? json({ success: true, data: { authorizationUrl: authorizeUrl } })
+        : Response.redirect(authorizeUrl, 302);
+      response.headers.append('set-cookie', githubOAuthStateCookie(state, returnTo, request));
+      return response;
+    }
+
+    const stateCookie = getGitHubOAuthStateCookie(request);
+    const state = url.searchParams.get('state') ?? '';
+    if (!stateCookie || !state || stateCookie.state !== state) {
+      const response = jsonOrRedirect(request, {
+        success: false,
+        error: {
+          code: 'github_state_mismatch',
+          message: 'GitHub 登录状态已过期，请重新发起授权。',
+        },
+      }, `/login?returnTo=${encodeURIComponent(returnTo)}&error=github_state`, { status: wantsJson(request) ? 400 : 303 });
+      response.headers.append('set-cookie', clearGitHubOAuthStateCookie(request));
+      return response;
+    }
+
+    try {
+      const redirectUri = new URL('/auth/github/callback', request.url).toString();
+      const accessToken = await exchangeGitHubOAuthCode({
+        clientId,
+        clientSecret,
+        code,
+        redirectUri,
+      });
+      const profile = await fetchGitHubOAuthProfile({ accessToken });
+      if (!profile.verifiedEmail) {
+        const emailHint = profile.fallbackEmail ? `&email=${encodeURIComponent(profile.fallbackEmail)}` : '';
+        const response = jsonOrRedirect(request, {
+          success: false,
+          error: {
+            code: 'github_verified_email_required',
+            message: 'GitHub 未返回已验证邮箱，请改用邮箱验证码完成登录。',
+          },
+        }, `/login?returnTo=${encodeURIComponent(stateCookie.returnTo)}&error=github_verified_email_required${emailHint}`, { status: wantsJson(request) ? 409 : 303 });
+        response.headers.append('set-cookie', clearGitHubOAuthStateCookie(request));
+        return response;
+      }
+
+      const existing = await store.findOperatorByProviderSubject('github', profile.providerSubject);
+      const operator = existing ?? (await store.createOrResolveOperatorByEmail({
+        email: profile.verifiedEmail,
+        displayName: profile.displayName,
+      })).operator;
+      await store.linkOperatorIdentity({
+        operatorId: operator.operatorId,
+        provider: 'github',
+        providerSubject: profile.providerSubject,
+        verifiedEmail: profile.verifiedEmail,
+      });
+      await store.bootstrapDefaultTenantForOperator({ operatorId: operator.operatorId });
+      const sessionToken = randomOpaqueToken();
+      const session = await store.createWebSession({
+        operatorId: operator.operatorId,
+        sessionToken,
+      });
+      const response = jsonOrRedirect(request, {
+        success: true,
+        data: {
+          operator: {
+            operatorId: operator.operatorId,
+            email: operator.verifiedEmail,
+            displayName: operator.displayName,
+          },
+          github: {
+            login: profile.login,
+            providerSubject: profile.providerSubject,
+          },
+          session: {
+            sessionId: session.sessionId,
+            expiresAt: session.expiresAt,
+          },
+          returnTo: stateCookie.returnTo,
+        },
+      }, stateCookie.returnTo, { status: wantsJson(request) ? 200 : 303 });
+      response.headers.append('set-cookie', sessionCookie(sessionToken, request));
+      response.headers.append('set-cookie', clearGitHubOAuthStateCookie(request));
+      return response;
+    } catch {
+      const response = jsonOrRedirect(request, {
+        success: false,
+        error: {
+          code: 'github_oauth_failed',
+          message: 'GitHub 登录暂不可用，请稍后重试或改用邮箱验证码。',
+        },
+      }, `/login?returnTo=${encodeURIComponent(stateCookie.returnTo)}&error=github_oauth_failed`, { status: wantsJson(request) ? 502 : 303 });
+      response.headers.append('set-cookie', clearGitHubOAuthStateCookie(request));
+      return response;
+    }
   }
 
   return new Response('Not Found', { status: 404 });
