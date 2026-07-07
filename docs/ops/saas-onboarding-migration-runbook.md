@@ -35,6 +35,28 @@ Run the SaaS onboarding migration and release checks without mixing local verifi
 - [ ] Confirm Resend, Turnstile, GitHub OAuth, session/OAuth signing, and encryption secrets are configured before public signup.
 - [ ] Capture `/health`, unauthenticated `/mcp`, authenticated `tools/list`, `woa_context`, `woa_account.status`, draft list, publish list, and Stripe webhook behavior before migration.
 
+## 2026-07-07 safe readiness observation
+
+Non-destructive production checks were run from the local operator shell at `2026-07-07T00:20Z`:
+
+- `npx wrangler secret list` returned Cloudflare Worker secret bindings for OAuth, Stripe,
+  WeChat credentials/webhook/encryption, and the WeChat relay (`WECHAT_PROXY_URL` /
+  `WECHAT_PROXY_TOKEN`).
+- Missing Cloudflare Worker secrets for the new email-first/GitHub public login surface:
+  `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `TURNSTILE_SECRET_KEY`,
+  `GITHUB_CLIENT_ID`, and `GITHUB_CLIENT_SECRET`.
+- `npx wrangler deploy --dry-run` succeeded and confirmed production bindings for
+  `WECHAT_MCP_AGENT`, `TOKEN_OWNER`, `OAUTH_KV`, `DB`, `MEDIA`, `ASSETS`, and
+  `ENVIRONMENT=production`.
+- `https://woa.ziikoo.app/health` returned `200` with `mcpEndpoint: "/mcp"`.
+- Unauthenticated `https://woa.ziikoo.app/mcp` returned `401` with a Bearer challenge.
+- `https://woa.ziikoo.app/sse` returned the static Web SPA (`200`) before this run's fix;
+  the Worker now explicitly returns `404` for removed `/sse` and `/messages` MCP-over-SSE
+  paths and must be redeployed before the production smoke can be considered clean.
+- Authenticated MCP, live Stripe checkout/webhook, production WeChat credential
+  reconfiguration, and publish smoke were not run in this safe pass. Treat them as
+  external-production blockers until a fresh operator-approved live run records evidence.
+
 ## Local verification before production
 
 ```bash

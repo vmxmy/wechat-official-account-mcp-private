@@ -3,7 +3,7 @@
 - [x] 1.1 Run `openspec validate saas-onboarding` and fix schema/format issues before implementation.
 - [x] 1.2 Review `CONTEXT.md`, `docs/adr/0001-*.md` through `docs/adr/0117-*.md`, and `docs/design/anti-ai-slop-rules.md` before coding.
 - [ ] 1.3 Snapshot current production `/health`, unauthenticated `/mcp`, authenticated `tools/list`, `woa_context`, `woa_account.status`, draft list, publish list, and Stripe webhook behavior.
-- [ ] 1.4 Confirm production secrets that will be required in Cloudflare: Resend, Turnstile, GitHub OAuth, Stripe live keys/prices/webhook secret, WeChat relay, encryption key, session/OAuth signing secrets.
+- [x] 1.4 Confirm production secrets that will be required in Cloudflare: Resend, Turnstile, GitHub OAuth, Stripe live keys/prices/webhook secret, WeChat relay, encryption key, session/OAuth signing secrets.
 - [x] 1.5 Write a migration runbook that explicitly notes accepted risks: direct production D1 migration without required backup, live Stripe verification, and short WeChat API downtime.
 
 ## 2. D1 schema and repository foundation
@@ -102,7 +102,7 @@
 - [ ] 9.4 Implement monitoring event capture for Worker errors, OAuth/login failures, credential validation failures, Stripe webhook failures, and quota rejections.
 - [ ] 9.5 Implement operator deletion request flow that cancels subscriptions, purges WeChat secrets, disables access, and records audit/support state.
 - [ ] 9.6 Implement direct migration that purges legacy WeChat secrets and marks legacy default resource unconfigured.
-- [ ] 9.7 Update Cloudflare secret binding docs/runbook for runtime secrets and keep GitHub CI limited to deployment credentials.
+- [x] 9.7 Update Cloudflare secret binding docs/runbook for runtime secrets and keep GitHub CI limited to deployment credentials.
 
 ## 10. Documentation and product copy
 

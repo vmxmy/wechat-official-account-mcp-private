@@ -48,6 +48,7 @@ import {
   D1SaasOnboardingStore,
   DuplicateAppIdError,
 } from './dist/src/worker/saas-onboarding-store.js';
+import { removedMcpTransportResponseForRequest } from './dist/src/worker/transport-guards.js';
 
 let failed = false;
 
@@ -508,6 +509,24 @@ check(
     workerIndexSource.includes('if (!sessionToken) return null') &&
     workerIndexSource.includes('return await createOAuthProvider().fetch'),
   '生产 Worker /api/v1 默认通过 OAuthProvider 保护；仅已验证 HttpOnly Web session cookie 使用受控 fast-path',
+);
+check(
+  workerIndexSource.includes("from './transport-guards.js'") &&
+    workerIndexSource.includes('removedMcpTransportResponseForRequest(request)') &&
+    workerIndexSource.includes("serve('/mcp'"),
+  'Workers 在入口层调用旧 SSE/messages 传输 guard，仅保留 /mcp Streamable HTTP',
+);
+const removedTransportResponses = [
+  removedMcpTransportResponseForRequest(new Request('https://worker.example.test/sse')),
+  removedMcpTransportResponseForRequest(new Request('https://worker.example.test/sse/session')),
+  removedMcpTransportResponseForRequest(new Request('https://worker.example.test/messages?sessionId=1')),
+  removedMcpTransportResponseForRequest(new Request('https://worker.example.test/messages/session')),
+];
+check(
+  removedTransportResponses.every(response => response?.status === 404) &&
+    removedMcpTransportResponseForRequest(new Request('https://worker.example.test/mcp')) === null &&
+    removedMcpTransportResponseForRequest(new Request('https://worker.example.test/login')) === null,
+  '旧传输 guard 行为级验证：/sse 和 /messages 返回 404，/mcp 与 Web 路由不被拦截',
 );
 
 console.log('\n=== Plan quota fixture 验证 ===');

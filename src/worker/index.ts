@@ -40,6 +40,7 @@ import {
 } from './tenant-context.js';
 import { D1UsageQuotaStore } from './usage-store.js';
 import { D1SaasOnboardingStore } from './saas-onboarding-store.js';
+import { removedMcpTransportResponseForRequest } from './transport-guards.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -1443,6 +1444,9 @@ const defaultHandler = {
       return legacyRestToolRemovedResponse();
     }
 
+    const removedTransportResponse = removedMcpTransportResponseForRequest(request);
+    if (removedTransportResponse) return removedTransportResponse;
+
     if (url.pathname === '/health' || url.pathname === '/api/health') {
       return json({
         success: true,
@@ -1658,6 +1662,9 @@ export default {
     if (isLegacyRestToolPath(url.pathname)) {
       return legacyRestToolRemovedResponse();
     }
+
+    const removedTransportResponse = removedMcpTransportResponseForRequest(request);
+    if (removedTransportResponse) return removedTransportResponse;
 
     if (
       url.pathname === '/api/v1/auth/email-code/request' ||
