@@ -9,6 +9,7 @@ const loginSearchSchema = z.object({
 }).catch({});
 
 const emailSchema = z.string().email('请输入可接收验证码的邮箱。');
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
 export const Route = createFileRoute('/login')({
   validateSearch: search => loginSearchSchema.parse(search),
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const search = Route.useSearch();
+  const notice = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const emailError = useMemo(() => {
@@ -45,7 +47,17 @@ function LoginPage() {
               status={emailError ? { type: 'error', message: emailError } : undefined}
               isRequired
             />
-            <div className="section-copy">这里预留 Turnstile 小组件挂载点；服务端仍必须验证 token 后才发验证码。</div>
+            {turnstileSiteKey ? (
+              <div className="cf-turnstile" data-sitekey={turnstileSiteKey} />
+            ) : (
+              <div className="section-copy">当前构建未配置 Turnstile site key；生产环境必须配置后端 secret 并启用小组件。</div>
+            )}
+            {notice?.get('sent') === '1' ? (
+              <div className="section-copy">验证码已发送，请查收邮箱并在下方输入 6 位数字。</div>
+            ) : null}
+            {notice?.get('error') ? (
+              <div className="form-error">登录请求未完成：{notice.get('error')}</div>
+            ) : null}
             <div className="inline-actions">
               <Button label="发送验证码" type="submit" variant="primary" isDisabled={!!emailError || !email} />
               <Button label="使用 GitHub 登录" href="/auth/github/callback" />

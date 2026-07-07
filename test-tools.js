@@ -504,8 +504,10 @@ check(
 const workerIndexSource = readFileSync('./src/worker/index.ts', 'utf8');
 check(
   workerIndexSource.includes("'/api/v1': managementApiHandler") &&
-    !workerIndexSource.includes("url.pathname.startsWith('/api/v1')"),
-  '生产 Worker /api/v1 通过 OAuthProvider apiHandlers 保护，不在 OAuth 前手动执行 REST',
+    workerIndexSource.includes('handleWebSessionManagementApiRequest') &&
+    workerIndexSource.includes('if (!sessionToken) return null') &&
+    workerIndexSource.includes('return await createOAuthProvider().fetch'),
+  '生产 Worker /api/v1 默认通过 OAuthProvider 保护；仅已验证 HttpOnly Web session cookie 使用受控 fast-path',
 );
 
 console.log('\n=== Plan quota fixture 验证 ===');
@@ -2623,6 +2625,24 @@ check(
     sessionRevokeBody.data?.kind === 'web',
   'REST /api/v1/sessions 返回当前 Operator 授权列表并支持 operator-scoped revoke',
 );
+
+const authWorkerIndexSource = readFileSync('./src/worker/index.ts', 'utf8');
+const webLoginSource = readFileSync('./web/src/routes/login.tsx', 'utf8');
+check(
+  authWorkerIndexSource.includes('/api/v1/auth/email-code/request') &&
+    authWorkerIndexSource.includes('/api/v1/auth/email-code/verify') &&
+    authWorkerIndexSource.includes('handlePublicAuthRequest') &&
+    authWorkerIndexSource.includes('handleWebSessionManagementApiRequest') &&
+    authWorkerIndexSource.includes('renderAuthorizationConsentForm') &&
+    authWorkerIndexSource.includes('store.bootstrapDefaultTenantForOperator') &&
+    authWorkerIndexSource.includes('sessionCookie(sessionToken, request)') &&
+    !authWorkerIndexSource.includes('授权密码不正确') &&
+    webLoginSource.includes('cf-turnstile') &&
+    webLoginSource.includes('/api/v1/auth/email-code/request') &&
+    webLoginSource.includes('/api/v1/auth/email-code/verify'),
+  'Worker/Web email-code 登录 contract 已接入公开路由、HttpOnly session、首登 bootstrap、Turnstile 挂载与 consent 授权页，并移除共享密码提示',
+);
+
 let freeAllowanceRejected = false;
 try {
   await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '第二个资源', resourceId: 'acct_second_blocked', now: 52_000 });

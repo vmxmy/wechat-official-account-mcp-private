@@ -70,6 +70,12 @@ export interface WorkerEnv {
   STRIPE_PRO_PRICE_ID?: SecretBinding;
   STRIPE_BILLING_SUCCESS_URL?: SecretBinding;
   STRIPE_BILLING_CANCEL_URL?: SecretBinding;
+  RESEND_API_KEY?: SecretBinding;
+  RESEND_FROM_EMAIL?: SecretBinding;
+  TURNSTILE_SECRET_KEY?: SecretBinding;
+  GITHUB_CLIENT_ID?: SecretBinding;
+  GITHUB_CLIENT_SECRET?: SecretBinding;
+  ENVIRONMENT?: string;
 }
 
 type TokenOwnerRequestOptions = {
@@ -91,6 +97,11 @@ type WechatMcpAgentStub = {
 
 const WORKER_SHARED_MCP_TOOLS = workerSharedMcpTools;
 const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000;
+const WOA_SESSION_COOKIE = 'woa_session';
+const WEB_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const EMAIL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const EMAIL_RATE_LIMIT_PER_WINDOW = 5;
+const IP_RATE_LIMIT_PER_WINDOW = 30;
 
 export function tokenOwnerNameForAccount(accountContext: AccountContext): string {
   return `token:${accountContext.tenantId}:${accountContext.accountId}`;
@@ -110,6 +121,92 @@ async function resolveSecret(binding: SecretBinding | undefined): Promise<string
   if (!binding) return null;
   if (typeof binding === 'string') return binding;
   return await binding.get();
+}
+
+function isProductionEnv(env: WorkerEnv): boolean {
+  return env.ENVIRONMENT === 'production';
+}
+
+function wantsJson(request: Request): boolean {
+  const accept = request.headers.get('accept') ?? '';
+  const contentType = request.headers.get('content-type') ?? '';
+  return accept.includes('application/json') || contentType.includes('application/json');
+}
+
+function normalizeEmailInput(value: unknown): string {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function randomDigits(length = 6): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, byte => String(byte % 10)).join('');
+}
+
+function randomOpaqueToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function parseCookieHeader(header: string | null): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  for (const part of (header ?? '').split(';')) {
+    const [rawName, ...rawValue] = part.trim().split('=');
+    if (!rawName) continue;
+    cookies[rawName] = decodeURIComponent(rawValue.join('='));
+  }
+  return cookies;
+}
+
+function getSessionCookie(request: Request): string | null {
+  return parseCookieHeader(request.headers.get('cookie'))[WOA_SESSION_COOKIE] || null;
+}
+
+function sessionCookie(token: string, request: Request): string {
+  const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
+  return `${WOA_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${WEB_SESSION_MAX_AGE_SECONDS}${secure}`;
+}
+
+function clearSessionCookie(request: Request): string {
+  const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
+  return `${WOA_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+}
+
+function safeReturnTo(value: unknown, fallback = '/onboarding'): string {
+  const text = String(value ?? '').trim();
+  if (!text) return fallback;
+  if (text.startsWith('/') && !text.startsWith('//')) return text;
+  try {
+    const parsed = new URL(text);
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function readRequestData(request: Request): Promise<Record<string, unknown>> {
+  const contentType = request.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    const value = await request.json().catch(() => ({}));
+    return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  }
+  const form = await request.formData();
+  const data: Record<string, unknown> = {};
+  for (const [key, value] of form.entries()) {
+    data[key] = typeof value === 'string' ? value : value.name;
+  }
+  return data;
+}
+
+function jsonOrRedirect(
+  request: Request,
+  payload: Record<string, unknown>,
+  redirectTo: string,
+  init?: ResponseInit,
+): Response {
+  if (wantsJson(request)) return json(payload, init);
+  return Response.redirect(new URL(redirectTo, request.url).toString(), init?.status && init.status >= 300 && init.status < 400 ? init.status : 303);
 }
 
 function escapeHtml(value: string): string {
@@ -322,6 +419,227 @@ async function createStripeBillingServiceForEnv(
   });
 }
 
+async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promise<Response> {
+  const url = new URL(request.url);
+  const store = await createSaasOnboardingStore(env);
+
+  if (request.method === 'POST' && url.pathname === '/api/v1/auth/email-code/request') {
+    const data = await readRequestData(request);
+    const email = normalizeEmailInput(data.email);
+    const returnTo = safeReturnTo(data.returnTo);
+    if (!email || !email.includes('@')) {
+      return jsonOrRedirect(request, {
+        success: false,
+        error: { code: 'validation_error', message: '请输入有效邮箱。' },
+      }, `/login?returnTo=${encodeURIComponent(returnTo)}&error=invalid_email`, { status: wantsJson(request) ? 400 : 303 });
+    }
+
+    const turnstileToken = String(data.turnstileToken ?? data['cf-turnstile-response'] ?? '');
+    const turnstile = await verifyTurnstileIfConfigured(env, request, turnstileToken);
+    if (!turnstile.ok) {
+      return jsonOrRedirect(request, {
+        success: false,
+        error: { code: 'turnstile_failed', message: turnstile.message },
+      }, `/login?returnTo=${encodeURIComponent(returnTo)}&error=turnstile`, { status: wantsJson(request) ? 403 : 303 });
+    }
+
+    const ip = request.headers.get('cf-connecting-ip') ?? request.headers.get('x-forwarded-for') ?? 'unknown';
+    const emailLimit = await store.recordRateLimitHit({
+      bucket: 'email-code-email',
+      key: email,
+      windowMs: EMAIL_RATE_LIMIT_WINDOW_MS,
+      limit: EMAIL_RATE_LIMIT_PER_WINDOW,
+    });
+    const ipLimit = await store.recordRateLimitHit({
+      bucket: 'email-code-ip',
+      key: ip,
+      windowMs: EMAIL_RATE_LIMIT_WINDOW_MS,
+      limit: IP_RATE_LIMIT_PER_WINDOW,
+    });
+    if (!emailLimit.allowed || !ipLimit.allowed) {
+      return jsonOrRedirect(request, {
+        success: false,
+        error: {
+          code: 'rate_limited',
+          message: '验证码请求过于频繁，请稍后重试。',
+          details: { resetAt: Math.max(emailLimit.resetAt, ipLimit.resetAt) },
+        },
+      }, `/login?returnTo=${encodeURIComponent(returnTo)}&error=rate_limited`, { status: wantsJson(request) ? 429 : 303 });
+    }
+
+    const code = randomDigits(6);
+    const issued = await store.issueEmailCode({ email, code, ip });
+    const delivery = await sendEmailCode(env, email, code);
+    if (!delivery.ok && isProductionEnv(env)) {
+      return jsonOrRedirect(request, {
+        success: false,
+        error: { code: 'email_delivery_failed', message: delivery.message },
+      }, `/login?returnTo=${encodeURIComponent(returnTo)}&error=email_delivery_failed`, { status: wantsJson(request) ? 503 : 303 });
+    }
+
+    return jsonOrRedirect(request, {
+      success: true,
+      data: {
+        email,
+        codeId: issued.codeId,
+        expiresAt: issued.expiresAt,
+        delivery: delivery.ok ? 'sent' : 'not_configured',
+        ...(isProductionEnv(env) ? {} : { debugCode: code }),
+      },
+    }, `/login?returnTo=${encodeURIComponent(returnTo)}&email=${encodeURIComponent(email)}&sent=1`, { status: wantsJson(request) ? 200 : 303 });
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/v1/auth/email-code/verify') {
+    const data = await readRequestData(request);
+    const email = normalizeEmailInput(data.email);
+    const code = String(data.code ?? '').trim();
+    const returnTo = safeReturnTo(data.returnTo);
+    const verified = await store.verifyEmailCode({
+      email,
+      code,
+      displayName: String(data.displayName ?? '').trim() || undefined,
+    });
+    if (!verified.ok) {
+      return jsonOrRedirect(request, {
+        success: false,
+        error: {
+          code: `email_code_${verified.reason}`,
+          message: emailCodeFailureMessage(verified.reason),
+          details: { attemptsRemaining: verified.attemptsRemaining },
+        },
+      }, `/login?returnTo=${encodeURIComponent(returnTo)}&email=${encodeURIComponent(email)}&error=${encodeURIComponent(verified.reason)}`, { status: wantsJson(request) ? 400 : 303 });
+    }
+
+    await store.bootstrapDefaultTenantForOperator({ operatorId: verified.operator.operatorId });
+    const sessionToken = randomOpaqueToken();
+    const session = await store.createWebSession({
+      operatorId: verified.operator.operatorId,
+      sessionToken,
+    });
+    const response = jsonOrRedirect(request, {
+      success: true,
+      data: {
+        operator: {
+          operatorId: verified.operator.operatorId,
+          email: verified.operator.verifiedEmail,
+          displayName: verified.operator.displayName,
+        },
+        session: {
+          sessionId: session.sessionId,
+          expiresAt: session.expiresAt,
+        },
+        returnTo,
+      },
+    }, returnTo, { status: wantsJson(request) ? 200 : 303 });
+    response.headers.append('set-cookie', sessionCookie(sessionToken, request));
+    return response;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/v1/auth/logout') {
+    const sessionToken = getSessionCookie(request);
+    if (sessionToken) {
+      const session = await store.getWebSession(sessionToken);
+      if (session) await store.revokeWebSession(session.sessionId);
+    }
+    const response = jsonOrRedirect(request, { success: true, data: { loggedOut: true } }, '/login', { status: wantsJson(request) ? 200 : 303 });
+    response.headers.append('set-cookie', clearSessionCookie(request));
+    return response;
+  }
+
+  if (url.pathname === '/auth/github/callback') {
+    return json({
+      success: false,
+      error: {
+        code: 'github_login_not_configured',
+        message: 'GitHub 登录入口已预留；请先配置 GITHUB_CLIENT_ID/GITHUB_CLIENT_SECRET 并启用完整回调实现。邮箱验证码登录可直接使用。',
+      },
+    }, { status: 501 });
+  }
+
+  return new Response('Not Found', { status: 404 });
+}
+
+async function handleWebSessionManagementApiRequest(request: Request, env: WorkerEnv): Promise<Response | null> {
+  const sessionToken = getSessionCookie(request);
+  if (!sessionToken) return null;
+
+  const usageStore = new D1UsageQuotaStore(env.DB);
+  const onboardingStore = await createSaasOnboardingStore(env);
+  const session = await onboardingStore.getWebSession(sessionToken);
+  if (!session) return null;
+
+  const trustedContext = await onboardingStore.getTenantContextForOperator({
+    operatorId: session.operatorId,
+    requestId: request.headers.get('x-request-id'),
+  }, { source: 'rest' });
+
+  return await handleManagementApiRequest(request, {
+    appId: await resolveSecret(env.WECHAT_APP_ID),
+    defaultUserId: session.operatorId,
+    defaultClientId: 'web-session',
+    usageStore,
+    billing: await createStripeBillingServiceForEnv(env, usageStore),
+    onboardingStore,
+    validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
+    trustedContext,
+    createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
+  });
+}
+
+async function verifyTurnstileIfConfigured(env: WorkerEnv, request: Request, token: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  const secret = await resolveSecret(env.TURNSTILE_SECRET_KEY);
+  if (!secret) return { ok: true };
+  if (!token) return { ok: false, message: '缺少 Turnstile 校验 token。' };
+
+  const body = new FormData();
+  body.set('secret', secret);
+  body.set('response', token);
+  const ip = request.headers.get('cf-connecting-ip');
+  if (ip) body.set('remoteip', ip);
+
+  try {
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body,
+    });
+    const result = await response.json() as { success?: boolean };
+    return result.success ? { ok: true } : { ok: false, message: 'Turnstile 校验未通过。' };
+  } catch {
+    return { ok: false, message: 'Turnstile 校验服务暂不可用。' };
+  }
+}
+
+async function sendEmailCode(env: WorkerEnv, email: string, code: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  const apiKey = await resolveSecret(env.RESEND_API_KEY);
+  const from = await resolveSecret(env.RESEND_FROM_EMAIL) ?? 'WOA <no-reply@ziikoo.app>';
+  if (!apiKey) {
+    return { ok: false, message: 'Resend API key is not configured.' };
+  }
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: [email],
+      subject: 'WOA 登录验证码',
+      text: `你的 WOA 登录验证码是 ${code}，10 分钟内有效。若非本人操作，请忽略本邮件。`,
+    }),
+  });
+  if (!response.ok) {
+    return { ok: false, message: `Resend delivery failed with HTTP ${response.status}.` };
+  }
+  return { ok: true };
+}
+
+function emailCodeFailureMessage(reason: string): string {
+  if (reason === 'expired') return '验证码已过期，请重新获取。';
+  if (reason === 'attempt_limit') return '验证码尝试次数已用尽，请重新获取。';
+  if (reason === 'invalid_code') return '验证码不正确。';
+  return '未找到可用验证码，请先获取验证码。';
+}
 
 async function validateWechatCredentialsForAccount(
   env: WorkerEnv,
@@ -1180,35 +1498,66 @@ async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Respon
 
   const oauthRequest = await provider.parseAuthRequest(request);
 
-  if (request.method === 'GET') {
-    return renderAuthorizationForm(url.searchParams.toString());
-  }
-
-  if (request.method !== 'POST') {
+  if (request.method !== 'GET' && request.method !== 'POST') {
     return new Response('Method Not Allowed', {
       status: 405,
       headers: { allow: 'GET, POST' },
     });
   }
 
-  const expectedPassword = await resolveSecret(env.OAUTH_CLIENT_SECRET);
-  if (!expectedPassword) {
-    return new Response('Server misconfigured: missing OAUTH_CLIENT_SECRET.', { status: 500 });
+  const store = await createSaasOnboardingStore(env);
+  const sessionToken = getSessionCookie(request);
+  const session = sessionToken ? await store.getWebSession(sessionToken) : null;
+  if (!session) {
+    const returnTo = `${url.pathname}${url.search}`;
+    return Response.redirect(new URL(`/login?returnTo=${encodeURIComponent(returnTo)}`, request.url).toString(), 302);
   }
 
-  const formData = await request.formData();
-  const password = String(formData.get('password') ?? '');
-  if (password !== expectedPassword) {
-    return renderAuthorizationForm(url.searchParams.toString(), '授权密码不正确。');
+  await store.bootstrapDefaultTenantForOperator({ operatorId: session.operatorId });
+  await store.registerOAuthClient({
+    clientId: oauthRequest.clientId,
+    clientName: oauthRequest.clientId || 'OAuth client',
+    redirectUris: [oauthRequest.redirectUri],
+    scopes: oauthRequest.scope,
+  });
+
+  const hasConsent = await store.hasOAuthConsent({
+    operatorId: session.operatorId,
+    clientId: oauthRequest.clientId,
+    scopes: oauthRequest.scope,
+  });
+
+  if (request.method === 'GET' && !hasConsent) {
+    return renderAuthorizationConsentForm({
+      query: url.searchParams.toString(),
+      clientId: oauthRequest.clientId,
+      scopes: oauthRequest.scope,
+    });
   }
 
-  const userId = await resolveSecret(env.OAUTH_CLIENT_ID) ?? 'wechat-admin';
+  if (request.method === 'POST') {
+    const formData = await request.formData();
+    if (String(formData.get('consent') ?? '') !== 'approve') {
+      return renderAuthorizationConsentForm({
+        query: url.searchParams.toString(),
+        clientId: oauthRequest.clientId,
+        scopes: oauthRequest.scope,
+        error: '请确认授权后继续。',
+      });
+    }
+    await store.rememberOAuthConsent({
+      operatorId: session.operatorId,
+      clientId: oauthRequest.clientId,
+      scopes: oauthRequest.scope,
+    });
+  }
+
   const { redirectTo } = await provider.completeAuthorization({
     request: oauthRequest,
-    userId,
+    userId: session.operatorId,
     scope: oauthRequest.scope,
     props: {
-      userId,
+      userId: session.operatorId,
       oauthClientId: oauthRequest.clientId,
       scopes: oauthRequest.scope,
     },
@@ -1220,10 +1569,18 @@ async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Respon
   return Response.redirect(redirectTo, 302);
 }
 
-function renderAuthorizationForm(query: string, error?: string): Response {
-  const errorHtml = error
-    ? `<p class="error">${escapeHtml(error)}</p>`
+function renderAuthorizationConsentForm(input: {
+  query: string;
+  clientId: string;
+  scopes: string[];
+  error?: string;
+}): Response {
+  const errorHtml = input.error
+    ? `<p class="error">${escapeHtml(input.error)}</p>`
     : '';
+  const scopeItems = input.scopes.length > 0
+    ? input.scopes.map(scope => `<li>${escapeHtml(scope)}</li>`).join('')
+    : '<li>基础登录授权</li>';
 
   return new Response(
     `<!doctype html>
@@ -1243,11 +1600,13 @@ function renderAuthorizationForm(query: string, error?: string): Response {
   </style>
 </head>
 <body>
-  <form method="POST" action="/authorize?${escapeHtml(query)}">
+  <form method="POST" action="/authorize?${escapeHtml(input.query)}">
     <h1>授权访问微信公众号 MCP</h1>
     ${errorHtml}
-    <label for="password">授权密码</label>
-    <input id="password" name="password" type="password" required autocomplete="current-password" />
+    <p>客户端 <strong>${escapeHtml(input.clientId || 'unknown client')}</strong> 请求访问你的 WOA 租户。</p>
+    <label>授权范围</label>
+    <ul>${scopeItems}</ul>
+    <input type="hidden" name="consent" value="approve" />
     <button type="submit">授权</button>
   </form>
 </body>
@@ -1300,12 +1659,26 @@ export default {
       return legacyRestToolRemovedResponse();
     }
 
+    if (
+      url.pathname === '/api/v1/auth/email-code/request' ||
+      url.pathname === '/api/v1/auth/email-code/verify' ||
+      url.pathname === '/api/v1/auth/logout' ||
+      url.pathname === '/auth/github/callback'
+    ) {
+      return await handlePublicAuthRequest(request, env);
+    }
+
     if (isStripeWebhookPath(url.pathname)) {
       return await handleStripeWebhookRequest(request, {
         webhookSecret: await resolveSecret(env.STRIPE_WEBHOOK_SECRET),
         usageStore: new D1UsageQuotaStore(env.DB),
         priceIds: await resolveStripePriceIds(env),
       });
+    }
+
+    if (url.pathname === '/api/v1' || url.pathname.startsWith('/api/v1/')) {
+      const webSessionResponse = await handleWebSessionManagementApiRequest(request, env);
+      if (webSessionResponse) return webSessionResponse;
     }
 
     if (

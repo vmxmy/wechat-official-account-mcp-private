@@ -21,12 +21,12 @@
 
 ## 3. Identity, sessions, and OAuth
 
-- [ ] 3.1 Implement Resend-backed email code request route with Turnstile verification, IP/email/provider rate limits, 10-minute expiry, and 5-attempt invalidation.
-- [ ] 3.2 Implement email code verification route that creates or resolves Operator identity and starts the Web/OAuth authorization session.
+- [x] 3.1 Implement Resend-backed email code request route with Turnstile verification, IP/email/provider rate limits, 10-minute expiry, and 5-attempt invalidation.
+- [x] 3.2 Implement email code verification route that creates or resolves Operator identity and starts the Web/OAuth authorization session.
 - [ ] 3.3 Implement optional GitHub OAuth login at `/auth/github/callback`, verified-email linking, and email-code completion when GitHub lacks verified email.
-- [ ] 3.4 Implement first-login bootstrap that creates default Tenant and one unconfigured WeChat resource for Operators without memberships.
-- [ ] 3.5 Implement HttpOnly 7-day sliding Web session issuance, validation, logout, and server-side revocation.
-- [ ] 3.6 Replace legacy shared authorization-password logic with email/GitHub identity login and consent pages.
+- [x] 3.4 Implement first-login bootstrap that creates default Tenant and one unconfigured WeChat resource for Operators without memberships.
+- [x] 3.5 Implement HttpOnly 7-day sliding Web session issuance, validation, logout, and server-side revocation.
+- [x] 3.6 Replace legacy shared authorization-password logic with email/GitHub identity login and consent pages.
 - [ ] 3.7 Implement dynamic public OAuth client registration with PKCE, redirect URI validation, consent display, remembered consent, access token 1h TTL, refresh token 30d TTL, and revocation.
 - [ ] 3.8 Add tests for new Operator signup, existing Operator login, GitHub verified-email linking, missing verified email completion, Turnstile failure, rate limiting, token expiry, and revoked token denial.
 
@@ -76,7 +76,7 @@
 ## 7. CLI onboarding package
 
 - [x] 7.1 Rename public package metadata to `@ziikoo/woa` while preserving `woa` bin and private repository metadata policy.
-- [ ] 7.2 Implement `woa login` against the new OAuth flow, including PKCE, browser callback, email-first authorization page, token storage, and reauthorization after legacy token rejection.
+- [x] 7.2 Implement `woa login` against the new OAuth flow, including PKCE, browser callback, email-first authorization page, token storage, and reauthorization after legacy token rejection.
 - [x] 7.3 Implement CLI commands for `whoami`, account list/create/rename/default/configure/status/delete, quota/status, and Tenant context display.
 - [x] 7.4 Implement `woa billing checkout --plan plus|pro` to create checkout, print URL, and open browser.
 - [x] 7.5 Implement MCP config generation for Codex and Claude pointing to `https://woa.ziikoo.app/mcp` without tokens or local MCP transports.
