@@ -1,4 +1,4 @@
-import { Section } from '@astryxdesign/core';
+import { MetadataList, MetadataListItem, Section } from '@astryxdesign/core';
 import type { ReactNode } from 'react';
 
 export function PageHeader({ title, description }: { title: string; description: string }) {
@@ -25,13 +25,12 @@ export function SurfaceSection({ title, children }: { title: string; children: R
 
 export function DefinitionList({ items }: { items: Array<{ label: string; value: ReactNode }> }) {
   return (
-    <dl className="definition-list">
+    <MetadataList>
       {items.map(item => (
-        <div key={item.label} style={{ display: 'contents' }}>
-          <dt>{item.label}</dt>
-          <dd>{item.value}</dd>
-        </div>
+        <MetadataListItem key={item.label} label={item.label}>
+          {item.value}
+        </MetadataListItem>
       ))}
-    </dl>
+    </MetadataList>
   );
 }

@@ -1,4 +1,4 @@
-import { Link, Text } from '@astryxdesign/core';
+import { AppShell, TopNav, TopNavHeading, TopNavItem } from '@astryxdesign/core';
 import type { ReactNode } from 'react';
 
 const navItems = [
@@ -11,19 +11,21 @@ const navItems = [
 
 export function AppChrome({ children }: { children: ReactNode }) {
   return (
-    <div className="app-shell">
-      <header className="app-topbar">
-        <div className="app-brand">
-          <strong>WOA</strong>
-          <Text type="supporting" as="span">微信公众号 MCP SaaS</Text>
-        </div>
-        <nav className="app-nav" aria-label="主导航">
+    <AppShell
+      topNav={
+        <TopNav
+          heading={<TopNavHeading heading="WOA" subheading="微信公众号 MCP SaaS" />}
+          label="主导航"
+        >
           {navItems.map(item => (
-            <Link key={item.href} href={item.href} isStandalone>{item.label}</Link>
+            <TopNavItem key={item.href} label={item.label} href={item.href} />
           ))}
-        </nav>
-      </header>
-      <main className="app-main">{children}</main>
-    </div>
+        </TopNav>
+      }
+      contentPadding={4}
+      variant="elevated"
+    >
+      {children}
+    </AppShell>
   );
 }

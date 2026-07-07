@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, StatusDot } from '@astryxdesign/core';
+import { Button, HStack, StatusDot } from '@astryxdesign/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DefinitionList, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 import { createCheckoutSession, getBillingStatus, getCurrentOperator } from '../lib/api.js';
@@ -68,7 +68,7 @@ function BillingPage() {
               { label: '状态', value: <span className="inline-status"><StatusDot variant={plan.plan === 'free' ? 'neutral' : 'accent'} label={plan.name} />{plan.plan === 'free' ? '自动启用' : 'Stripe 月付'}</span> },
             ]} />
             {plan.plan !== 'free' ? (
-              <div className="inline-actions" style={{ marginTop: 16 }}>
+              <HStack gap={3} wrap="wrap" align="center">
                 <Button
                   label={`升级到 ${plan.name}`}
                   variant="primary"
@@ -77,7 +77,7 @@ function BillingPage() {
                   clickAction={async () => checkout.mutate(plan.plan as PaidPlan)}
                 />
                 <span className="section-copy mono">woa billing checkout --plan {plan.plan}</span>
-              </div>
+              </HStack>
             ) : null}
           </SurfaceSection>
         ))}

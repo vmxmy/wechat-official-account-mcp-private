@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, Link, Text } from '@astryxdesign/core';
+import { Button, HStack, Link, Text, VStack } from '@astryxdesign/core';
 import { PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 
 export const Route = createFileRoute('/')({
@@ -16,20 +16,22 @@ function HomePage() {
       <PageStack>
         <SurfaceSection title="当前入口">
           <p className="section-copy">先完成邮箱验证码登录，再配置 AppID/AppSecret。CLI 和 MCP 使用同一个远程 OAuth/Streamable HTTP 后端。</p>
-          <div className="inline-actions" style={{ marginTop: 16 }}>
+          <HStack gap={3} wrap="wrap">
             <Button label="开始登录" variant="primary" href="/login" />
             <Button label="查看 MCP 配置" href="/mcp" />
-          </div>
+          </HStack>
         </SurfaceSection>
         <SurfaceSection title="运行约束">
-          <ul className="notice-list">
-            <li>微信 AppSecret 只提交给远程 Worker，不写入浏览器或 CLI 本地配置。</li>
-            <li>Codex/Claude 配置只包含 <span className="mono">https://woa.ziikoo.app/mcp</span>，不嵌入 OAuth token。</li>
-            <li>视频发布首版不支持；文章与图片/贴图发布继续通过远程工具处理。</li>
-          </ul>
-          <Text type="supporting" as="p" display="block" style={{ marginTop: 14 }}>
-            法务与支持：<Link href="/legal/terms">服务条款</Link>、<Link href="/legal/privacy">隐私说明</Link>、support@ziikoo.app。
-          </Text>
+          <VStack gap={4}>
+            <ul className="notice-list">
+              <li>微信 AppSecret 只提交给远程 Worker，不写入浏览器或 CLI 本地配置。</li>
+              <li>Codex/Claude 配置只包含 <span className="mono">https://woa.ziikoo.app/mcp</span>，不嵌入 OAuth token。</li>
+              <li>视频发布首版不支持；文章与图片/贴图发布继续通过远程工具处理。</li>
+            </ul>
+            <Text type="supporting" as="p" display="block">
+              法务与支持：<Link href="/legal/terms">服务条款</Link>、<Link href="/legal/privacy">隐私说明</Link>、support@ziikoo.app。
+            </Text>
+          </VStack>
         </SurfaceSection>
       </PageStack>
     </>

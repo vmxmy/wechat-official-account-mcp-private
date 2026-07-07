@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, StatusDot } from '@astryxdesign/core';
+import { Button, EmptyState, HStack, StatusDot, Table, type TableColumn } from '@astryxdesign/core';
+import { proportional } from '@astryxdesign/core/Table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
-import { getSecuritySessions, revokeSecuritySession } from '../lib/api.js';
+import { getSecuritySessions, revokeSecuritySession, securitySessionSchema } from '../lib/api.js';
+import type { z } from 'zod';
 import { requireWebSession } from '../route-guards.js';
 
 export const Route = createFileRoute('/security')({
@@ -24,6 +26,48 @@ function SecurityPage() {
   });
   const rows = sessions.data?.sessions ?? [];
 
+  const columns: TableColumn<z.infer<typeof securitySessionSchema>>[] = [
+    {
+      key: 'client',
+      header: '客户端',
+      width: proportional(1),
+      renderCell: row => row.clientName ?? row.clientId ?? row.kind ?? '未知客户端',
+    },
+    {
+      key: 'createdAt',
+      header: '创建时间',
+      renderCell: row => formatTime(row.createdAt),
+    },
+    {
+      key: 'expiresAt',
+      header: '过期策略',
+      renderCell: row => formatTime(row.expiresAt),
+    },
+    {
+      key: 'status',
+      header: '状态',
+      renderCell: row => (
+        <HStack gap={2}>
+          <StatusDot variant={row.revokedAt ? 'neutral' : 'success'} label={row.revokedAt ? '已撤销' : '有效'} />
+          {row.revokedAt ? '已撤销' : '有效'}
+        </HStack>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '操作',
+      renderCell: row => (
+        <Button
+          label="撤销"
+          size="sm"
+          isLoading={revoke.isPending}
+          isDisabled={!row.canRevoke}
+          clickAction={() => revoke.mutate(row.id)}
+        />
+      ),
+    },
+  ];
+
   return (
     <>
       <PageHeader
@@ -32,49 +76,22 @@ function SecurityPage() {
       />
       <PageStack>
         <SurfaceSection title="授权列表">
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>客户端</th>
-                  <th>创建时间</th>
-                  <th>过期策略</th>
-                  <th>状态</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>暂无可显示的授权会话。登录后会显示 Web、CLI 或 MCP 授权记录。</td>
-                  </tr>
-                ) : rows.map(row => (
-                  <tr key={row.id}>
-                    <td>{row.clientName ?? row.clientId ?? row.kind ?? '未知客户端'}</td>
-                    <td>{formatTime(row.createdAt)}</td>
-                    <td>{formatTime(row.expiresAt)}</td>
-                    <td><span className="inline-status"><StatusDot variant={row.revokedAt ? 'neutral' : 'success'} label={row.revokedAt ? '已撤销' : '有效'} />{row.revokedAt ? '已撤销' : '有效'}</span></td>
-                    <td>
-                      <Button
-                        label="撤销"
-                        size="sm"
-                        isLoading={revoke.isPending}
-                        isDisabled={!row.canRevoke}
-                        clickAction={() => revoke.mutate(row.id)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {rows.length === 0 ? (
+            <EmptyState
+              title="暂无可显示的授权会话"
+              description="登录后会显示 Web、CLI 或 MCP 授权记录。"
+              isCompact
+            />
+          ) : (
+            <Table data={rows} idKey="id" columns={columns} dividers="rows" hasHover />
+          )}
           {sessions.error ? (
-            <p className="section-copy" style={{ marginTop: 14 }}>
+            <p className="section-copy">
               {sessions.error instanceof Error ? sessions.error.message : '读取授权会话失败。'}
             </p>
           ) : null}
           {revoke.error ? (
-            <p className="section-copy" style={{ marginTop: 14 }}>
+            <p className="section-copy">
               {revoke.error instanceof Error ? revoke.error.message : '撤销失败，请刷新后重试。'}
             </p>
           ) : null}

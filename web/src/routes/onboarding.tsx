@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, StatusDot, TextInput } from '@astryxdesign/core';
+import { Button, FormLayout, StatusDot, TextInput } from '@astryxdesign/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
@@ -73,24 +73,26 @@ function OnboardingPage() {
           </ul>
         </SurfaceSection>
         <SurfaceSection title="提交凭据">
-          <form className="form-grid" onSubmit={submitCredentials}>
-            <TextInput label="资源名称" htmlName="name" value={resourceName} onChange={setResourceName} />
-            <TextInput label="AppID" htmlName="appId" value={appId} onChange={setAppId} placeholder="wx..." isRequired />
-            <TextInput label="AppSecret" htmlName="appSecret" type="password" value={appSecret} onChange={setAppSecret} placeholder="只发送到远程 Worker，不保存在浏览器" isRequired />
-            <TextInput label="Webhook Token（可选）" htmlName="token" value={webhookToken} onChange={setWebhookToken} placeholder="启用收件箱前再配置也可以" />
-            <TextInput label="EncodingAESKey（可选）" htmlName="encodingAESKey" value={encodingAESKey} onChange={setEncodingAESKey} placeholder="安全模式回调需要" />
+          <form onSubmit={submitCredentials}>
+            <FormLayout>
+              <TextInput label="资源名称" htmlName="name" value={resourceName} onChange={setResourceName} />
+              <TextInput label="AppID" htmlName="appId" value={appId} onChange={setAppId} placeholder="wx..." isRequired />
+              <TextInput label="AppSecret" htmlName="appSecret" type="password" value={appSecret} onChange={setAppSecret} placeholder="只发送到远程 Worker，不保存在浏览器" isRequired />
+              <TextInput label="Webhook Token（可选）" htmlName="token" value={webhookToken} onChange={setWebhookToken} placeholder="启用收件箱前再配置也可以" />
+              <TextInput label="EncodingAESKey（可选）" htmlName="encodingAESKey" value={encodingAESKey} onChange={setEncodingAESKey} placeholder="安全模式回调需要" />
+            </FormLayout>
             <div className="inline-actions">
               <Button label="验证并保存" type="submit" variant="primary" isLoading={mutation.isPending} isDisabled={!appId || !appSecret || !status?.tenantId || !status.resourceId} />
               <Button label="稍后配置 Webhook" href="/mcp" />
             </div>
           </form>
           {mutation.error ? (
-            <p className="section-copy" style={{ marginTop: 14 }}>
+            <p className="section-copy">
               {mutation.error instanceof Error ? mutation.error.message : '凭据验证失败，请确认微信白名单和 AppSecret。'}
             </p>
           ) : null}
           {onboarding.error ? (
-            <p className="section-copy" style={{ marginTop: 14 }}>
+            <p className="section-copy">
               {onboarding.error instanceof Error ? onboarding.error.message : '读取 onboarding 状态失败。'}
             </p>
           ) : null}

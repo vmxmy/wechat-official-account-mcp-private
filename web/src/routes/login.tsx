@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, Card, Divider, Heading, Link, Text, TextInput } from '@astryxdesign/core';
+import { Button, Card, Center, Divider, FormLayout, Heading, Link, Text, TextInput, VStack } from '@astryxdesign/core';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
 
@@ -32,93 +32,99 @@ function LoginPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-shell">
-        <div className="auth-brand-block">
-          <div className="auth-logo" aria-hidden="true">WOA</div>
-          <Heading level={1} type="display-3" justify="center" textWrap="balance">登录 WOA</Heading>
-          <Text type="supporting" as="p" justify="center" textWrap="pretty">
-            使用同一个账户管理微信公众号 MCP、OAuth 授权、用量和订阅。
-          </Text>
-        </div>
+      <Center axis="both" height="100%">
+        <VStack gap={4} hAlign="center" width="min(100%, 440px)">
+          <VStack gap={2} hAlign="center">
+            <div className="auth-logo" aria-hidden="true">WOA</div>
+            <Heading level={1} type="display-3" justify="center" textWrap="balance">登录 WOA</Heading>
+            <Text type="supporting" as="p" justify="center" textWrap="pretty">
+              使用同一个账户管理微信公众号 MCP、OAuth 授权、用量和订阅。
+            </Text>
+          </VStack>
 
-        <Card padding={8} width="100%" maxWidth={440}>
-          <div className="auth-card-stack">
-            <div className="auth-card-header">
-              <Heading level={2}>继续登录</Heading>
-              <Text type="supporting" as="p">
-                推荐使用 GitHub；邮箱验证码可作为备用登录方式。
-              </Text>
-            </div>
+          <Card padding={8} width="100%" maxWidth={440}>
+            <VStack gap={4}>
+              <VStack gap={1.5}>
+                <Heading level={2}>继续登录</Heading>
+                <Text type="supporting" as="p">
+                  推荐使用 GitHub；邮箱验证码可作为备用登录方式。
+                </Text>
+              </VStack>
 
-            {errorCode ? (
-              <div className="form-error" role="alert">登录请求未完成：{loginErrorMessage(errorCode)}</div>
-            ) : null}
-
-            <Button
-              label="使用 GitHub 继续"
-              href={githubLoginHref}
-              variant="primary"
-              className="auth-full-width"
-            />
-
-            <Divider label="或使用邮箱验证码" />
-
-            <form className="auth-form" method="post" action="/api/v1/auth/email-code/request">
-              <input type="hidden" name="returnTo" value={returnTo} />
-              <TextInput
-                label="邮箱地址"
-                type="email"
-                htmlName="email"
-                value={email}
-                onChange={setEmail}
-                placeholder="operator@example.com"
-                status={emailError ? { type: 'error', message: emailError } : undefined}
-                isRequired
-                hasAutoFocus
-              />
-              {turnstileSiteKey ? (
-                <div className="auth-turnstile cf-turnstile" data-sitekey={turnstileSiteKey} />
-              ) : (
-                <Text type="supporting" as="p">当前构建未配置 Turnstile site key；生产环境必须配置后端 secret 并启用小组件。</Text>
-              )}
-              {isCodeSent ? (
-                <div className="auth-success" role="status">验证码已发送，请查收邮箱并在下方输入 6 位数字。</div>
+              {errorCode ? (
+                <div className="form-error" role="alert">登录请求未完成：{loginErrorMessage(errorCode)}</div>
               ) : null}
-              <Button
-                label="发送验证码"
-                type="submit"
-                className="auth-full-width"
-                isDisabled={!!emailError || !email}
-              />
-            </form>
 
-            <form className="auth-form" method="post" action="/api/v1/auth/email-code/verify">
-              <input type="hidden" name="returnTo" value={returnTo} />
-              <input type="hidden" name="email" value={email} />
-              <TextInput
-                label="6 位验证码"
-                htmlName="code"
-                value={code}
-                onChange={setCode}
-                placeholder="123456"
-                description="验证码有效期有限；如未收到，可重新发送。"
-                isRequired
-              />
               <Button
-                label="完成登录"
-                type="submit"
+                label="使用 GitHub 继续"
+                href={githubLoginHref}
                 variant="primary"
                 className="auth-full-width"
-                isDisabled={!email || code.length < 6}
               />
-            </form>
-          </div>
-        </Card>
 
-        <Text type="supporting" as="p" justify="center">
-          无法登录？联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>
-        </Text>
-      </div>
+              <Divider label="或使用邮箱验证码" />
+
+              <form method="post" action="/api/v1/auth/email-code/request">
+                <input type="hidden" name="returnTo" value={returnTo} />
+                <FormLayout>
+                  <TextInput
+                    label="邮箱地址"
+                    type="email"
+                    htmlName="email"
+                    value={email}
+                    onChange={setEmail}
+                    placeholder="operator@example.com"
+                    status={emailError ? { type: 'error', message: emailError } : undefined}
+                    isRequired
+                    hasAutoFocus
+                  />
+                  {turnstileSiteKey ? (
+                    <div className="auth-turnstile cf-turnstile" data-sitekey={turnstileSiteKey} />
+                  ) : (
+                    <Text type="supporting" as="p">当前构建未配置 Turnstile site key；生产环境必须配置后端 secret 并启用小组件。</Text>
+                  )}
+                  {isCodeSent ? (
+                    <div className="auth-success" role="status">验证码已发送，请查收邮箱并在下方输入 6 位数字。</div>
+                  ) : null}
+                  <Button
+                    label="发送验证码"
+                    type="submit"
+                    className="auth-full-width"
+                    isDisabled={!!emailError || !email}
+                  />
+                </FormLayout>
+              </form>
+
+              <form method="post" action="/api/v1/auth/email-code/verify">
+                <input type="hidden" name="returnTo" value={returnTo} />
+                <input type="hidden" name="email" value={email} />
+                <FormLayout>
+                  <TextInput
+                    label="6 位验证码"
+                    htmlName="code"
+                    value={code}
+                    onChange={setCode}
+                    placeholder="123456"
+                    description="验证码有效期有限；如未收到，可重新发送。"
+                    isRequired
+                  />
+                  <Button
+                    label="完成登录"
+                    type="submit"
+                    variant="primary"
+                    className="auth-full-width"
+                    isDisabled={!email || code.length < 6}
+                  />
+                </FormLayout>
+              </form>
+            </VStack>
+          </Card>
+
+          <Text type="supporting" as="p" justify="center">
+            无法登录？联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>
+          </Text>
+        </VStack>
+      </Center>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { CodeBlock, Link } from '@astryxdesign/core';
+import { CodeBlock, Link, VStack } from '@astryxdesign/core';
 import { PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 import { claudeMcpConfig, codexMcpConfig, mcpUrl } from '../lib/mcp-config.js';
 
@@ -16,8 +16,10 @@ function McpPage() {
       />
       <PageStack>
         <SurfaceSection title="Endpoint">
-          <p className="section-copy mono">{mcpUrl()}</p>
-          <p className="section-copy" style={{ marginTop: 8 }}>授权由客户端通过 OAuth 完成；不要把 AppSecret 或 access token 写进 MCP 配置文件。</p>
+          <VStack gap={2}>
+            <p className="section-copy mono">{mcpUrl()}</p>
+            <p className="section-copy">授权由客户端通过 OAuth 完成；不要把 AppSecret 或 access token 写进 MCP 配置文件。</p>
+          </VStack>
         </SurfaceSection>
         <SurfaceSection title="Codex">
           <CodeBlock code={JSON.stringify(codexMcpConfig(), null, 2)} language="json" title="codex mcp config" width="100%" />
@@ -26,8 +28,10 @@ function McpPage() {
           <CodeBlock code={JSON.stringify(claudeMcpConfig(), null, 2)} language="json" title="claude mcp config" width="100%" />
         </SurfaceSection>
         <SurfaceSection title="CLI 生成">
-          <CodeBlock code="npx -y --package @ziikoo/woa woa mcp config codex --server https://woa.ziikoo.app" language="bash" title="terminal" width="100%" />
-          <p className="section-copy" style={{ marginTop: 12 }}>需要帮助请联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>。</p>
+          <VStack gap={2}>
+            <CodeBlock code="npx -y --package @ziikoo/woa woa mcp config codex --server https://woa.ziikoo.app" language="bash" title="terminal" width="100%" />
+            <p className="section-copy">需要帮助请联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>。</p>
+          </VStack>
         </SurfaceSection>
       </PageStack>
     </>

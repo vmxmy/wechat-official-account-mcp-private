@@ -2,5 +2,5 @@
 
 @import '@astryxdesign/core/reset.css' layer(reset);
 @import '@astryxdesign/core/astryx.css' layer(astryx);
-@import '../ziikoo-woa.css';
+@import '../ziikoo-woa.css' layer(astryx-theme);
 @import './theme.css' layer(theme);
