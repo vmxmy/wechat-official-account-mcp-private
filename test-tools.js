@@ -1,7 +1,7 @@
 // 简单测试脚本验证工具注册与运行时 seam
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { execFile, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import CryptoJS from 'crypto-js';
@@ -77,6 +77,23 @@ function execFileText(file, args, options = {}) {
   });
 }
 
+function collectTextFiles(dir, extensions = new Set(['.html', '.js', '.css', '.map'])) {
+  if (!existsSync(dir)) return [];
+  const files = [];
+  for (const entry of readdirSync(dir)) {
+    const path = `${dir}/${entry}`;
+    const stat = statSync(path);
+    if (stat.isDirectory()) {
+      files.push(...collectTextFiles(path, extensions));
+      continue;
+    }
+    const dotIndex = entry.lastIndexOf('.');
+    const extension = dotIndex >= 0 ? entry.slice(dotIndex) : '';
+    if (extensions.has(extension)) files.push(path);
+  }
+  return files;
+}
+
 function usageCliRequestsOk(requests) {
   return requests.length === 1 &&
     requests[0].method === 'GET' &&
@@ -120,6 +137,27 @@ check(
     !existsSync('./dist/src/mcp-server') &&
     readFileSync('./dist/src/worker/index.js', 'utf8').includes("serve('/mcp'"),
   '旧本地桌面 stdio CLI 构建产物未恢复；仅新增 remote-only woa CLI，Workers /mcp Streamable HTTP 保持',
+);
+
+const webDistFiles = collectTextFiles('./web/dist');
+const webDistTraeMatches = webDistFiles.flatMap(file => {
+  const text = readFileSync(file, 'utf8');
+  const matches = text.match(/TraeBadgePlugin|trae-badge|trae\.ai|trae-inspector/g) ?? [];
+  return matches.map(match => `${file}:${match}`);
+});
+check(
+  webDistFiles.length > 0 && webDistTraeMatches.length === 0,
+  webDistTraeMatches.length === 0
+    ? '生产 Web 构建不包含 Trae badge/广告链接/inspector 注入'
+    : `生产 Web 构建包含 Trae 残留：${webDistTraeMatches.slice(0, 5).join(', ')}`,
+);
+
+const appLinkSource = readFileSync('./web/src/components/AppLink.tsx', 'utf8');
+const loginRouteSource = readFileSync('./web/src/routes/login.tsx', 'utf8');
+check(
+  appLinkSource.includes("href.startsWith('/auth/')") &&
+    loginRouteSource.includes('/auth/github/callback?returnTo='),
+  'GitHub OAuth 登录链接使用文档导航，/auth callback 会到达 Worker 而不是 SPA router',
 );
 
 console.log('\n=== HTTP/Storage Seam 验证 ===');

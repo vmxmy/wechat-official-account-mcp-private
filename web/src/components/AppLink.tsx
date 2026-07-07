@@ -4,27 +4,36 @@ import type { AnchorHTMLAttributes } from 'react';
 
 type AppLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   href?: string;
+  to?: string;
 };
 
 export const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(function AppLink(
   { href = '', children, ...props },
   ref,
 ) {
-  if (isExternalHref(href)) {
-    return <a ref={ref} href={href} {...props}>{children}</a>;
+  const linkProps = { ...props };
+  delete linkProps.to;
+
+  if (isDocumentNavigationHref(href)) {
+    return <a ref={ref} href={href} {...linkProps}>{children}</a>;
   }
 
   return (
     <RouterLink
       ref={ref}
       to={href || '/'}
-      {...props}
+      {...linkProps}
     >
       {children}
     </RouterLink>
   );
 });
 
-function isExternalHref(href: string): boolean {
-  return /^(https?:|mailto:|tel:|#)/.test(href);
+function isDocumentNavigationHref(href: string): boolean {
+  return /^(https?:|mailto:|tel:|#)/.test(href) ||
+    href.startsWith('/auth/') ||
+    href.startsWith('/api/') ||
+    href.startsWith('/oauth/') ||
+    href === '/authorize' ||
+    href.startsWith('/authorize?');
 }
