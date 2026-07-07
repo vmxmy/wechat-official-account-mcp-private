@@ -238,7 +238,13 @@ function jsonOrRedirect(
   init?: ResponseInit,
 ): Response {
   if (wantsJson(request)) return json(payload, init);
-  return Response.redirect(new URL(redirectTo, request.url).toString(), init?.status && init.status >= 300 && init.status < 400 ? init.status : 303);
+  return new Response(null, {
+    status: init?.status && init.status >= 300 && init.status < 400 ? init.status : 303,
+    headers: {
+      location: new URL(redirectTo, request.url).toString(),
+      ...(init?.headers ?? {}),
+    },
+  });
 }
 
 function escapeHtml(value: string): string {
@@ -613,7 +619,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
       const authorizeUrl = createGitHubAuthorizeUrl({ clientId, redirectUri, state });
       const response = wantsJson(request)
         ? json({ success: true, data: { authorizationUrl: authorizeUrl } })
-        : Response.redirect(authorizeUrl, 302);
+        : new Response(null, { status: 302, headers: { location: authorizeUrl } });
       response.headers.append('set-cookie', githubOAuthStateCookie(state, returnTo, request));
       return response;
     }
