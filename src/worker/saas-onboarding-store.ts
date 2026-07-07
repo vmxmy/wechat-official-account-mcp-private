@@ -337,7 +337,10 @@ export class D1SaasOnboardingStore {
        WHERE verified_email = ? AND status != 'disabled'
        LIMIT 1`,
     ).bind(normalizeEmail(email)).first<Record<string, unknown>>();
-    return row ? rowToOperator(row) : null;
+    if (!row) return null;
+    const operator = rowToOperator(row);
+    await this.ensureLegacyUserForOperator(operator);
+    return operator;
   }
 
   async createOrResolveOperatorByEmail(input: {
@@ -383,7 +386,10 @@ export class D1SaasOnboardingStore {
        WHERE i.provider = ? AND i.provider_subject = ? AND o.status != 'disabled'
        LIMIT 1`,
     ).bind(provider, providerSubject).first<Record<string, unknown>>();
-    return row ? rowToOperator(row) : null;
+    if (!row) return null;
+    const operator = rowToOperator(row);
+    await this.ensureLegacyUserForOperator(operator);
+    return operator;
   }
 
   async linkOperatorIdentity(input: {
@@ -396,6 +402,13 @@ export class D1SaasOnboardingStore {
   }): Promise<void> {
     await this.ensureSchema();
     const now = input.now ?? Date.now();
+    const operator = await this.findOperatorById(input.operatorId);
+    if (operator) {
+      await this.ensureLegacyUserForOperator({
+        ...operator,
+        verifiedEmail: input.verifiedEmail ? normalizeEmail(input.verifiedEmail) : operator.verifiedEmail,
+      }, now);
+    }
     await this.db.prepare(
       `INSERT INTO operator_identities (
          id,
@@ -797,6 +810,9 @@ export class D1SaasOnboardingStore {
     now?: number;
   }): Promise<BootstrapTenantResult> {
     await this.ensureSchema();
+    const now = input.now ?? Date.now();
+    await this.ensureLegacyUserForOperatorId(input.operatorId, now);
+
     const existing = await this.getTenantContextForOperator(input.operatorId, { source: 'rest' });
     if (existing.tenants.length > 0) {
       const tenant = existing.tenants[0];
@@ -805,7 +821,32 @@ export class D1SaasOnboardingStore {
       return { created: false, tenant, resource };
     }
 
-    const now = input.now ?? Date.now();
+    const ownedTenant = await this.findOwnedTenantForOperator(input.operatorId);
+    if (ownedTenant) {
+      const tenantId = stringValue(ownedTenant.tenant_id) || '';
+      const resourceId = stringValue(ownedTenant.tenant_default_account_id) || input.resourceId || opaqueId('acct');
+      const resourceName = input.resourceName || '默认公众号资源';
+      await this.ensureBootstrapTenantArtifacts({
+        operatorId: input.operatorId,
+        tenantId,
+        resourceId,
+        resourceName,
+        now,
+      });
+      const resource = await this.getWechatResource(tenantId, resourceId);
+      return {
+        created: false,
+        tenant: {
+          tenantId,
+          slug: stringValue(ownedTenant.tenant_slug) || tenantId,
+          name: stringValue(ownedTenant.tenant_name) || input.tenantName || '默认租户',
+          role: 'owner',
+          status: stringValue(ownedTenant.tenant_status) === 'disabled' ? 'disabled' : 'active',
+        },
+        resource: resource ?? secretSafeResourceFallback(tenantId),
+      };
+    }
+
     const tenantId = input.tenantId || opaqueId('ten');
     const resourceId = input.resourceId || opaqueId('acct');
     const tenantName = input.tenantName || '默认租户';
@@ -816,22 +857,16 @@ export class D1SaasOnboardingStore {
     ).bind(tenantId, tenantId, tenantName, resourceId, now, now).run();
     await this.db.prepare(
       `INSERT INTO tenant_owners (tenant_id, operator_id, created_at)
-       VALUES (?, ?, ?)`,
+       VALUES (?, ?, ?)
+       ON CONFLICT(tenant_id) DO NOTHING`,
     ).bind(tenantId, input.operatorId, now).run();
-    await this.db.prepare(
-      `INSERT INTO tenant_memberships (tenant_id, user_id, role, scopes_json, default_account_id, status, created_at, updated_at)
-       VALUES (?, ?, 'owner', ?, ?, 'active', ?, ?)`,
-    ).bind(tenantId, input.operatorId, JSON.stringify(ownerScopes()), resourceId, now, now).run();
-    await this.insertWechatResource({
+    await this.ensureBootstrapTenantArtifacts({
+      operatorId: input.operatorId,
       tenantId,
       resourceId,
-      slug: resourceId,
-      name: resourceName,
-      status: 'unconfigured',
-      isDefault: true,
       now,
+      resourceName,
     });
-    await this.upsertTenantEntitlement({ tenantId, plan: 'free', now });
 
     return {
       created: true,
@@ -1180,6 +1215,119 @@ export class D1SaasOnboardingStore {
        WHERE tenant_id = ? AND status != 'disabled'`,
     ).bind(tenantId).first<Record<string, unknown>>();
     return numberValue(row?.count) ?? 0;
+  }
+
+  private async findOperatorById(operatorId: string): Promise<OperatorRecord | null> {
+    const row = await this.db.prepare(
+      `SELECT id, verified_email, display_name, status, created_at, updated_at
+       FROM operators
+       WHERE id = ? AND status != 'disabled'
+       LIMIT 1`,
+    ).bind(operatorId).first<Record<string, unknown>>();
+    return row ? rowToOperator(row) : null;
+  }
+
+  /**
+   * 兼容 0002 多租户表仍以 users(id) 作为 tenant_memberships.user_id 外键的历史模型。
+   * Operator 是新的登录主实体；在迁移窗口内为每个 Operator 补一条同 ID legacy user，
+   * 避免 GitHub/email 首登 bootstrap 默认租户时触发 D1 外键失败。
+   */
+  private async ensureLegacyUserForOperator(operator: OperatorRecord, now: number = Date.now()): Promise<void> {
+    if (!operator.operatorId) return;
+    const email = operator.verifiedEmail ? normalizeEmail(operator.verifiedEmail) : '';
+    const duplicateEmailUser = email
+      ? await this.db.prepare(
+        `SELECT id
+         FROM users
+         WHERE email = ? AND id != ?
+         LIMIT 1`,
+      ).bind(email, operator.operatorId).first<Record<string, unknown>>()
+      : null;
+    const legacyEmail = duplicateEmailUser ? null : email || null;
+    await this.db.prepare(
+      `INSERT INTO users (id, email, display_name, status, created_at, updated_at)
+       VALUES (?, ?, ?, 'active', ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         email = CASE
+           WHEN users.email IS NULL AND excluded.email IS NOT NULL THEN excluded.email
+           ELSE users.email
+         END,
+         display_name = CASE
+           WHEN users.display_name IS NULL OR users.display_name = '' THEN excluded.display_name
+           ELSE users.display_name
+         END,
+         status = CASE
+           WHEN users.status = 'disabled' THEN users.status
+           ELSE 'active'
+         END,
+         updated_at = excluded.updated_at`,
+    ).bind(
+      operator.operatorId,
+      legacyEmail,
+      operator.displayName || legacyEmail || operator.operatorId,
+      now,
+      now,
+    ).run();
+  }
+
+  private async ensureLegacyUserForOperatorId(operatorId: string, now: number): Promise<void> {
+    const operator = await this.findOperatorById(operatorId);
+    if (operator) {
+      await this.ensureLegacyUserForOperator(operator, now);
+    }
+  }
+
+  private async findOwnedTenantForOperator(operatorId: string): Promise<Record<string, unknown> | null> {
+    return await this.db.prepare(
+      `SELECT t.id AS tenant_id,
+              t.slug AS tenant_slug,
+              t.name AS tenant_name,
+              t.status AS tenant_status,
+              t.default_account_id AS tenant_default_account_id
+       FROM tenant_owners o
+       INNER JOIN tenants t ON t.id = o.tenant_id
+       WHERE o.operator_id = ? AND t.status != 'disabled'
+       ORDER BY t.created_at ASC
+       LIMIT 1`,
+    ).bind(operatorId).first<Record<string, unknown>>();
+  }
+
+  private async ensureBootstrapTenantArtifacts(input: {
+    operatorId: string;
+    tenantId: string;
+    resourceId: string;
+    resourceName: string;
+    now: number;
+  }): Promise<void> {
+    await this.db.prepare(
+      `UPDATE tenants
+       SET default_account_id = COALESCE(default_account_id, ?), updated_at = ?
+       WHERE id = ?`,
+    ).bind(input.resourceId, input.now, input.tenantId).run();
+    await this.db.prepare(
+      `INSERT INTO tenant_memberships (tenant_id, user_id, role, scopes_json, default_account_id, status, created_at, updated_at)
+       VALUES (?, ?, 'owner', ?, ?, 'active', ?, ?)
+       ON CONFLICT(tenant_id, user_id) DO UPDATE SET
+         role = 'owner',
+         scopes_json = excluded.scopes_json,
+         default_account_id = excluded.default_account_id,
+         status = 'active',
+         updated_at = excluded.updated_at`,
+    ).bind(input.tenantId, input.operatorId, JSON.stringify(ownerScopes()), input.resourceId, input.now, input.now).run();
+
+    const existingResource = await this.getWechatResource(input.tenantId, input.resourceId);
+    if (!existingResource) {
+      await this.insertWechatResource({
+        tenantId: input.tenantId,
+        resourceId: input.resourceId,
+        slug: input.resourceId,
+        name: input.resourceName,
+        status: 'unconfigured',
+        isDefault: true,
+        now: input.now,
+      });
+    }
+    await this.upsertTenantEntitlement({ tenantId: input.tenantId, plan: 'free', now: input.now });
   }
 
   private async insertWechatResource(input: {

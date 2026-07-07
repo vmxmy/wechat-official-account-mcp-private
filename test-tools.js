@@ -2176,6 +2176,7 @@ console.log('\n=== SaaS onboarding repository fixture 验证 ===');
 
 class MemorySaasD1Database {
   operators = new Map();
+  users = new Map();
   identities = new Map();
   emailCodes = new Map();
   webSessions = new Map();
@@ -2217,6 +2218,20 @@ class MemorySaasD1Statement {
     if (q.startsWith('INSERT INTO operators')) {
       const [id, verifiedEmail, displayName, createdAt, updatedAt] = this.values;
       this.db.operators.set(id, { id, verified_email: verifiedEmail, display_name: displayName, status: 'active', created_at: createdAt, updated_at: updatedAt });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('INSERT INTO users')) {
+      const [id, email, displayName, createdAt, updatedAt] = this.values;
+      const existing = this.db.users.get(id);
+      this.db.users.set(id, {
+        id,
+        email: existing?.email ?? email,
+        display_name: existing?.display_name || displayName,
+        status: existing?.status === 'disabled' ? 'disabled' : 'active',
+        created_at: existing?.created_at ?? createdAt,
+        updated_at: updatedAt,
+      });
       return { success: true, meta: { changes: 1 } };
     }
 
@@ -2340,7 +2355,12 @@ class MemorySaasD1Statement {
 
     if (q.startsWith('INSERT INTO tenant_memberships')) {
       const [tenantId, operatorId, scopesJson, defaultAccountId, createdAt, updatedAt] = this.values;
-      this.db.memberships.push({ tenant_id: tenantId, user_id: operatorId, role: 'owner', scopes_json: scopesJson, default_account_id: defaultAccountId, status: 'active', created_at: createdAt, updated_at: updatedAt });
+      const existing = this.db.memberships.find(row => row.tenant_id === tenantId && row.user_id === operatorId);
+      if (existing) {
+        Object.assign(existing, { role: 'owner', scopes_json: scopesJson, default_account_id: defaultAccountId, status: 'active', updated_at: updatedAt });
+      } else {
+        this.db.memberships.push({ tenant_id: tenantId, user_id: operatorId, role: 'owner', scopes_json: scopesJson, default_account_id: defaultAccountId, status: 'active', created_at: createdAt, updated_at: updatedAt });
+      }
       return { success: true, meta: { changes: 1 } };
     }
 
@@ -2454,8 +2474,17 @@ class MemorySaasD1Statement {
     const q = this.query;
 
     if (q.startsWith('SELECT id, verified_email')) {
-      const [email] = this.values;
-      return [...this.db.operators.values()].find(row => row.verified_email === email && row.status !== 'disabled') ?? null;
+      const [value] = this.values;
+      if (q.includes('WHERE id = ?')) {
+        const row = this.db.operators.get(value);
+        return row && row.status !== 'disabled' ? row : null;
+      }
+      return [...this.db.operators.values()].find(row => row.verified_email === value && row.status !== 'disabled') ?? null;
+    }
+
+    if (q.startsWith('SELECT id FROM users')) {
+      const [email, operatorId] = this.values;
+      return [...this.db.users.values()].find(row => row.email === email && row.id !== operatorId) ?? null;
     }
 
     if (q.startsWith('SELECT o.id')) {
@@ -2499,6 +2528,22 @@ class MemorySaasD1Statement {
     if (q.startsWith('SELECT plan, status')) {
       const [tenantId] = this.values;
       return this.db.entitlements.get(tenantId) ?? null;
+    }
+
+    if (q.startsWith('SELECT t.id AS tenant_id')) {
+      const [operatorId] = this.values;
+      const owned = [...this.db.tenantOwners.values()]
+        .filter(row => row.operator_id === operatorId)
+        .map(row => this.db.tenants.get(row.tenant_id))
+        .filter(row => row && row.status !== 'disabled')
+        .sort((a, b) => a.created_at - b.created_at)[0];
+      return owned ? {
+        tenant_id: owned.id,
+        tenant_slug: owned.slug,
+        tenant_name: owned.name,
+        tenant_status: owned.status,
+        tenant_default_account_id: owned.default_account_id,
+      } : null;
     }
 
     if (q.startsWith('SELECT id, tenant_id, slug')) {
@@ -2622,10 +2667,12 @@ for (let i = 0; i < 5; i += 1) {
 }
 const rate1 = await saasStore.recordRateLimitHit({ bucket: 'email', key: 'owner@example.com', windowMs: 60_000, limit: 1, now: 1000 });
 const rate2 = await saasStore.recordRateLimitHit({ bucket: 'email', key: 'owner@example.com', windowMs: 60_000, limit: 1, now: 1001 });
+const ownerLegacyUser = saasDb.users.get(verifiedCode.operator.operatorId);
 check(
   issuedCode.expiresAt === 1000 + 10 * 60_000 &&
     verifiedCode.ok === true &&
     existingOperator.created === false &&
+    ownerLegacyUser?.email === 'owner@example.com' &&
     githubOperator?.operatorId === verifiedCode.operator.operatorId &&
     expiredCode.codeId === 'code_expired' &&
     expiredVerify.ok === false && expiredVerify.reason === 'expired' &&
@@ -2667,6 +2714,23 @@ check(
 
 const bootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: verifiedCode.operator.operatorId, tenantId: 'ten_owner', resourceId: 'acct_default_owner', now: 50_000 });
 const repeatBootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: verifiedCode.operator.operatorId, now: 51_000 });
+const orphanOperator = await saasStore.createOrResolveOperatorByEmail({ email: 'orphan@example.com', operatorId: 'op_orphan', now: 51_100 });
+saasDb.tenants.set('ten_orphan_partial', {
+  id: 'ten_orphan_partial',
+  slug: 'ten_orphan_partial',
+  name: '半初始化租户',
+  status: 'active',
+  default_account_id: 'acct_orphan_partial',
+  created_at: 51_101,
+  updated_at: 51_101,
+});
+saasDb.tenantOwners.set('ten_orphan_partial', {
+  tenant_id: 'ten_orphan_partial',
+  operator_id: orphanOperator.operator.operatorId,
+  created_at: 51_101,
+});
+const repairedBootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: orphanOperator.operator.operatorId, now: 51_200 });
+const repairedContext = await saasStore.getTenantContextForOperator(orphanOperator.operator.operatorId, { source: 'rest' });
 const ownerContext = await saasStore.getTenantContextForOperator({ operatorId: verifiedCode.operator.operatorId, scopes: ['woa:tenant:read', 'woa:account:read', 'woa:account:write'], requestId: 'req_owner' }, { source: 'rest' });
 const routeSession = await saasStore.createWebSession({ operatorId: verifiedCode.operator.operatorId, sessionToken: 'WEB_SESSION_ROUTE', sessionId: 'sess_route', now: 51_500 });
 const sessionListResponse = await handleManagementApiRequest(
@@ -2698,6 +2762,15 @@ check(
     sessionRevokeBody.data?.revoked === true &&
     sessionRevokeBody.data?.kind === 'web',
   'REST /api/v1/sessions 返回当前 Operator 授权列表并支持 operator-scoped revoke',
+);
+
+check(
+  repairedBootstrap.created === false &&
+    repairedBootstrap.tenant.tenantId === 'ten_orphan_partial' &&
+    repairedContext.defaultAccountId === 'acct_orphan_partial' &&
+    repairedContext.accounts.some(account => account.accountId === 'acct_orphan_partial') &&
+    saasDb.entitlements.get('ten_orphan_partial')?.plan === 'free',
+  'D1SaasOnboardingStore 可补全 GitHub 首登失败留下的半初始化 tenant_owner/tenant 记录',
 );
 
 const authWorkerIndexSource = readFileSync('./src/worker/index.ts', 'utf8');
