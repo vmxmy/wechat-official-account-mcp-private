@@ -6,6 +6,7 @@ import {
   type OAuthHelpers,
 } from '@cloudflare/workers-oauth-provider';
 import CryptoJS from 'crypto-js';
+import { logger } from '../utils/logger.js';
 import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
 import type { McpTool } from '../mcp-tool/types.js';
 import { workerSharedMcpTools, withOptionalAccountId } from '../mcp-tool/tools/index.js';
@@ -699,7 +700,11 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
       response.headers.append('set-cookie', sessionCookie(sessionToken, request));
       response.headers.append('set-cookie', clearGitHubOAuthStateCookie(request));
       return response;
-    } catch {
+    } catch (error) {
+      logger.error('GitHub OAuth login failed', {
+        message: error instanceof Error ? error.message : String(error),
+        returnTo: stateCookie.returnTo,
+      });
       const response = jsonOrRedirect(request, {
         success: false,
         error: {

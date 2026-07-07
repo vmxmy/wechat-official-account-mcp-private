@@ -2718,6 +2718,7 @@ const githubAccessToken = await exchangeGitHubOAuthCode({
       url: String(input),
       method: init.method,
       accept: new Headers(init.headers).get('accept'),
+      userAgent: new Headers(init.headers).get('user-agent'),
       bodyText: init.body instanceof URLSearchParams ? init.body.toString() : String(init.body ?? ''),
     });
     return new Response(JSON.stringify({ access_token: 'gho_fixture', token_type: 'bearer', scope: 'user:email' }), {
@@ -2734,6 +2735,7 @@ const githubProfile = await fetchGitHubOAuthProfile({
       url: String(input),
       authorization: new Headers(init.headers).get('authorization'),
       apiVersion: new Headers(init.headers).get('x-github-api-version'),
+      userAgent: new Headers(init.headers).get('user-agent'),
     });
     if (String(input).endsWith('/user')) {
       return new Response(JSON.stringify({ id: 123, login: 'octocat', name: 'Mona Octocat', email: 'public@example.com' }), {
@@ -2775,13 +2777,14 @@ check(
     githubOAuthCalls[0]?.url === 'https://github.com/login/oauth/access_token' &&
     githubOAuthCalls[0]?.method === 'POST' &&
     githubOAuthCalls[0]?.accept === 'application/json' &&
+    githubOAuthCalls[0]?.userAgent === 'ziikoo-woa/2.2.0' &&
     githubOAuthCalls[0]?.bodyText.includes('client_secret=github_secret_fixture') &&
     githubProfile.providerSubject === '123' &&
     githubProfile.login === 'octocat' &&
     githubProfile.displayName === 'Mona Octocat' &&
     githubProfile.verifiedEmail === 'primary@example.com' &&
-    githubProfileCalls.some(call => call.url === 'https://api.github.com/user' && call.authorization === 'Bearer gho_fixture') &&
-    githubProfileCalls.some(call => call.url === 'https://api.github.com/user/emails' && call.apiVersion === '2022-11-28') &&
+    githubProfileCalls.some(call => call.url === 'https://api.github.com/user' && call.authorization === 'Bearer gho_fixture' && call.userAgent === 'ziikoo-woa/2.2.0') &&
+    githubProfileCalls.some(call => call.url === 'https://api.github.com/user/emails' && call.apiVersion === '2022-11-28' && call.userAgent === 'ziikoo-woa/2.2.0') &&
     selectVerifiedGitHubEmail([{ email: 'unverified@example.com', primary: true, verified: false }]) === null &&
     githubProfileWithoutVerifiedEmail.verifiedEmail === null &&
     githubProfileWithoutVerifiedEmail.fallbackEmail === 'public@example.com',
