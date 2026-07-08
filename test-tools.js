@@ -154,10 +154,32 @@ check(
 
 const appLinkSource = readFileSync('./web/src/components/AppLink.tsx', 'utf8');
 const loginRouteSource = readFileSync('./web/src/routes/login.tsx', 'utf8');
+const routeGuardSource = readFileSync('./web/src/route-guards.ts', 'utf8');
 check(
   appLinkSource.includes("href.startsWith('/auth/')") &&
     loginRouteSource.includes('/auth/github/callback?returnTo='),
   'GitHub OAuth 登录链接使用文档导航，/auth callback 会到达 Worker 而不是 SPA router',
+);
+const protectedWebRouteFiles = [
+  './web/src/routes/index.tsx',
+  './web/src/routes/onboarding.tsx',
+  './web/src/routes/billing.tsx',
+  './web/src/routes/billing/success.tsx',
+  './web/src/routes/billing/cancel.tsx',
+  './web/src/routes/mcp.tsx',
+  './web/src/routes/security.tsx',
+  './web/src/routes/legal/privacy.tsx',
+  './web/src/routes/legal/terms.tsx',
+];
+check(
+  protectedWebRouteFiles.every(file => {
+    const source = readFileSync(file, 'utf8');
+    return source.includes('requireWebSession') && source.includes('beforeLoad: requireWebSession');
+  }) &&
+    routeGuardSource.includes('getCurrentOperator') &&
+    routeGuardSource.includes('/login?returnTo=') &&
+    routeGuardSource.includes('error.status === 401'),
+  'Web 非登录页面统一通过 /api/v1/me 校验会话，未登录重定向到 /login?returnTo=当前路径',
 );
 
 const providersSource = readFileSync('./web/src/providers.tsx', 'utf8');

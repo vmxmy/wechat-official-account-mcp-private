@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button, HStack, Link, Text, VStack } from '@astryxdesign/core';
 import { PageGrid, PageHeader, SurfaceSection } from '../components/Page.js';
+import { requireWebSession } from '../route-guards.js';
 
 export const Route = createFileRoute('/')({
+  beforeLoad: requireWebSession,
   component: HomePage,
 });
 

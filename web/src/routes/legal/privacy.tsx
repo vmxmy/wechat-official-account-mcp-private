@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { PageHeader, PageStack, SurfaceSection } from '../../components/Page.js';
+import { requireWebSession } from '../../route-guards.js';
 
 export const Route = createFileRoute('/legal/privacy')({
+  beforeLoad: requireWebSession,
   component: PrivacyPage,
 });
 

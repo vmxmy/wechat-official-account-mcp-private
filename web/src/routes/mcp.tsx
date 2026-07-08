@@ -2,8 +2,10 @@ import { createFileRoute } from '@tanstack/react-router';
 import { CodeBlock, Heading, Link, VStack } from '@astryxdesign/core';
 import { PageGrid, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 import { claudeMcpConfig, codexMcpConfig, mcpUrl } from '../lib/mcp-config.js';
+import { requireWebSession } from '../route-guards.js';
 
 export const Route = createFileRoute('/mcp')({
+  beforeLoad: requireWebSession,
   component: McpPage,
 });
 

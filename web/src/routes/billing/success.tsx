@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button, HStack } from '@astryxdesign/core';
 import { PageHeader, PageStack, SurfaceSection } from '../../components/Page.js';
+import { requireWebSession } from '../../route-guards.js';
 
 export const Route = createFileRoute('/billing/success')({
+  beforeLoad: requireWebSession,
   component: BillingSuccessPage,
 });
 

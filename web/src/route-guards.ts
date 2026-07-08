@@ -1,4 +1,5 @@
 import { redirect } from '@tanstack/react-router';
+import { WebApiError, getCurrentOperator } from './lib/api.js';
 
 export interface WebSessionContext {
   status: 'unknown' | 'authenticated' | 'unauthenticated';
@@ -20,13 +21,38 @@ export function initialSessionContext(): WebSessionContext {
   return { status: 'unknown' };
 }
 
-export function requireWebSession({ context, location }: {
+export async function requireWebSession({ context, location }: {
   context: RouterContext;
   location: { href: string };
-}): void {
-  if (context.session.status === 'unauthenticated') {
-    throw redirect({
-      href: `/login?returnTo=${encodeURIComponent(location.href)}`,
-    });
+}): Promise<void> {
+  try {
+    await getCurrentOperator();
+    context.session.status = 'authenticated';
+    rememberSessionStatus('authenticated');
+  } catch (error) {
+    if (isUnauthenticatedError(error)) {
+      context.session.status = 'unauthenticated';
+      rememberSessionStatus('unauthenticated');
+      redirectToLogin(location.href);
+    }
+    throw error;
+  }
+}
+
+function redirectToLogin(returnTo: string): never {
+  throw redirect({
+    href: `/login?returnTo=${encodeURIComponent(returnTo)}`,
+  });
+}
+
+function isUnauthenticatedError(error: unknown): boolean {
+  return error instanceof WebApiError && (error.status === 401 || error.code === 'unauthorized');
+}
+
+function rememberSessionStatus(status: WebSessionContext['status']): void {
+  try {
+    window.localStorage.setItem('woa:web-session', status);
+  } catch {
+    // localStorage can be unavailable in privacy modes; route guard still relies on /api/v1/me.
   }
 }
