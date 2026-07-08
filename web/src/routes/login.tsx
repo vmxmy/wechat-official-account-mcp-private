@@ -35,7 +35,7 @@ function LoginPage() {
       <Center axis="both" height="100%">
         <VStack gap={4} hAlign="center" width="min(100%, 440px)">
           <VStack gap={2} hAlign="center">
-            <div className="auth-logo" aria-hidden="true">WOA</div>
+            <div className="auth-logo" aria-hidden="true">Ziikoo</div>
             <Heading level={1} type="display-3" justify="center" textWrap="balance">登录 WOA</Heading>
             <Text type="supporting" as="p" justify="center" textWrap="pretty">
               使用同一个账户管理微信公众号 MCP、OAuth 授权、用量和订阅。
