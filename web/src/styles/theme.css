@@ -43,6 +43,19 @@ select {
   gap: var(--spacing-4);
 }
 
+/* Astryx Section escapes parent container padding by default; reset it inside
+   grids so card-like sections stay inside their grid cells. */
+.astryx-grid {
+  --container-padding-inline-start: 0px;
+  --container-padding-inline-end: 0px;
+  --container-padding-block-start: 0px;
+  --container-padding-block-end: 0px;
+}
+
+.astryx-grid > * {
+  min-width: 0;
+}
+
 .surface-section {
   padding: var(--spacing-5);
   border-top: 1px solid var(--color-border-emphasized);
