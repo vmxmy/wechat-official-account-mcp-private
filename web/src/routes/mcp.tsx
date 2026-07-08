@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { CodeBlock, Link, VStack } from '@astryxdesign/core';
-import { PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
+import { CodeBlock, Heading, Link, VStack } from '@astryxdesign/core';
+import { PageGrid, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 import { claudeMcpConfig, codexMcpConfig, mcpUrl } from '../lib/mcp-config.js';
 
 export const Route = createFileRoute('/mcp')({
@@ -21,11 +21,17 @@ function McpPage() {
             <p className="section-copy">授权由客户端通过 OAuth 完成；不要把 AppSecret 或 access token 写进 MCP 配置文件。</p>
           </VStack>
         </SurfaceSection>
-        <SurfaceSection title="Codex">
-          <CodeBlock code={JSON.stringify(codexMcpConfig(), null, 2)} language="json" title="codex mcp config" width="100%" />
-        </SurfaceSection>
-        <SurfaceSection title="Claude">
-          <CodeBlock code={JSON.stringify(claudeMcpConfig(), null, 2)} language="json" title="claude mcp config" width="100%" />
+        <SurfaceSection title="客户端配置" isFlush>
+          <PageGrid columns={{ minWidth: 320, max: 2 }}>
+            <VStack gap={2}>
+              <Heading level={3}>Codex</Heading>
+              <CodeBlock code={JSON.stringify(codexMcpConfig(), null, 2)} language="json" title="codex mcp config" width="100%" />
+            </VStack>
+            <VStack gap={2}>
+              <Heading level={3}>Claude</Heading>
+              <CodeBlock code={JSON.stringify(claudeMcpConfig(), null, 2)} language="json" title="claude mcp config" width="100%" />
+            </VStack>
+          </PageGrid>
         </SurfaceSection>
         <SurfaceSection title="CLI 生成">
           <VStack gap={2}>

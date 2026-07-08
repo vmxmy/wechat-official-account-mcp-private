@@ -1,4 +1,5 @@
-import { MetadataList, MetadataListItem, Section } from '@astryxdesign/core';
+import { Grid, MetadataList, MetadataListItem, Section } from '@astryxdesign/core';
+import type { GridColumns } from '@astryxdesign/core/Grid';
 import type { ReactNode } from 'react';
 
 export function PageHeader({ title, description }: { title: string; description: string }) {
@@ -14,18 +15,26 @@ export function PageStack({ children }: { children: ReactNode }) {
   return <div className="page-stack">{children}</div>;
 }
 
-export function SurfaceSection({ title, children }: { title: string; children: ReactNode }) {
+export function PageGrid({ children, columns }: { children: ReactNode; columns?: GridColumns }) {
   return (
-    <Section className="surface-section" variant="section" padding={0}>
+    <Grid columns={columns ?? { minWidth: 320, max: 2 }} gap={4} align="start">
+      {children}
+    </Grid>
+  );
+}
+
+export function SurfaceSection({ title, children, isFlush }: { title: string; children: ReactNode; isFlush?: boolean }) {
+  return (
+    <Section className={isFlush ? 'surface-section surface-section--flush' : 'surface-section'} variant="section" padding={0}>
       <h2 className="section-heading">{title}</h2>
       {children}
     </Section>
   );
 }
 
-export function DefinitionList({ items }: { items: Array<{ label: string; value: ReactNode }> }) {
+export function DefinitionList({ items, columns }: { items: Array<{ label: string; value: ReactNode }>; columns?: 'single' | 'multi' }) {
   return (
-    <MetadataList>
+    <MetadataList columns={columns ?? 'single'}>
       {items.map(item => (
         <MetadataListItem key={item.label} label={item.label}>
           {item.value}

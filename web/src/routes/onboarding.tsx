@@ -57,7 +57,7 @@ function OnboardingPage() {
       />
       <PageStack>
         <SurfaceSection title="Tenant 与资源状态">
-          <DefinitionList items={[
+          <DefinitionList columns="multi" items={[
             { label: 'Tenant', value: status?.tenantId ?? (onboarding.isLoading ? '读取中…' : '未创建') },
             { label: '微信公众号资源', value: status?.resourceName ?? resourceName },
             { label: '凭据状态', value: <span className="inline-status"><StatusDot variant={status?.configured ? 'success' : 'warning'} label={status?.configured ? '已配置' : '未配置'} />{status?.configured ? `已验证 ${status.appId ?? ''}` : '未配置 AppID/AppSecret'}</span> },

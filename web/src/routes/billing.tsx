@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, HStack, StatusDot } from '@astryxdesign/core';
+import { Button, Card, Grid, Heading, HStack, StatusDot, Text, VStack } from '@astryxdesign/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DefinitionList, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 import { createCheckoutSession, getBillingStatus, getCurrentOperator } from '../lib/api.js';
@@ -52,40 +52,13 @@ function BillingPage() {
       />
       <PageStack>
         <SurfaceSection title="当前订阅">
-          <DefinitionList items={[
+          <DefinitionList columns="multi" items={[
             { label: 'Tenant', value: tenantId ?? (current.isLoading ? '读取中…' : '未创建') },
             { label: 'Plan', value: billing.data?.plan ?? '—' },
             { label: '状态', value: billing.data?.status ?? (billing.isLoading ? '读取中…' : '—') },
             { label: '周期重置', value: billing.data?.currentPeriodEnd ? new Date(billing.data.currentPeriodEnd).toLocaleString('zh-CN', { hour12: false }) : '按服务端配额周期' },
           ]} />
         </SurfaceSection>
-        {plans.map(plan => (
-          <SurfaceSection key={plan.name} title={`${plan.name} ${plan.price}`}>
-            <DefinitionList items={[
-              { label: '资源额度', value: plan.accounts },
-              { label: '发布额度', value: plan.publishes },
-              { label: '工具调用', value: plan.calls },
-              { label: '状态', value: <span className="inline-status"><StatusDot variant={plan.plan === 'free' ? 'neutral' : 'accent'} label={plan.name} />{plan.plan === 'free' ? '自动启用' : 'Stripe 月付'}</span> },
-            ]} />
-            {plan.plan !== 'free' ? (
-              <HStack gap={3} wrap="wrap" align="center">
-                <Button
-                  label={`升级到 ${plan.name}`}
-                  variant="primary"
-                  isLoading={checkout.isPending}
-                  isDisabled={!tenantId}
-                  clickAction={async () => checkout.mutate(plan.plan as PaidPlan)}
-                />
-                <span className="section-copy mono">woa billing checkout --plan {plan.plan}</span>
-              </HStack>
-            ) : null}
-          </SurfaceSection>
-        ))}
-        {checkout.error ? (
-          <SurfaceSection title="Checkout 未创建">
-            <p className="section-copy">{checkout.error instanceof Error ? checkout.error.message : '请稍后重试。'}</p>
-          </SurfaceSection>
-        ) : null}
         {current.error || billing.error ? (
           <SurfaceSection title="订阅状态读取失败">
             <p className="section-copy">
@@ -95,6 +68,48 @@ function BillingPage() {
             </p>
           </SurfaceSection>
         ) : null}
+        <SurfaceSection title="套餐" isFlush>
+          <Grid columns={{ minWidth: 260, max: 3 }} gap={4} align="stretch">
+            {plans.map(plan => {
+              const isPaidPlan = plan.plan !== 'free';
+              const isCurrentAttempt = checkout.variables === plan.plan;
+              return (
+                <Card key={plan.name} padding={5} variant={plan.plan === 'pro' ? 'teal' : 'default'}>
+                  <VStack gap={4}>
+                    <VStack gap={1}>
+                      <Heading level={3}>{plan.name}</Heading>
+                      <Text type="large" weight="semibold">{plan.price}</Text>
+                    </VStack>
+                    <DefinitionList items={[
+                      { label: '资源额度', value: plan.accounts },
+                      { label: '发布额度', value: plan.publishes },
+                      { label: '工具调用', value: plan.calls },
+                      { label: '状态', value: <HStack gap={2} as="span"><StatusDot variant={plan.plan === 'free' ? 'neutral' : 'accent'} label={plan.name} />{plan.plan === 'free' ? '自动启用' : 'Stripe 月付'}</HStack> },
+                    ]} />
+                    {isPaidPlan ? (
+                      <VStack gap={2}>
+                        <Button
+                          label={`升级到 ${plan.name}`}
+                          variant="primary"
+                          className="auth-full-width"
+                          isLoading={checkout.isPending && isCurrentAttempt}
+                          isDisabled={!tenantId || checkout.isPending}
+                          clickAction={async () => checkout.mutate(plan.plan as PaidPlan)}
+                        />
+                        <Text type="supporting" as="p" className="mono">woa billing checkout --plan {plan.plan}</Text>
+                        {checkout.isError && isCurrentAttempt ? (
+                          <p className="form-error" role="alert">
+                            {checkout.error instanceof Error ? checkout.error.message : '请稍后重试。'}
+                          </p>
+                        ) : null}
+                      </VStack>
+                    ) : null}
+                  </VStack>
+                </Card>
+              );
+            })}
+          </Grid>
+        </SurfaceSection>
       </PageStack>
     </>
   );
