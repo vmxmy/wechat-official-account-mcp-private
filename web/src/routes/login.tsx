@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { Button, Card, Center, Divider, FormLayout, Heading, Link, Text, TextInput, VStack } from '@astryxdesign/core';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
+import { VerificationCodeInput } from '../components/VerificationCodeInput.js';
 
 const loginSearchSchema = z.object({
   returnTo: z.string().optional(),
@@ -29,6 +30,7 @@ function LoginPage() {
   }, [email]);
   const errorCode = notice?.get('error');
   const isCodeSent = notice?.get('sent') === '1';
+  const isCodeComplete = /^\d{6}$/.test(code);
 
   return (
     <div className="auth-page">
@@ -69,7 +71,7 @@ function LoginPage() {
                     placeholder="operator@example.com"
                     status={emailError ? { type: 'error', message: emailError } : undefined}
                     isRequired
-                    hasAutoFocus
+                    hasAutoFocus={!isCodeSent}
                   />
                   {turnstileSiteKey ? (
                     <div className="auth-turnstile cf-turnstile" data-sitekey={turnstileSiteKey} />
@@ -92,21 +94,17 @@ function LoginPage() {
                 <input type="hidden" name="returnTo" value={returnTo} />
                 <input type="hidden" name="email" value={email} />
                 <FormLayout>
-                  <TextInput
-                    label="6 位验证码"
-                    htmlName="code"
+                  <VerificationCodeInput
                     value={code}
                     onChange={setCode}
-                    placeholder="123456"
-                    description="验证码有效期有限；如未收到，可重新发送。"
-                    isRequired
+                    hasAutoFocus={isCodeSent}
                   />
                   <Button
                     label="完成登录"
                     type="submit"
                     variant="primary"
                     className="auth-full-width"
-                    isDisabled={!email || code.length < 6}
+                    isDisabled={!email || !isCodeComplete}
                   />
                 </FormLayout>
               </form>

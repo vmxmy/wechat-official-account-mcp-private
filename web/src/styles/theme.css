@@ -144,6 +144,67 @@ select {
   font-size: 14px;
 }
 
+.auth-code-control {
+  position: relative;
+  width: 100%;
+}
+
+.auth-code-native {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: text;
+}
+
+.auth-code-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+}
+
+.auth-code-cell {
+  display: grid;
+  width: 100%;
+  max-width: var(--spacing-12);
+  min-width: 0;
+  aspect-ratio: 1;
+  place-items: center;
+  justify-self: center;
+  box-sizing: border-box;
+  border: var(--border-width) solid var(--color-border-emphasized);
+  border-radius: var(--radius-element);
+  background: var(--color-background-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-code);
+  font-size: var(--text-large-size);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    outline-color var(--duration-fast) var(--ease-standard);
+}
+
+.auth-code-cell[data-filled="true"] {
+  background: var(--color-background-muted);
+}
+
+.auth-code-control:focus-within .auth-code-cell[data-active="true"] {
+  border-color: var(--color-accent);
+  outline: var(--spacing-0-5) solid var(--color-accent);
+  outline-offset: var(--spacing-0-5);
+  background: var(--color-accent-muted);
+}
+
 .onboarding-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
