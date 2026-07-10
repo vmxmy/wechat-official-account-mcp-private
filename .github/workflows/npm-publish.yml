@@ -28,18 +28,61 @@ jobs:
     name: Build, verify, and publish @ziikoo/woa
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment:
+      name: npm-release
+      url: https://www.npmjs.com/package/@ziikoo/woa
     env:
       NPM_CONFIG_PROVENANCE: 'true'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: npm
+
+      - name: Install release npm CLI
+        run: npm install --global npm@12.0.0
+
+      - name: Verify npm automation token
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo '::error::NPM_TOKEN is required to publish @ziikoo/woa.'
+            exit 1
+          fi
+          npm whoami --registry=https://registry.npmjs.org/
+
+      - name: Validate release ref and package version
+        id: release
+        env:
+          REQUESTED_DIST_TAG: ${{ github.event.inputs.tag || 'latest' }}
+        run: |
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            expected_tag="woa-v${package_version}"
+            if [ "$GITHUB_REF_NAME" != "$expected_tag" ]; then
+              echo "::error::Release tag $GITHUB_REF_NAME does not match package version $package_version; expected $expected_tag"
+              exit 1
+            fi
+            git fetch origin main
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "::error::Release tag must point to a commit reachable from origin/main"
+              exit 1
+            fi
+          elif [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Manual npm releases must run from the main branch"
+            exit 1
+          fi
+          echo "package_name=$package_name" >> "$GITHUB_OUTPUT"
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=$REQUESTED_DIST_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         run: npm ci
@@ -54,17 +97,61 @@ jobs:
         run: npm test
 
       - name: Verify package identity
+        id: package
         run: |
           node -e "const p=require('./package.json'); if (p.name !== '@ziikoo/woa') throw new Error('Unexpected package name: '+p.name); if (p.bin?.woa !== 'dist/src/cli/woa.js') throw new Error('woa bin missing');"
-          npm pack --dry-run
+          npm pack --json > /tmp/woa-pack.json
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const item = JSON.parse(require('node:fs').readFileSync('/tmp/woa-pack.json', 'utf8'))[0];
+          if (!item.files.some(file => file.path === 'dist/src/cli/woa.js')) {
+            throw new Error('Published tarball would not contain dist/src/cli/woa.js');
+          }
+          console.log(`local_shasum=${item.shasum}`);
+          NODE
 
-      - name: Publish
+      - name: Check registry version and dist-tag
+        id: registry
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PACKAGE_NAME: ${{ steps.release.outputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+          DIST_TAG: ${{ steps.release.outputs.dist_tag }}
+          LOCAL_SHASUM: ${{ steps.package.outputs.local_shasum }}
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo '::error::NPM_TOKEN is required to publish @ziikoo/woa.'
+          remote_shasum="$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.shasum --json 2>/dev/null | tr -d '"' || true)"
+          if [ -z "$remote_shasum" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$remote_shasum" != "$LOCAL_SHASUM" ]; then
+            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION already exists with a different tarball shasum"
             exit 1
           fi
-          TAG="${{ github.event.inputs.tag || 'latest' }}"
-          npm publish --access public --tag "$TAG"
+          tagged_version="$(npm view "$PACKAGE_NAME" "dist-tags.$DIST_TAG" --json 2>/dev/null | tr -d '"' || true)"
+          if [ "$tagged_version" != "$PACKAGE_VERSION" ]; then
+            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION exists, but dist-tag $DIST_TAG points to ${tagged_version:-nothing}"
+            exit 1
+          fi
+          echo "::notice::$PACKAGE_NAME@$PACKAGE_VERSION is already published with the expected tarball and dist-tag; skipping publish"
+          echo "should_publish=false" >> "$GITHUB_OUTPUT"
+
+      - name: Publish with npm automation token
+        if: steps.registry.outputs.should_publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --tag "${{ steps.release.outputs.dist_tag }}"
+
+      - name: Verify registry publication
+        env:
+          PACKAGE_NAME: ${{ steps.release.outputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+          DIST_TAG: ${{ steps.release.outputs.dist_tag }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            version="$(npm view "$PACKAGE_NAME" "dist-tags.$DIST_TAG" --json 2>/dev/null | tr -d '"' || true)"
+            if [ "$version" = "$PACKAGE_VERSION" ]; then
+              exit 0
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "::error::Registry dist-tag $DIST_TAG did not resolve to $PACKAGE_VERSION"
+          exit 1

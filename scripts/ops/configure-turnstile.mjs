@@ -2,12 +2,12 @@
 import { spawnSync } from 'node:child_process';
 
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-const apiToken = process.env.CLOUDFLARE_TURNSTILE_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+const apiToken = process.env.CLOUDFLARE_TURNSTILE_API_TOKEN;
 const widgetName = process.env.TURNSTILE_WIDGET_NAME || 'WOA production login';
 const widgetDomain = process.env.TURNSTILE_WIDGET_DOMAIN || 'woa.ziikoo.app';
 
 if (!accountId || !apiToken) {
-  console.error('CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_TURNSTILE_API_TOKEN or CLOUDFLARE_API_TOKEN are required.');
+  console.error('CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_TURNSTILE_API_TOKEN are required.');
   process.exit(1);
 }
 

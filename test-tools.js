@@ -834,6 +834,60 @@ check(
   '旧传输 guard 行为级验证：/sse 和 /messages 返回 404，/mcp 与 Web 路由不被拦截',
 );
 
+const ciWorkflowSource = readFileSync('./.github/workflows/ci.yml', 'utf8');
+const deployWorkflowSource = readFileSync('./.github/workflows/deploy-production.yml', 'utf8');
+const npmPublishWorkflowSource = readFileSync('./.github/workflows/npm-publish.yml', 'utf8');
+const turnstileWorkflowSource = readFileSync('./.github/workflows/configure-turnstile.yml', 'utf8');
+const turnstileConfigureSource = readFileSync('./scripts/ops/configure-turnstile.mjs', 'utf8');
+const pinnedCheckoutSha = 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0';
+const pinnedSetupNodeSha = 'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e';
+check(
+  ciWorkflowSource.includes('pull_request:') &&
+    ciWorkflowSource.includes('cancel-in-progress: true') &&
+    ciWorkflowSource.includes('npm run check') &&
+    ciWorkflowSource.includes('npm run lint') &&
+    ciWorkflowSource.includes('npm test') &&
+    ciWorkflowSource.includes('wrangler deploy --dry-run') &&
+    ciWorkflowSource.includes(pinnedCheckoutSha) &&
+    ciWorkflowSource.includes(pinnedSetupNodeSha),
+  'PR CI 独立执行 check/lint/test/Worker dry-run，并固定第三方 Action commit SHA',
+);
+check(
+  deployWorkflowSource.includes('environment:') &&
+    deployWorkflowSource.includes('name: production') &&
+    deployWorkflowSource.includes('Missing required production secrets') &&
+    !deployWorkflowSource.includes('Skipping production deploy') &&
+    deployWorkflowSource.indexOf('Validate Worker bundle before remote changes') < deployWorkflowSource.indexOf('Apply D1 migrations') &&
+    deployWorkflowSource.includes('Verify production health and MCP auth boundary') &&
+    deployWorkflowSource.includes(pinnedCheckoutSha) &&
+    deployWorkflowSource.includes(pinnedSetupNodeSha),
+  '生产部署 fail-closed，在远程 migration 前验证 bundle，并在部署后检查 health 与 /mcp OAuth 边界',
+);
+check(
+  npmPublishWorkflowSource.includes('name: npm-release') &&
+    npmPublishWorkflowSource.includes('npm@12.0.0') &&
+    npmPublishWorkflowSource.includes('expected_tag="woa-v${package_version}"') &&
+    npmPublishWorkflowSource.includes('git merge-base --is-ancestor') &&
+    npmPublishWorkflowSource.includes('local_shasum=') &&
+    npmPublishWorkflowSource.includes('already published with the expected tarball and dist-tag; skipping publish') &&
+    npmPublishWorkflowSource.includes('Verify npm automation token') &&
+    npmPublishWorkflowSource.includes('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}') &&
+    npmPublishWorkflowSource.includes('npm whoami --registry=https://registry.npmjs.org/') &&
+    npmPublishWorkflowSource.includes('Publish with npm automation token') &&
+    npmPublishWorkflowSource.includes(pinnedCheckoutSha) &&
+    npmPublishWorkflowSource.includes(pinnedSetupNodeSha),
+  'npm 发布校验 tag/version/main 可达性与 tarball shasum，验证自动化 Token，并支持带 provenance 的幂等发布',
+);
+check(
+  turnstileWorkflowSource.includes('group: turnstile-production') &&
+    turnstileWorkflowSource.includes('CLOUDFLARE_TURNSTILE_API_TOKEN') &&
+    turnstileConfigureSource.includes('const apiToken = process.env.CLOUDFLARE_TURNSTILE_API_TOKEN;') &&
+    !turnstileConfigureSource.includes('CLOUDFLARE_TURNSTILE_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN') &&
+    turnstileWorkflowSource.includes(pinnedCheckoutSha) &&
+    turnstileWorkflowSource.includes(pinnedSetupNodeSha),
+  'Turnstile 配置必须使用专用 API Token，不再回退到通用 Cloudflare Token，并固定 Action SHA',
+);
+
 console.log('\n=== Plan quota fixture 验证 ===');
 
 class MemoryUsageD1Database {

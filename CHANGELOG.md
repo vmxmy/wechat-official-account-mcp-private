@@ -13,6 +13,13 @@
 - `wechat_media_upload`、`wechat_upload_img`、`wechat_permanent_media` 的 MCP schema 不再公开 `fileData` / `filePath`，避免 base64 占用 LLM 上下文；`fileData` 仅保留 handler 级短期兼容。
 - 暂存接口校验 OAuth scope、10MB 上限、MIME 白名单及文件签名，不回显文件字节。
 
+### CI/CD 加固
+
+- 新增 Pull Request CI，独立执行类型检查、lint、完整测试和 Worker dry-run。
+- 生产部署改为 Secret 缺失时 fail-closed，并在 D1 migration 前验证 bundle、部署后检查 health 与 `/mcp` OAuth 边界。
+- npm 发布增加 tag/version/main 可达性、tarball shasum 和重复版本校验，使用 bypass-2FA 自动化 Token 并保留 provenance。
+- 第三方 GitHub Actions 固定到 commit SHA；Turnstile 配置不再回退到通用 Cloudflare Token。
+
 ## v2.2.0 (2026-05-24)
 
 ### 新增 6 个工具模块
