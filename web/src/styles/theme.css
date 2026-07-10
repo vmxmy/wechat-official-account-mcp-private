@@ -18,24 +18,34 @@ select {
   font: inherit;
 }
 
-.page-header {
+.app-brand-mark {
   display: grid;
-  gap: var(--spacing-2);
-  margin-bottom: var(--spacing-7);
+  width: var(--size-element-md);
+  height: var(--size-element-md);
+  place-items: center;
+  border-radius: var(--radius-element);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -.04em;
+}
+
+.app-page-frame {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+}
+
+.app-layout-content {
+  padding: var(--spacing-6);
+}
+
+.page-header {
+  margin-bottom: var(--spacing-8);
+}
+
+.page-header-copy {
   max-width: 760px;
-}
-
-.page-title {
-  margin: 0;
-  font-size: clamp(28px, 3vw, 42px);
-  line-height: 1.08;
-  letter-spacing: -.025em;
-}
-
-.page-description {
-  margin: 0;
-  color: var(--color-text-secondary);
-  line-height: 1.7;
 }
 
 .page-stack {
@@ -43,40 +53,12 @@ select {
   gap: var(--spacing-4);
 }
 
-/* Astryx Section escapes parent container padding by default; reset it inside
-   grids so card-like sections stay inside their grid cells. */
-.astryx-grid {
-  --container-padding-inline-start: 0px;
-  --container-padding-inline-end: 0px;
-  --container-padding-block-start: 0px;
-  --container-padding-block-end: 0px;
-}
-
-.astryx-grid > * {
-  min-width: 0;
-}
-
 .surface-section {
-  padding: var(--spacing-5);
   border-top: 1px solid var(--color-border-emphasized);
-  background: var(--color-background-surface);
 }
 
 .surface-section:first-of-type {
   border-top: 0;
-}
-
-.surface-section--flush {
-  border-top: 0;
-  border: 1px solid var(--color-border-emphasized);
-  border-radius: var(--radius-container);
-  height: 100%;
-}
-
-.section-heading {
-  margin: 0 0 var(--spacing-3);
-  font-size: 18px;
-  line-height: 1.25;
 }
 
 .section-copy {
@@ -119,7 +101,9 @@ select {
 }
 
 .auth-page {
-  min-height: min(760px, calc(100vh - 170px));
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: var(--spacing-8) var(--spacing-6);
 }
 
 .auth-logo {
@@ -127,12 +111,11 @@ select {
   height: 48px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
+  border-radius: var(--radius-container);
   background: var(--color-accent);
   color: var(--color-on-accent);
-  font-weight: 800;
+  font-weight: var(--font-weight-bold);
   letter-spacing: -.04em;
-  box-shadow: 0 16px 36px light-dark(rgba(0, 100, 224, .18), rgba(38, 148, 254, .18));
 }
 
 .auth-full-width {
@@ -153,8 +136,46 @@ select {
   font-size: 14px;
 }
 
+.onboarding-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  align-items: start;
+  gap: var(--spacing-8);
+}
+
+.onboarding-main,
+.onboarding-guidance {
+  min-width: 0;
+}
+
+.onboarding-guidance {
+  padding-left: var(--spacing-6);
+  border-left: 1px solid var(--color-border-emphasized);
+}
+
 @media (max-width: 720px) {
+  .app-layout-content {
+    padding: var(--spacing-4);
+  }
+
+  .page-header {
+    margin-bottom: var(--spacing-6);
+  }
+
   .auth-page {
-    min-height: auto;
+    padding: var(--spacing-6) var(--spacing-4);
+  }
+}
+
+@media (max-width: 1100px) {
+  .onboarding-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .onboarding-guidance {
+    padding-top: var(--spacing-6);
+    padding-left: 0;
+    border-top: 1px solid var(--color-border-emphasized);
+    border-left: 0;
   }
 }

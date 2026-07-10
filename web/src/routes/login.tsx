@@ -44,13 +44,6 @@ function LoginPage() {
 
           <Card padding={8} width="100%" maxWidth={440}>
             <VStack gap={4}>
-              <VStack gap={1.5}>
-                <Heading level={2}>继续登录</Heading>
-                <Text type="supporting" as="p">
-                  推荐使用 GitHub；邮箱验证码可作为备用登录方式。
-                </Text>
-              </VStack>
-
               {errorCode ? (
                 <div className="form-error" role="alert">登录请求未完成：{loginErrorMessage(errorCode)}</div>
               ) : null}

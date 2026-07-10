@@ -1,31 +1,154 @@
-import { AppShell, TopNav, TopNavHeading, TopNavItem } from '@astryxdesign/core';
+import {
+  AppShell,
+  Avatar,
+  DropdownMenu,
+  HStack,
+  SideNav,
+  SideNavItem,
+  SideNavSection,
+  StatusDot,
+  Text,
+  TopNav,
+  TopNavHeading,
+} from '@astryxdesign/core';
+import { useLocation, useNavigate } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { getCurrentOperator, logout } from '../lib/api.js';
 
-const navItems = [
-  { href: '/login', label: '登录' },
-  { href: '/onboarding', label: '配置公众号' },
-  { href: '/billing', label: '订阅' },
-  { href: '/mcp', label: 'MCP 配置' },
-  { href: '/security', label: '安全' },
+const navSections = [
+  {
+    title: '工作台',
+    items: [{ href: '/', label: '概览' }],
+  },
+  {
+    title: '接入',
+    items: [
+      { href: '/onboarding', label: '公众号资源' },
+      { href: '/mcp', label: 'MCP 接入' },
+    ],
+  },
+  {
+    title: '账户',
+    items: [
+      { href: '/billing', label: '用量与套餐' },
+      { href: '/security', label: '安全与授权' },
+    ],
+  },
 ];
 
 export function AppChrome({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const isPublicRoute = location.pathname === '/login';
+  const current = useQuery({
+    queryKey: ['current-operator'],
+    queryFn: getCurrentOperator,
+    retry: false,
+    enabled: !isPublicRoute,
+  });
+  const operator = current.data?.operator;
+  const accountLabel = operator?.displayName || operator?.email || '账户';
+
+  async function handleLogout() {
+    setLogoutError(null);
+    try {
+      await logout();
+    } catch {
+      setLogoutError('退出失败，请重试');
+      return;
+    }
+
+    queryClient.clear();
+    try {
+      window.localStorage.setItem('woa:web-session', 'unauthenticated');
+    } catch {
+      // localStorage can be unavailable in privacy modes.
+    }
+    try {
+      await navigate({ to: '/login' });
+    } catch {
+      window.location.assign('/login');
+    }
+  }
+
+  if (isPublicRoute) {
+    return (
+      <AppShell contentPadding={0} height="auto" mobileNav={false} variant="wash">
+        {children}
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       topNav={
         <TopNav
-          heading={<TopNavHeading heading="WOA" subheading="微信公众号 MCP SaaS" />}
+          heading={
+            <TopNavHeading
+              logo={<span className="app-brand-mark" aria-hidden="true">W</span>}
+              heading="WOA"
+              headingHref="/"
+              subheading="微信公众号 MCP"
+            />
+          }
+          endContent={
+            operator ? (
+              <HStack gap={3} vAlign="center">
+                {logoutError ? (
+                  <HStack gap={2} as="span" vAlign="center" role="alert">
+                    <StatusDot variant="error" label={logoutError} />
+                    <Text type="supporting">{logoutError}</Text>
+                  </HStack>
+                ) : null}
+                <DropdownMenu
+                  button={{
+                    label: accountLabel,
+                    icon: <Avatar name={accountLabel} size="xsmall" />,
+                    variant: 'ghost',
+                  }}
+                  items={[
+                    { label: '退出登录', onClick: () => { void handleLogout(); } },
+                  ]}
+                  menuWidth={220}
+                />
+              </HStack>
+            ) : null
+          }
           label="主导航"
-        >
-          {navItems.map(item => (
-            <TopNavItem key={item.href} label={item.label} href={item.href} />
-          ))}
-        </TopNav>
+        />
       }
-      contentPadding={4}
+      sideNav={
+        <SideNav collapsible={{ buttonLabel: '收起导航' }}>
+          {navSections.map(section => (
+            <SideNavSection key={section.title} title={section.title}>
+              {section.items.map(item => (
+                <SideNavItem
+                  key={item.href}
+                  label={item.label}
+                  href={item.href}
+                  isSelected={isCurrentRoute(location.pathname, item.href)}
+                />
+              ))}
+            </SideNavSection>
+          ))}
+        </SideNav>
+      }
+      contentPadding={0}
+      height="fill"
       variant="elevated"
     >
-      {children}
+      <div className="app-layout-content">
+        <div className="app-page-frame">{children}</div>
+      </div>
     </AppShell>
   );
+}
+
+function isCurrentRoute(pathname: string, href: string): boolean {
+  if (href === '/') return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
 }

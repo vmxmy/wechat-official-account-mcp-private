@@ -1,4 +1,5 @@
 import { redirect } from '@tanstack/react-router';
+import type { QueryClient } from '@tanstack/react-query';
 import { WebApiError, getCurrentOperator } from './lib/api.js';
 
 export interface WebSessionContext {
@@ -7,6 +8,7 @@ export interface WebSessionContext {
 
 export interface RouterContext {
   session: WebSessionContext;
+  queryClient: QueryClient;
 }
 
 export function initialSessionContext(): WebSessionContext {
@@ -26,7 +28,11 @@ export async function requireWebSession({ context, location }: {
   location: { href: string };
 }): Promise<void> {
   try {
-    await getCurrentOperator();
+    await context.queryClient.fetchQuery({
+      queryKey: ['current-operator'],
+      queryFn: getCurrentOperator,
+      staleTime: 0,
+    });
     context.session.status = 'authenticated';
     rememberSessionStatus('authenticated');
   } catch (error) {

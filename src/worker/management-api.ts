@@ -97,7 +97,15 @@ export async function handleManagementApiRequest(
     }
 
     if (request.method === 'GET' && segments[0] === 'me' && segments.length === 1) {
-      return jsonResponse({ success: true, data: publicContext(context), requestId: context.requestId });
+      const data = publicContext(context);
+      const operator = await deps.onboardingStore?.findOperatorById(context.userId);
+      if (operator) {
+        Object.assign(data.user as Record<string, unknown>, {
+          email: operator.verifiedEmail,
+          displayName: operator.displayName,
+        });
+      }
+      return jsonResponse({ success: true, data, requestId: context.requestId });
     }
 
     if (segments[0] === 'tenants') {

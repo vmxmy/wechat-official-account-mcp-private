@@ -1217,7 +1217,8 @@ export class D1SaasOnboardingStore {
     return numberValue(row?.count) ?? 0;
   }
 
-  private async findOperatorById(operatorId: string): Promise<OperatorRecord | null> {
+  async findOperatorById(operatorId: string): Promise<OperatorRecord | null> {
+    await this.ensureSchema();
     const row = await this.db.prepare(
       `SELECT id, verified_email, display_name, status, created_at, updated_at
        FROM operators

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen.js';
 import { AppProviders } from './providers.js';
+import { queryClient } from './query-client.js';
 import { initialSessionContext } from './route-guards.js';
 import './styles/index.css';
 
@@ -10,6 +11,7 @@ const router = createRouter({
   routeTree,
   context: {
     session: initialSessionContext(),
+    queryClient,
   },
   defaultPreload: 'intent',
 });

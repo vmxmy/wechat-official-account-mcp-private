@@ -23,7 +23,7 @@ function McpPage() {
             <p className="section-copy">授权由客户端通过 OAuth 完成；不要把 AppSecret 或 access token 写进 MCP 配置文件。</p>
           </VStack>
         </SurfaceSection>
-        <SurfaceSection title="客户端配置" isFlush>
+        <SurfaceSection title="客户端配置">
           <PageGrid columns={{ minWidth: 320, max: 2 }}>
             <VStack gap={2}>
               <Heading level={3}>Codex</Heading>

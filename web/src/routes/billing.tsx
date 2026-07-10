@@ -68,7 +68,7 @@ function BillingPage() {
             </p>
           </SurfaceSection>
         ) : null}
-        <SurfaceSection title="套餐" isFlush>
+        <SurfaceSection title="套餐">
           <Grid columns={{ minWidth: 260, max: 3 }} gap={4} align="stretch">
             {plans.map(plan => {
               const isPaidPlan = plan.plan !== 'free';

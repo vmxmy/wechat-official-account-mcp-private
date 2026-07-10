@@ -20,7 +20,7 @@ const failureEnvelope = z.object({
   requestId: z.string().optional(),
 });
 
-export const quotaSummarySchema = z.object({
+const quotaSummaryDataSchema = z.object({
   tenantId: z.string().optional(),
   plan: z.enum(['free', 'plus', 'pro']).catch('free'),
   counters: z.array(z.object({
@@ -33,7 +33,9 @@ export const quotaSummarySchema = z.object({
   upgradePrompt: z.string().optional(),
 }).passthrough();
 
-export const currentOperatorSchema = z.object({
+export const quotaSummarySchema = z.preprocess(normalizeQuotaSummary, quotaSummaryDataSchema);
+
+const currentOperatorDataSchema = z.object({
   operator: z.object({
     operatorId: z.string().optional(),
     email: z.string().email().optional(),
@@ -46,6 +48,8 @@ export const currentOperatorSchema = z.object({
   defaultAccountId: z.string().optional(),
   scopes: z.array(z.string()).default([]),
 }).passthrough();
+
+export const currentOperatorSchema = z.preprocess(normalizeCurrentOperator, currentOperatorDataSchema);
 
 export const onboardingStatusSchema = z.object({
   tenantId: z.string().optional(),
@@ -165,8 +169,9 @@ export async function configureAccount(input: {
   );
 }
 
-export async function getOnboardingStatus(): Promise<z.infer<typeof onboardingStatusSchema>> {
-  const current = await getCurrentOperator();
+export async function getOnboardingStatus(
+  current: z.infer<typeof currentOperatorSchema>,
+): Promise<z.infer<typeof onboardingStatusSchema>> {
   const tenantId = current.defaultTenantId ?? tenantIdFromUnknown(current.tenants[0]);
   if (!tenantId) {
     return onboardingStatusSchema.parse({ configured: false, relayRequired: true, completionState: 'unconfigured' });
@@ -231,6 +236,10 @@ export async function getSecuritySessions(): Promise<z.infer<typeof securitySess
   return await apiGet('/api/v1/sessions', securitySessionsSchema);
 }
 
+export async function logout(): Promise<void> {
+  await apiPost('/api/v1/auth/logout', {}, z.unknown());
+}
+
 async function apiGet<T extends z.ZodType>(path: string, schema: T): Promise<z.infer<T>> {
   return await apiRequest(path, { method: 'GET', schema });
 }
@@ -293,4 +302,58 @@ function tenantIdFromUnknown(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const tenantId = (value as { tenantId?: unknown }).tenantId;
   return typeof tenantId === 'string' ? tenantId : undefined;
+}
+
+function normalizeCurrentOperator(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value.user)) return value;
+
+  const userId = stringFromUnknown(value.user.userId) ?? stringFromUnknown(value.userId);
+  const email = stringFromUnknown(value.user.email);
+  const displayName = stringFromUnknown(value.user.displayName);
+  const existingOperator = isRecord(value.operator) ? value.operator : null;
+
+  return {
+    ...value,
+    userId,
+    operator: existingOperator ?? {
+      operatorId: userId,
+      email,
+      displayName,
+    },
+  };
+}
+
+function normalizeQuotaSummary(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value.entitlement) || !Array.isArray(value.metrics)) {
+    return value;
+  }
+
+  const upgradePrompt = isRecord(value.upgradePrompt)
+    ? stringFromUnknown(value.upgradePrompt.message)
+    : stringFromUnknown(value.upgradePrompt);
+
+  return {
+    ...value,
+    tenantId: stringFromUnknown(value.tenantId) ?? stringFromUnknown(value.entitlement.tenantId),
+    plan: value.entitlement.plan,
+    counters: value.metrics.map(metric => {
+      if (!isRecord(metric)) return metric;
+      return {
+        kind: metric.metric,
+        limit: metric.limit,
+        used: metric.used,
+        remaining: metric.remaining,
+        resetAt: metric.resetAt,
+      };
+    }),
+    upgradePrompt,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function stringFromUnknown(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

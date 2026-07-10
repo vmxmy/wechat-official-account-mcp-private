@@ -1,12 +1,20 @@
-import { Grid, MetadataList, MetadataListItem, Section } from '@astryxdesign/core';
+import { Grid, Heading, MetadataList, MetadataListItem, Section, Text, VStack } from '@astryxdesign/core';
 import type { GridColumns } from '@astryxdesign/core/Grid';
 import type { ReactNode } from 'react';
 
-export function PageHeader({ title, description }: { title: string; description: string }) {
+export function PageHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <header className="page-header">
-      <h1 className="page-title">{title}</h1>
-      <p className="page-description">{description}</p>
+      <VStack className="page-header-copy" gap={2}>
+        <Heading level={1} type="display-3" textWrap="balance">{title}</Heading>
+        <Text type="supporting" as="p" textWrap="pretty">{description}</Text>
+      </VStack>
     </header>
   );
 }
@@ -23,11 +31,13 @@ export function PageGrid({ children, columns }: { children: ReactNode; columns?:
   );
 }
 
-export function SurfaceSection({ title, children, isFlush }: { title: string; children: ReactNode; isFlush?: boolean }) {
+export function SurfaceSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Section className={isFlush ? 'surface-section surface-section--flush' : 'surface-section'} variant="section" padding={0}>
-      <h2 className="section-heading">{title}</h2>
-      {children}
+    <Section className="surface-section" variant="transparent" padding={5}>
+      <VStack gap={4}>
+        <Heading level={2}>{title}</Heading>
+        {children}
+      </VStack>
     </Section>
   );
 }
