@@ -102,7 +102,13 @@ jobs:
           node -e "const p=require('./package.json'); if (p.name !== '@ziikoo/woa') throw new Error('Unexpected package name: '+p.name); if (p.bin?.woa !== 'dist/src/cli/woa.js') throw new Error('woa bin missing');"
           npm pack --json > /tmp/woa-pack.json
           node - <<'NODE' >> "$GITHUB_OUTPUT"
-          const item = JSON.parse(require('node:fs').readFileSync('/tmp/woa-pack.json', 'utf8'))[0];
+          const packResult = JSON.parse(require('node:fs').readFileSync('/tmp/woa-pack.json', 'utf8'));
+          const item = Array.isArray(packResult)
+            ? packResult[0]
+            : packResult['@ziikoo/woa'] ?? Object.values(packResult)[0];
+          if (!item) {
+            throw new Error('npm pack --json returned no package metadata');
+          }
           if (!item.files.some(file => file.path === 'dist/src/cli/woa.js')) {
             throw new Error('Published tarball would not contain dist/src/cli/woa.js');
           }

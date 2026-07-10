@@ -869,6 +869,8 @@ check(
     npmPublishWorkflowSource.includes('expected_tag="woa-v${package_version}"') &&
     npmPublishWorkflowSource.includes('git merge-base --is-ancestor') &&
     npmPublishWorkflowSource.includes('local_shasum=') &&
+    npmPublishWorkflowSource.includes('Array.isArray(packResult)') &&
+    npmPublishWorkflowSource.includes("packResult['@ziikoo/woa'] ?? Object.values(packResult)[0]") &&
     npmPublishWorkflowSource.includes('already published with the expected tarball and dist-tag; skipping publish') &&
     npmPublishWorkflowSource.includes('Verify npm automation token') &&
     npmPublishWorkflowSource.includes('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}') &&
