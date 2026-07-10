@@ -6,7 +6,7 @@ export const MAX_STAGED_MEDIA_BYTES = Math.max(...Object.values(FILE_SIZE_LIMITS
 export interface R2MediaUploadBucket {
   put(
     key: string,
-    value: ReadableStream<Uint8Array>,
+    value: Uint8Array,
     options?: {
       httpMetadata?: { contentType?: string };
       customMetadata?: Record<string, string>;
@@ -59,11 +59,12 @@ export async function stageMediaUpload(
     throw new ApiError('empty_media', 'Media request body is required.', 400);
   }
 
-  const [inspectionStream, uploadStream] = request.body.tee();
-  const prefix = await readStreamPrefix(inspectionStream, 32);
-  if (prefix.byteLength === 0) {
+  const mediaBytes = await readStreamBytes(request.body, MAX_STAGED_MEDIA_BYTES);
+  const actualSize = mediaBytes.byteLength;
+  if (actualSize === 0) {
     throw new ApiError('empty_media', 'Media request body is empty.', 400);
   }
+  const prefix = mediaBytes.subarray(0, 32);
   if (!matchesMediaSignature(prefix, mimeType)) {
     throw new ApiError(
       'media_signature_mismatch',
@@ -72,20 +73,9 @@ export async function stageMediaUpload(
     );
   }
 
-  let actualSize = 0;
-  const limitedStream = uploadStream.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
-      actualSize += chunk.byteLength;
-      if (actualSize > MAX_STAGED_MEDIA_BYTES) {
-        throw mediaTooLargeError(actualSize);
-      }
-      controller.enqueue(chunk);
-    },
-  }));
-
   const now = options.now ?? new Date();
   const r2Key = createMediaUploadKey(options.tenantId, options.accountId, fileName, now);
-  await options.bucket.put(r2Key, limitedStream, {
+  await options.bucket.put(r2Key, mediaBytes, {
     httpMetadata: { contentType: mimeType },
     customMetadata: {
       tenantId: options.tenantId,
@@ -97,9 +87,6 @@ export async function stageMediaUpload(
     },
   });
 
-  if (actualSize === 0) {
-    throw new ApiError('empty_media', 'Media request body is empty.', 400);
-  }
   return {
     r2Key,
     fileName,
@@ -159,22 +146,30 @@ function mediaTooLargeError(size: number): ApiError {
   );
 }
 
-async function readStreamPrefix(stream: ReadableStream<Uint8Array>, maxBytes: number): Promise<Uint8Array> {
+async function readStreamBytes(stream: ReadableStream<Uint8Array>, maxBytes: number): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
   try {
-    while (total < maxBytes) {
+    while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       if (!value?.byteLength) continue;
-      const remaining = maxBytes - total;
-      const chunk = value.byteLength > remaining ? value.subarray(0, remaining) : value;
-      chunks.push(chunk);
-      total += chunk.byteLength;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        throw mediaTooLargeError(total);
+      }
+      chunks.push(value);
     }
+  } catch (error) {
+    await reader.cancel(error).catch(() => undefined);
+    throw error;
   } finally {
-    void reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+
+  if (chunks.length === 1 && chunks[0].byteOffset === 0 && chunks[0].byteLength === chunks[0].buffer.byteLength) {
+    return chunks[0];
   }
 
   const bytes = new Uint8Array(total);

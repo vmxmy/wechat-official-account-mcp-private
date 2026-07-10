@@ -12,6 +12,7 @@
 - 新增 `woa media upload <local-file>`，本地读取文件并返回可直接用于媒体 MCP 工具的 `r2Key`。
 - `wechat_media_upload`、`wechat_upload_img`、`wechat_permanent_media` 的 MCP schema 不再公开 `fileData` / `filePath`，避免 base64 占用 LLM 上下文；`fileData` 仅保留 handler 级短期兼容。
 - 暂存接口校验 OAuth scope、10MB 上限、MIME 白名单及文件签名，不回显文件字节。
+- 修复代理转发请求缺少已知 body 长度时 R2 拒绝 `ReadableStream` 的问题：服务端先限流读取并校验，再以定长 `Uint8Array` 写入 R2。
 
 ### CI/CD 加固
 

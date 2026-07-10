@@ -520,23 +520,12 @@ const stagedPngBytes = new Uint8Array([
 const stagedMediaWrites = [];
 const stagedMediaBucket = {
   async put(key, value, options) {
-    const reader = value.getReader();
-    const chunks = [];
-    let total = 0;
-    while (true) {
-      const { done, value: chunk } = await reader.read();
-      if (done) break;
-      chunks.push(chunk);
-      total += chunk.byteLength;
+    if (!(value instanceof Uint8Array)) {
+      throw new Error('R2 put() must have a known length');
     }
-    const bytes = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
+    const bytes = new Uint8Array(value);
     stagedMediaWrites.push({ key, bytes, options });
-    return { key, size: total, etag: 'fixture-etag' };
+    return { key, size: bytes.byteLength, etag: 'fixture-etag' };
   },
 };
 const stagedMediaResponse = await handleManagementApiRequest(
@@ -569,7 +558,7 @@ check(
     Buffer.from(stagedMediaWrites[0]?.bytes ?? []).equals(Buffer.from(stagedPngBytes)) &&
     stagedMediaBody.data?.size === stagedPngBytes.byteLength &&
     !JSON.stringify(stagedMediaBody).includes(stagedPngBytes.toString()),
-  'REST 媒体暂存接口使用写权限将二进制流写入租户/账号隔离的 R2 key，响应不回显文件数据',
+  'REST 媒体暂存接口将未知长度请求流收敛为定长字节后写入租户/账号隔离的 R2 key，响应不回显文件数据',
 );
 
 const deniedMediaWriteCount = stagedMediaWrites.length;
