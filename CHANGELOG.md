@@ -4,6 +4,15 @@
 
 2026-07-01 起，微信公众号 API contract 以 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源。早期版本说明中的“完整覆盖”“60+ 方法”等表述是当时的发布描述，不代表已逐项核验的官方覆盖率。
 
+## Unreleased
+
+### 媒体上传上下文优化
+
+- 新增 OAuth 保护的二进制媒体暂存接口，将本地文件写入租户/账号隔离的 `staging/` R2 key，并提供 30 天生命周期配置脚本。
+- 新增 `woa media upload <local-file>`，本地读取文件并返回可直接用于媒体 MCP 工具的 `r2Key`。
+- `wechat_media_upload`、`wechat_upload_img`、`wechat_permanent_media` 的 MCP schema 不再公开 `fileData` / `filePath`，避免 base64 占用 LLM 上下文；`fileData` 仅保留 handler 级短期兼容。
+- 暂存接口校验 OAuth scope、10MB 上限、MIME 白名单及文件签名，不回显文件字节。
+
 ## v2.2.0 (2026-05-24)
 
 ### 新增 6 个工具模块

@@ -47,7 +47,8 @@ The Workers path uses `WorkersAuthManager`, `TokenOwner` Durable Object, `D1Stor
 
 **Workers entry points** (`src/worker/`):
 - `index.ts` — `WechatMcpAgent` (`/mcp`), `TokenOwner` DO, OAuth provider wiring, health/debug routes, and `/wx/callback`
-- `media-tools.ts` — Worker-safe media upload wrappers (`fileUrl`, `r2Key`, `fileData`; `filePath` rejected)
+- `media-tools.ts` — Worker-safe WeChat upload wrappers; MCP schema exposes only `fileUrl` and `r2Key` (`fileData` remains handler-level compatibility only)
+- `media-upload.ts` — OAuth-protected raw binary staging into tenant/account-scoped R2 keys for `woa media upload <path>`
 - `wechat-webhook.ts` — WeChat SHA1 signature verification, AES-CBC-256 decrypt, appid validation, D1 persistence input
 - `inbox-store.ts` — D1 queries for `inbound_messages`
 
@@ -69,7 +70,7 @@ The Workers path uses `WorkersAuthManager`, `TokenOwner` Durable Object, `D1Stor
 
 1. Worker secrets/bindings provide WeChat credentials, D1/R2/DO namespaces, OAuth credentials, and optional relay proxy settings.
 2. `WechatMcpAgent.init()` creates `D1StorageManager`, `D1InboxStore`, `WorkersAuthManager`, `TokenOwner`, and `WechatApiClient`.
-3. `createWorkerMediaTools()` adds HTTP-safe media tools (`fileUrl`, `r2Key`, `fileData`; `filePath` rejected).
+3. `createWorkerMediaTools()` adds HTTP-safe media tools whose MCP schema exposes `fileUrl`/`r2Key`; local files are staged through the authenticated REST upload endpoint and `woa media upload <path>`.
 4. `registerWorkerMcpTool()` registers all 16 tools on `McpServer`; calls validate with Zod, call `apiClient.*`, and return `WechatToolResult`.
 5. `/wx/callback` verifies/decrypts WeChat messages, writes D1 `inbound_messages`, and acks quickly; processing is pulled later via `wechat_inbox`.
 

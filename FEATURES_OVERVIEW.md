@@ -134,19 +134,22 @@ wechat_customer_service.get_records(startTime, endTime)
 ### 场景3: 内容发布流程
 
 ```javascript
-// 1. 上传文章图片
-wechat_upload_img.upload(imagePath)
+// 1. 本地图片先二进制暂存到 R2（不把 base64 放进模型上下文）
+woa media upload ./article-image.png
 
-// 2. 创建草稿
+// 2. 使用返回的 r2Key 上传正文图片
+wechat_upload_img({ r2Key })
+
+// 3. 创建草稿
 wechat_draft.add(articles)
 
-// 3. 预览群发
+// 4. 预览群发
 wechat_mass_send.preview(openId, content)
 
-// 4. 正式发布
+// 5. 正式发布
 wechat_publish.submit(mediaId)
 
-// 5. 监控数据
+// 6. 监控数据
 wechat_statistics.get_article_total(beginDate, endDate)
 ```
 

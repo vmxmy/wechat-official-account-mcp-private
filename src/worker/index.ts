@@ -25,6 +25,7 @@ import { WechatApiClient } from '../wechat/api-client.js';
 import { WechatApiClientFactory } from '../wechat/api-client-factory.js';
 import { D1InboxStore } from './inbox-store.js';
 import { createWorkerMediaTools } from './media-tools.js';
+import type { R2MediaUploadBucket } from './media-upload.js';
 import { handleWechatWebhook } from './wechat-webhook.js';
 import { D1AuditLogWriter } from './audit-log.js';
 import { handleManagementApiRequest } from './management-api.js';
@@ -57,7 +58,7 @@ export interface WorkerEnv {
   WECHAT_MCP_AGENT: DurableObjectNamespaceLike;
   TOKEN_OWNER: DurableObjectNamespaceLike;
   DB: D1DatabaseLike;
-  MEDIA: unknown;
+  MEDIA: R2MediaUploadBucket;
   ASSETS?: AssetsBindingLike;
   OAUTH_KV: KVNamespaceLike;
   OAUTH_PROVIDER: OAuthHelpers;
@@ -740,6 +741,7 @@ async function handleWebSessionManagementApiRequest(request: Request, env: Worke
     defaultClientId: 'web-session',
     usageStore,
     billing: await createStripeBillingServiceForEnv(env, usageStore),
+    mediaBucket: env.MEDIA,
     onboardingStore,
     validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
     trustedContext,
@@ -1588,6 +1590,7 @@ const managementApiHandler = {
       defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
       usageStore,
       billing: await createStripeBillingServiceForEnv(env, usageStore),
+      mediaBucket: env.MEDIA,
       onboardingStore,
       validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
       trustedContext,

@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { DEFAULT_ACCOUNT_ID, DEFAULT_TENANT_ID } from '../storage/types.js';
+import { ALLOWED_MEDIA_TYPES, FILE_SIZE_LIMITS } from '../utils/validation.js';
 
 interface CliConfig {
   server?: string;
@@ -145,6 +146,11 @@ async function main(argv: string[]): Promise<void> {
   if (root === 'inbox' && sub === 'list') {
     const { tenantId, accountId } = await resolveTenantAccount(parsed.flags);
     console.log(JSON.stringify(await apiGet(`/api/v1/tenants/${tenantId}/accounts/${accountId}/inbox${paginationQuery(parsed.flags)}`, parsed.flags), null, 2));
+    return;
+  }
+
+  if (root === 'media' && sub === 'upload') {
+    await uploadLocalMedia(leaf, parsed.flags);
     return;
   }
 
@@ -532,6 +538,113 @@ async function apiDelete(route: string, flags: Record<string, string | boolean>)
   return await apiRequest('DELETE', route, undefined, flags);
 }
 
+async function uploadLocalMedia(fileArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
+  const filePath = path.resolve(fileArg || stringFlag(flags, 'file') || '');
+  if (!fileArg && !stringFlag(flags, 'file')) {
+    throw new Error('media upload requires a local file path. Example: woa media upload ./cover.png');
+  }
+
+  const bytes = await readFile(filePath);
+  const maxBytes = Math.max(...Object.values(FILE_SIZE_LIMITS));
+  if (bytes.byteLength === 0) {
+    throw new Error(`media upload refuses empty file: ${filePath}`);
+  }
+  if (bytes.byteLength > maxBytes) {
+    throw new Error(`media upload file exceeds ${maxBytes} bytes: ${bytes.byteLength}`);
+  }
+
+  const fileName = stringFlag(flags, 'name') || stringFlag(flags, 'file-name') || path.basename(filePath);
+  const mimeType = stringFlag(flags, 'content-type') || stringFlag(flags, 'mime-type') || inferMediaMimeType(fileName);
+  if (!(ALLOWED_MEDIA_TYPES as readonly string[]).includes(mimeType)) {
+    throw new Error(`Unsupported media type ${mimeType}. Pass --content-type with one of: ${ALLOWED_MEDIA_TYPES.join(', ')}`);
+  }
+
+  const config = await loadConfig();
+  const server = normalizeServer(stringFlag(flags, 'server') || config.server || '');
+  if (!server) {
+    throw new Error('Missing server. Run `woa login --server <url>` or pass --server.');
+  }
+  const token = stringFlag(flags, 'token') || config.accessToken;
+  if (!token) {
+    throw new Error('Missing OAuth access token. Run `woa login --server <url>` or pass --token.');
+  }
+
+  const { tenantId, accountId } = await resolveTenantAccount(flags);
+  const query = new URLSearchParams({ filename: fileName });
+  const route = `/api/v1/tenants/${encodeURIComponent(tenantId)}/accounts/${encodeURIComponent(accountId)}/media/uploads?${query}`;
+  const response = await fetch(new URL(route, server), {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': mimeType,
+      'content-length': String(bytes.byteLength),
+      ...(stringFlag(flags, 'scopes') ? { 'x-woa-scopes': stringFlag(flags, 'scopes') as string } : {}),
+    },
+    body: bytes,
+  });
+  const text = await response.text();
+  const data = text ? safeJson(text) : null;
+  if (!response.ok) {
+    throw new Error(`Remote media upload failed with ${response.status}: ${text}`);
+  }
+  console.log(JSON.stringify(withMediaUploadHints(data, accountId), null, 2));
+}
+
+function withMediaUploadHints(value: unknown, accountId: string): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const root = value as Record<string, unknown>;
+  if (!root.data || typeof root.data !== 'object' || Array.isArray(root.data)) return value;
+  const data = root.data as Record<string, unknown>;
+  if (data.next || typeof data.r2Key !== 'string') return value;
+
+  const common = {
+    r2Key: data.r2Key,
+    fileName: data.fileName,
+    mimeType: data.mimeType,
+    accountId,
+  };
+  return {
+    ...root,
+    data: {
+      ...data,
+      next: {
+        contentImage: {
+          tool: 'wechat_upload_img',
+          arguments: common,
+        },
+        permanentMedia: {
+          tool: 'wechat_permanent_media',
+          arguments: { action: 'add', ...common },
+          requiredArgument: 'type: image | thumb | voice | video',
+        },
+      },
+    },
+  };
+}
+
+function inferMediaMimeType(fileName: string): string {
+  const extension = path.extname(fileName).toLowerCase();
+  switch (extension) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.gif':
+      return 'image/gif';
+    case '.bmp':
+      return 'image/bmp';
+    case '.mp3':
+      return 'audio/mpeg';
+    case '.amr':
+      return 'audio/amr';
+    case '.mp4':
+      return 'video/mp4';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
 async function deleteDraft(idArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
   const { tenantId, accountId } = await resolveTenantAccount(flags);
   const mediaId = stringFlag(flags, 'media-id') || stringFlag(flags, 'mediaId') || idArg;
@@ -772,12 +885,14 @@ Usage:
   woa publish list [--tenant <tenantId>] [--account <accountId>] [--count 20]
   woa publish delete <article_id> [--index <n>] --confirm-delete [--tenant <tenantId>] [--account <accountId>]
   woa inbox list [--tenant <tenantId>] [--account <accountId>] [--limit 20]
+  woa media upload <local-file> [--tenant <tenantId>] [--account <accountId>] [--content-type <mime>]
   woa mcp config codex --server <url> [--output <path>]
   woa mcp config claude --server <url> [--output <path>]
 
 Runtime posture:
   - Remote-only: commands call the OAuth-protected Worker REST API or generate remote /mcp config.
-  - No local MCP server, stdio transport, SSE transport, SQLite, local WeChat runtime, or filePath upload.
+  - No local MCP server, stdio transport, SSE transport, SQLite, or local WeChat runtime.
+  - Local files use \`woa media upload <path>\` to stage binary bytes in R2; remote MCP tools receive only r2Key/fileUrl, never a local path or base64 payload.
   - Destructive delete commands require --confirm-delete; use --dry-run first to verify the target.
   - The CLI stores OAuth/session data only; WeChat app secrets are sent over HTTPS for account configuration and are not persisted locally.
   - Native MCP config points to https://woa.ziikoo.app/mcp and never embeds OAuth tokens.`);

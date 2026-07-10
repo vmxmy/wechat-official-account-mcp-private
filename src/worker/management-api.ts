@@ -29,6 +29,7 @@ import {
   DuplicateAppIdError,
   type WechatResourceRecord,
 } from './saas-onboarding-store.js';
+import { stageMediaUpload, type R2MediaUploadBucket } from './media-upload.js';
 
 export interface ManagementApiDeps {
   createApiClient(): Promise<WechatApiClient>;
@@ -37,6 +38,7 @@ export interface ManagementApiDeps {
   defaultClientId?: string | null;
   usageStore?: D1UsageQuotaStore;
   billing?: StripeBillingService;
+  mediaBucket?: R2MediaUploadBucket;
   onboardingStore?: D1SaasOnboardingStore;
   validateWechatCredentials?(config: WechatConfig, account: AccountContext): Promise<{ accessToken: string; expiresIn: number; expiresAt: number } | null | undefined>;
   trustedContext?: TenantRequestContext;
@@ -86,6 +88,7 @@ export async function handleManagementApiRequest(
           '/api/v1/tenants/:tenantId/accounts/:accountId/publishes',
           '/api/v1/tenants/:tenantId/accounts/:accountId/publishes/:articleId',
           '/api/v1/tenants/:tenantId/accounts/:accountId/inbox',
+          '/api/v1/tenants/:tenantId/accounts/:accountId/media/uploads',
           '/api/v1/sessions',
           '/api/v1/sessions/:sessionId',
           '/api/v1/audit',
@@ -498,6 +501,35 @@ async function handleAccountRoutes(
       };
     });
     return apiSuccess(data, context, quota);
+  }
+
+  if (request.method === 'POST' && segments.length === 6 && segments[4] === 'media' && segments[5] === 'uploads') {
+    requireScope(context, 'woa:content:write');
+    const upload = await stageMediaUpload(request, {
+      bucket: deps.mediaBucket,
+      tenantId,
+      accountId,
+      userId: context.userId,
+      requestId: context.requestId,
+    });
+    return jsonResponse({
+      success: true,
+      data: {
+        ...upload,
+        next: {
+          contentImage: {
+            tool: 'wechat_upload_img',
+            arguments: { r2Key: upload.r2Key, fileName: upload.fileName, mimeType: upload.mimeType, accountId },
+          },
+          permanentMedia: {
+            tool: 'wechat_permanent_media',
+            arguments: { action: 'add', r2Key: upload.r2Key, fileName: upload.fileName, mimeType: upload.mimeType, accountId },
+            requiredArgument: 'type: image | thumb | voice | video',
+          },
+        },
+      },
+      requestId: context.requestId,
+    }, { status: 201 });
   }
 
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'drafts') {

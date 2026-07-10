@@ -47,6 +47,7 @@
     "worker:deploy": "wrangler deploy",
     "worker:types": "wrangler types",
     "d1:migrate:local": "wrangler d1 migrations apply wechat-official-account-mcp --local",
+    "r2:lifecycle:media": "wrangler r2 bucket lifecycle add wechat-official-account-mcp-media woa-media-staging-30d staging/ --expire-days 30",
     "web:build": "vite build",
     "web:dev": "vite --host 0.0.0.0",
     "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"

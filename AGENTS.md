@@ -77,7 +77,8 @@ wechat-official-account-mcp/
 │   │   └── workers-http-executor.ts # Workers/fetch 实现
 │   └── worker/
 │       ├── index.ts              # Workers Remote MCP、OAuth、TokenOwner DO、Webhook 路由
-│       ├── media-tools.ts        # fileUrl/R2/fileData 媒体上传；拒绝 filePath
+│       ├── media-tools.ts        # MCP 公开 fileUrl/R2；fileData 仅 handler 级兼容
+│       ├── media-upload.ts       # OAuth 保护的二进制上传与租户化 R2 暂存
 │       ├── inbox-store.ts        # inbound_messages D1 查询
 │       └── wechat-webhook.ts     # 微信回调验签、解密、入库
 ├── test-tools.js                 # 构建后验证脚本
@@ -177,7 +178,7 @@ npm run pack:dry
 1. Cloudflare Workers 读取 D1/R2/DO/KV bindings、OAuth credentials、微信公众号 secrets 和可选 relay proxy 配置。
 2. `WechatMcpAgent.init()` 创建 `D1StorageManager`、`D1InboxStore`、`WorkersAuthManager`、`TokenOwner`、`WechatApiClient`。
 3. `WechatApiClient` 必须注入 `AccessTokenHttpExecutor(WorkersHttpExecutor)`；不要恢复默认 Node executor。
-4. `createWorkerMediaTools()` 注册 HTTP-safe 媒体工具：`fileUrl` / `r2Key` / `fileData`，明确拒绝 `filePath`。
+4. `createWorkerMediaTools()` 注册 HTTP-safe 媒体工具：MCP schema 仅公开 `fileUrl` / `r2Key`；本地文件通过 `woa media upload <path>` 调用受保护的 REST 接口暂存到 R2，`fileData` 仅保留 handler 级兼容。
 5. `registerWorkerMcpTool()` 将 16 个工具注册到 Workers `/mcp` Streamable HTTP MCP server。
 
 ### 工具调用数据流
@@ -350,7 +351,8 @@ Vite 开发服务器配置了代理：`/api` → `http://localhost:3001`。
 |------|------|
 | `src/index.ts` | HTTP-only 库导出入口 |
 | `src/worker/index.ts` | Workers `/mcp`、OAuth、TokenOwner DO、Webhook 路由 |
-| `src/worker/media-tools.ts` | Worker-safe 媒体上传 wrapper（fileUrl/R2/fileData） |
+| `src/worker/media-tools.ts` | Worker-safe 微信媒体上传 wrapper（MCP 公开 fileUrl/R2） |
+| `src/worker/media-upload.ts` | OAuth 保护的本地文件二进制暂存与 R2 key 生成 |
 | `src/worker/wechat-webhook.ts` | 微信回调验签、AES 解密、入库 |
 | `src/worker/inbox-store.ts` | `inbound_messages` D1 查询 |
 | `src/mcp-tool/tools/index.ts` | 16 个工具的导出与注册列表 |

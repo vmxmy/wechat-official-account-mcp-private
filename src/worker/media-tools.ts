@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { McpTool, MediaInfo, WechatToolResult } from '../mcp-tool/types.js';
 import { ALLOWED_MEDIA_TYPES, FILE_SIZE_LIMITS } from '../utils/validation.js';
+import { accountFromParams } from './tenant-context.js';
+import { createMediaUploadPrefix } from './media-upload.js';
 
 const WORKERS_MEMORY_LIMIT_BYTES = 128 * 1024 * 1024;
 const UPLOAD_IMG_SIZE_LIMIT_BYTES = 1024 * 1024;
@@ -45,8 +47,8 @@ export interface WorkerMediaToolOptions {
 /**
  * Workers 专用媒体工具。
  *
- * 仅支持远程 HTTP 上传来源，避免导入 Node-only `form-data` / `fs` / `sqlite3`。
- * 请使用 `fileUrl`、R2 key 或 `fileData`，本地 `filePath` 已随 stdio 运行时移除。
+ * MCP schema 仅公开 `fileUrl` 与 R2 key，避免本地路径失效或 base64 占用模型上下文。
+ * `fileData` 仅保留为 handler 级短期兼容，不再向模型公开。
  */
 export function createWorkerMediaTools(options: WorkerMediaToolOptions = {}): McpTool[] {
   return [
@@ -59,16 +61,14 @@ export function createWorkerMediaTools(options: WorkerMediaToolOptions = {}): Mc
 function createTemporaryMediaTool(options: WorkerMediaToolOptions): McpTool {
   return {
     name: 'wechat_media_upload',
-    description: '上传和管理微信公众号临时素材（Workers 支持 fileUrl、r2Key、fileData；不支持 filePath）',
+    description: '上传和管理微信公众号临时素材（使用 fileUrl 或 r2Key；本地文件先通过 woa media upload 暂存到 R2）',
     inputSchema: {
       action: z.enum(['upload', 'get', 'list']).describe('操作类型：upload-上传素材, get-获取素材, list-列表素材'),
       type: z.enum(['image', 'voice', 'video', 'thumb']).optional().describe('素材类型：image-图片, voice-语音, video-视频, thumb-缩略图'),
-      filePath: z.string().optional().describe('已移除：HTTP-only 运行时不支持本地文件路径，请改用 fileUrl、r2Key 或 fileData'),
-      fileData: z.string().optional().describe('Base64编码的文件数据（Workers 支持；与 fileUrl/r2Key 三选一）'),
       fileUrl: z.string().url().optional().describe('Workers 上传路径：远程 HTTPS 文件 URL'),
       r2Key: z.string().optional().describe('Workers 上传路径：Cloudflare R2 对象 key'),
       fileName: z.string().optional().describe('文件名（upload操作可选）'),
-      mimeType: z.string().optional().describe('MIME 类型（fileData 或 R2 元数据缺失时建议提供）'),
+      mimeType: z.string().optional().describe('MIME 类型（R2 元数据缺失时建议提供）'),
       mediaId: z.string().optional().describe('媒体文件ID（get操作必需）'),
       title: z.string().optional().describe('视频素材的标题（video类型upload操作可选）'),
       introduction: z.string().optional().describe('视频素材的描述（video类型upload操作可选）'),
@@ -157,14 +157,12 @@ function createTemporaryMediaTool(options: WorkerMediaToolOptions): McpTool {
 function createUploadImgTool(options: WorkerMediaToolOptions): McpTool {
   return {
     name: 'wechat_upload_img',
-    description: '上传图文消息内所需的图片，不占用素材库限制（Workers 支持 fileUrl、r2Key、fileData；不支持 filePath）',
+    description: '上传图文消息内所需的图片，不占用素材库限制（使用 fileUrl 或 r2Key；本地文件先通过 woa media upload 暂存到 R2）',
     inputSchema: {
-      filePath: z.string().optional().describe('已移除：HTTP-only 运行时不支持本地文件路径，请改用 fileUrl、r2Key 或 fileData'),
-      fileData: z.string().optional().describe('base64编码的图片数据（与 fileUrl/r2Key 三选一）'),
       fileUrl: z.string().url().optional().describe('Workers 上传路径：远程 HTTPS 图片 URL'),
       r2Key: z.string().optional().describe('Workers 上传路径：Cloudflare R2 图片对象 key'),
       fileName: z.string().optional().describe('文件名（可选，默认从 URL/R2 key 提取或使用 image.jpg）'),
-      mimeType: z.string().optional().describe('MIME 类型（fileData 或 R2 元数据缺失时建议提供）'),
+      mimeType: z.string().optional().describe('MIME 类型（R2 元数据缺失时建议提供）'),
     },
     handler: async (args: unknown, apiClient: any): Promise<WechatToolResult> => {
       try {
@@ -193,17 +191,15 @@ function createUploadImgTool(options: WorkerMediaToolOptions): McpTool {
 function createPermanentMediaTool(options: WorkerMediaToolOptions): McpTool {
   return {
     name: 'wechat_permanent_media',
-    description: '管理微信公众号永久素材，Workers 上传支持 fileUrl、r2Key、fileData；不支持 filePath',
+    description: '管理微信公众号永久素材，上传使用 fileUrl 或 r2Key；本地文件先通过 woa media upload 暂存到 R2',
     inputSchema: {
       action: z.enum(['add', 'get', 'delete', 'list', 'count']).describe('操作类型：add-添加素材, get-获取素材, delete-删除素材, list-获取素材列表, count-获取素材总数'),
       type: z.enum(['image', 'voice', 'video', 'thumb', 'news']).optional().describe('素材类型：image-图片, voice-语音, video-视频, thumb-缩略图, news-图文素材'),
       mediaId: z.string().optional().describe('媒体文件ID（get和delete操作必需）'),
-      filePath: z.string().optional().describe('已移除：HTTP-only 运行时不支持本地文件路径，请改用 fileUrl、r2Key 或 fileData'),
-      fileData: z.string().optional().describe('Base64编码的文件数据（非news类型add操作可选，与 fileUrl/r2Key 三选一）'),
       fileUrl: z.string().url().optional().describe('Workers 上传路径：远程 HTTPS 文件 URL'),
       r2Key: z.string().optional().describe('Workers 上传路径：Cloudflare R2 对象 key'),
       fileName: z.string().optional().describe('文件名（add操作可选）'),
-      mimeType: z.string().optional().describe('MIME 类型（fileData 或 R2 元数据缺失时建议提供）'),
+      mimeType: z.string().optional().describe('MIME 类型（R2 元数据缺失时建议提供）'),
       articles: z.array(z.any()).optional().describe('图文素材文章列表（news类型add操作必需）'),
       title: z.string().optional().describe('视频素材的标题（video类型add操作必需）'),
       introduction: z.string().optional().describe('视频素材的描述（video类型add操作必需）'),
@@ -385,12 +381,12 @@ async function resolveWorkerMedia(
   options: { mediaBucket?: unknown; defaultFileName: string; maxBytes?: number },
 ): Promise<ResolvedMedia> {
   if (args.filePath) {
-    throw new Error('HTTP-only 运行时不支持 filePath，本地文件系统不可用；请改用 fileUrl、r2Key 或 fileData。');
+    throw new Error('HTTP-only 运行时不支持 filePath，本地文件请先执行 woa media upload <path>，再使用返回的 r2Key。');
   }
 
   const sourceCount = [args.fileData, args.fileUrl, args.r2Key].filter(Boolean).length;
   if (sourceCount === 0) {
-    throw new Error('请提供 fileUrl、r2Key 或 fileData 之一');
+    throw new Error('请提供 fileUrl 或 r2Key；本地文件请先通过 woa media upload 暂存到 R2');
   }
   if (sourceCount > 1) {
     throw new Error('fileUrl、r2Key、fileData 只能提供一个，避免上传来源歧义');
@@ -422,6 +418,7 @@ async function resolveWorkerMedia(
 
   if (args.r2Key) {
     const maxBytes = maxResolvedMediaBytes(options);
+    assertStagedR2KeyAccess(args, args.r2Key);
     const bucket = options.mediaBucket as R2BucketLike | undefined;
     if (!bucket?.get) {
       throw new Error('R2 MEDIA binding is not configured; cannot read r2Key');
@@ -455,6 +452,16 @@ async function resolveWorkerMedia(
     mimeType: normalizeMimeType(args.mimeType || inferMimeType(args.fileName || options.defaultFileName)),
     source: 'fileData',
   };
+}
+
+function assertStagedR2KeyAccess(args: WorkerMediaArgs, r2Key: string): void {
+  if (!r2Key.startsWith('staging/tenants/')) return;
+  const account = accountFromParams(args);
+  if (!account) return;
+  const allowedPrefix = createMediaUploadPrefix(account.tenantId, account.accountId);
+  if (!r2Key.startsWith(allowedPrefix)) {
+    throw new Error('R2 对象不属于当前租户/公众号账号，已拒绝跨账号媒体读取');
+  }
 }
 
 function validateMediaPayload(

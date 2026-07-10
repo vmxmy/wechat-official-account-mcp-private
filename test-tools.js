@@ -1,9 +1,11 @@
 // 简单测试脚本验证工具注册与运行时 seam
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
 import { execFile, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import CryptoJS from 'crypto-js';
 import { mcpTools, wechatTools } from './dist/src/mcp-tool/tools/index.js';
 import { inboxMcpTool } from './dist/src/mcp-tool/tools/inbox-tool.js';
@@ -511,6 +513,172 @@ check(
   'REST /api/v1/me 授权请求返回用户/租户/默认账号上下文',
 );
 
+const stagedPngBytes = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+]);
+const stagedMediaWrites = [];
+const stagedMediaBucket = {
+  async put(key, value, options) {
+    const reader = value.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value: chunk } = await reader.read();
+      if (done) break;
+      chunks.push(chunk);
+      total += chunk.byteLength;
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    stagedMediaWrites.push({ key, bytes, options });
+    return { key, size: total, etag: 'fixture-etag' };
+  },
+};
+const stagedMediaResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/media/uploads?filename=cover.png`, {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'content-type': 'image/png',
+      'content-length': String(stagedPngBytes.byteLength),
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:write',
+    },
+    body: stagedPngBytes,
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    mediaBucket: stagedMediaBucket,
+    createApiClient: async () => { throw new Error('media staging must not construct WeChat api client'); },
+  },
+);
+const stagedMediaBody = await stagedMediaResponse.json();
+check(
+  stagedMediaResponse.status === 201 &&
+    stagedMediaWrites.length === 1 &&
+    stagedMediaWrites[0]?.key === stagedMediaBody.data?.r2Key &&
+    stagedMediaWrites[0]?.key.startsWith(`staging/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/uploads/`) &&
+    stagedMediaWrites[0]?.options?.httpMetadata?.contentType === 'image/png' &&
+    Buffer.from(stagedMediaWrites[0]?.bytes ?? []).equals(Buffer.from(stagedPngBytes)) &&
+    stagedMediaBody.data?.size === stagedPngBytes.byteLength &&
+    !JSON.stringify(stagedMediaBody).includes(stagedPngBytes.toString()),
+  'REST 媒体暂存接口使用写权限将二进制流写入租户/账号隔离的 R2 key，响应不回显文件数据',
+);
+
+const deniedMediaWriteCount = stagedMediaWrites.length;
+const deniedMediaResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/media/uploads?filename=cover.png`, {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'content-type': 'image/png',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read',
+    },
+    body: stagedPngBytes,
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    mediaBucket: stagedMediaBucket,
+    createApiClient: async () => { throw new Error('denied media staging must not construct WeChat api client'); },
+  },
+);
+check(
+  deniedMediaResponse.status === 403 && stagedMediaWrites.length === deniedMediaWriteCount,
+  'REST 媒体暂存接口缺少 woa:content:write 时拒绝且不写 R2',
+);
+
+const invalidMediaResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/media/uploads?filename=cover.png`, {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'content-type': 'image/png',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:write',
+    },
+    body: new TextEncoder().encode('not a png'),
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    mediaBucket: stagedMediaBucket,
+    createApiClient: async () => { throw new Error('invalid media staging must not construct WeChat api client'); },
+  },
+);
+check(
+  invalidMediaResponse.status === 415 && stagedMediaWrites.length === deniedMediaWriteCount,
+  'REST 媒体暂存接口校验 MIME 对应文件头，伪造图片不会写入 R2',
+);
+
+const oversizedMediaResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/media/uploads?filename=large.mp4`, {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'content-type': 'video/mp4',
+      'content-length': String(10 * 1024 * 1024 + 1),
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:write',
+    },
+    body: new Uint8Array([0, 0, 0, 8, 0x66, 0x74, 0x79, 0x70]),
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    mediaBucket: stagedMediaBucket,
+    createApiClient: async () => { throw new Error('oversized media staging must not construct WeChat api client'); },
+  },
+);
+check(
+  oversizedMediaResponse.status === 413 && stagedMediaWrites.length === deniedMediaWriteCount,
+  'REST 媒体暂存接口在读取正文前按 Content-Length 拒绝超过 10MB 的文件',
+);
+
+const oversizedStreamFirstChunk = new Uint8Array(6 * 1024 * 1024);
+oversizedStreamFirstChunk.set(stagedPngBytes, 0);
+const oversizedStreamResponse = await handleManagementApiRequest(
+  new Request(`https://worker.example.test/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/media/uploads?filename=streamed.png`, {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer TEST_TOKEN',
+      'content-type': 'image/png',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:write',
+    },
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(oversizedStreamFirstChunk);
+        controller.enqueue(new Uint8Array(5 * 1024 * 1024));
+        controller.close();
+      },
+    }),
+    duplex: 'half',
+  }),
+  {
+    appId: 'wx1234567890abcdef',
+    defaultUserId: 'wechat-admin',
+    defaultClientId: 'test-client',
+    allowUnsafeHeaderContextForTests: true,
+    mediaBucket: stagedMediaBucket,
+    createApiClient: async () => { throw new Error('oversized streamed media must not construct WeChat api client'); },
+  },
+);
+check(
+  oversizedStreamResponse.status === 413 && stagedMediaWrites.length === deniedMediaWriteCount,
+  'REST 媒体暂存接口在缺少 Content-Length 时仍按流式累计字节拒绝超过 10MB 的文件',
+);
+
 const packageManifest = JSON.parse(readFileSync('./package.json', 'utf8'));
 check(
   packageManifest.name === '@ziikoo/woa' &&
@@ -563,6 +731,66 @@ check(
     !/appSecret|WECHAT_APP_SECRET|app_secret/i.test(woaConfig),
   'woa mcp config 生成远程 /mcp 配置且不包含微信凭据',
 );
+const mediaCliRequests = [];
+const mediaCliServer = createServer((req, res) => {
+  const chunks = [];
+  req.on('data', chunk => chunks.push(chunk));
+  req.on('end', () => {
+    mediaCliRequests.push({
+      method: req.method,
+      url: req.url,
+      authorization: req.headers.authorization,
+      contentType: req.headers['content-type'],
+      body: Buffer.concat(chunks),
+    });
+    res.writeHead(201, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      data: {
+        r2Key: `staging/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/uploads/fixture-cover.png`,
+        fileName: 'cover.png',
+        mimeType: 'image/png',
+        size: stagedPngBytes.byteLength,
+      },
+    }));
+  });
+});
+await new Promise(resolve => mediaCliServer.listen(0, '127.0.0.1', resolve));
+const mediaCliTempDir = mkdtempSync(path.join(tmpdir(), 'woa-media-upload-'));
+try {
+  const mediaCliFile = path.join(mediaCliTempDir, 'cover.png');
+  writeFileSync(mediaCliFile, stagedPngBytes);
+  const address = mediaCliServer.address();
+  const mediaCliPort = typeof address === 'object' && address ? address.port : 0;
+  const mediaCliOutput = await execFileText(process.execPath, [
+    './dist/src/cli/woa.js',
+    'media',
+    'upload',
+    mediaCliFile,
+    '--server',
+    `http://127.0.0.1:${mediaCliPort}`,
+    '--token',
+    'TEST_TOKEN',
+    '--tenant',
+    DEFAULT_TENANT_ID,
+    '--account',
+    DEFAULT_ACCOUNT_ID,
+  ]);
+  check(
+    mediaCliRequests.length === 1 &&
+      mediaCliRequests[0]?.method === 'POST' &&
+      mediaCliRequests[0]?.url === `/api/v1/tenants/${DEFAULT_TENANT_ID}/accounts/${DEFAULT_ACCOUNT_ID}/media/uploads?filename=cover.png` &&
+      mediaCliRequests[0]?.authorization === 'Bearer TEST_TOKEN' &&
+      mediaCliRequests[0]?.contentType === 'image/png' &&
+      mediaCliRequests[0]?.body.equals(Buffer.from(stagedPngBytes)) &&
+      mediaCliOutput.includes('"r2Key"') &&
+      mediaCliOutput.includes('wechat_permanent_media'),
+    'woa media upload 从本地路径读取二进制并上传到受保护接口，输出 r2Key 与后续 MCP 调用提示',
+  );
+} finally {
+  rmSync(mediaCliTempDir, { recursive: true, force: true });
+  await new Promise(resolve => mediaCliServer.close(resolve));
+}
 const woaDraftDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'draft', 'delete', 'MEDIA_ID_FOR_DELETE', '--dry-run'], { encoding: 'utf8' }));
 const woaPublishDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'publish', 'delete', 'ARTICLE_ID_FOR_DELETE', '--index', '1', '--dry-run'], { encoding: 'utf8' }));
 const woaAccountDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'account', 'delete', 'ACCOUNT_ID_FOR_DELETE', '--dry-run'], { encoding: 'utf8' }));
@@ -3568,11 +3796,47 @@ console.log('\n=== Workers media size guard 验证 ===');
 
 const workerMediaTools = createWorkerMediaTools();
 const workerUploadImgTool = workerMediaTools.find(tool => tool.name === 'wechat_upload_img');
+check(
+  workerMediaTools.every(tool => !Object.prototype.hasOwnProperty.call(tool.inputSchema, 'fileData')) &&
+    workerMediaTools.every(tool => !Object.prototype.hasOwnProperty.call(tool.inputSchema, 'filePath')),
+  'Workers MCP 媒体工具 schema 不再向模型暴露 fileData/filePath，仅保留 fileUrl/r2Key',
+);
 const rejectingMediaApiClient = {
   async postForm() {
     throw new Error('postForm should not be called when media exceeds pre-upload limits');
   },
 };
+
+let crossTenantR2Reads = 0;
+const scopedWorkerMediaTools = createWorkerMediaTools({
+  mediaBucket: {
+    async get() {
+      crossTenantR2Reads += 1;
+      return null;
+    },
+  },
+});
+const scopedUploadImgTool = scopedWorkerMediaTools.find(tool => tool.name === 'wechat_upload_img');
+const crossTenantR2Result = await scopedUploadImgTool.handler({
+  r2Key: 'staging/tenants/tenant_other/accounts/account_other/uploads/2026/07/10/cover.png',
+  __woaAccountContext: {
+    tenantId: 'tenant_current',
+    accountId: 'account_current',
+    account: {
+      tenantId: 'tenant_current',
+      accountId: 'account_current',
+      slug: 'current',
+      name: 'Current',
+      status: 'active',
+    },
+  },
+}, rejectingMediaApiClient);
+check(
+  crossTenantR2Result.isError === true &&
+    crossTenantR2Result.content[0]?.text?.includes('R2 对象不属于当前租户/公众号账号') &&
+    crossTenantR2Reads === 0,
+  'Workers r2Key 对新租户化前缀执行账号隔离，跨账号 key 在读取 R2 前被拒绝',
+);
 
 const oversizedFileDataResult = await workerUploadImgTool.handler({
   fileData: 'A'.repeat(2 * 1024 * 1024),
