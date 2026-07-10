@@ -59,7 +59,7 @@ function LoginPage() {
 
               <form method="post" action="/api/v1/auth/email-code/request">
                 <input type="hidden" name="returnTo" value={returnTo} />
-                <FormLayout>
+                <FormLayout className="auth-email-request-grid">
                   <TextInput
                     label="邮箱地址"
                     type="email"
