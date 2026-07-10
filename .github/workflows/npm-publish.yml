@@ -125,13 +125,45 @@ jobs:
           LOCAL_SHASUM: ${{ steps.package.outputs.local_shasum }}
           LOCAL_TARBALL: ${{ steps.package.outputs.local_tarball }}
         run: |
-          remote_shasum="$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.shasum --json 2>/dev/null | tr -d '"' || true)"
-          if [ -z "$remote_shasum" ]; then
+          registry_metadata="$(mktemp)"
+          node --input-type=module - <<'NODE' > "$registry_metadata"
+          const packageUrl = `https://registry.npmjs.org/${encodeURIComponent(process.env.PACKAGE_NAME)}`;
+          let lastError;
+          for (let attempt = 1; attempt <= 5; attempt += 1) {
+            try {
+              const response = await fetch(packageUrl, { signal: AbortSignal.timeout(15000) });
+              if (response.status === 404) {
+                process.stdout.write(JSON.stringify({ exists: false }));
+                process.exit(0);
+              }
+              if (!response.ok) throw new Error(`npm registry returned ${response.status}`);
+              const metadata = await response.json();
+              const versionMetadata = metadata.versions?.[process.env.PACKAGE_VERSION];
+              process.stdout.write(JSON.stringify({
+                exists: Boolean(versionMetadata),
+                shasum: versionMetadata?.dist?.shasum ?? '',
+                tarball: versionMetadata?.dist?.tarball ?? '',
+                taggedVersion: metadata['dist-tags']?.[process.env.DIST_TAG] ?? '',
+              }));
+              process.exit(0);
+            } catch (error) {
+              lastError = error;
+              if (attempt < 5) await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+            }
+          }
+          throw lastError;
+          NODE
+          registry_field() {
+            REGISTRY_METADATA="$registry_metadata" REGISTRY_FIELD="$1" node -e "const value=JSON.parse(require('node:fs').readFileSync(process.env.REGISTRY_METADATA, 'utf8'))[process.env.REGISTRY_FIELD]; process.stdout.write(String(value ?? ''));"
+          }
+          if [ "$(registry_field exists)" != "true" ]; then
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          remote_shasum="$(registry_field shasum)"
+          remote_tarball="$(registry_field tarball)"
+          tagged_version="$(registry_field taggedVersion)"
           if [ "$remote_shasum" != "$LOCAL_SHASUM" ]; then
-            remote_tarball="$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.tarball --json 2>/dev/null | tr -d '"' || true)"
             if [ -z "$remote_tarball" ] || [ ! -f "$LOCAL_TARBALL" ]; then
               echo "::error::Unable to compare package contents after tarball shasum mismatch"
               exit 1
@@ -148,7 +180,6 @@ jobs:
             echo "::notice::Tarball archive shasums differ across build environments, but extracted package contents match"
             rm -rf "$compare_dir"
           fi
-          tagged_version="$(npm view "$PACKAGE_NAME" "dist-tags.$DIST_TAG" --json 2>/dev/null | tr -d '"' || true)"
           if [ "$tagged_version" != "$PACKAGE_VERSION" ]; then
             echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION exists, but dist-tag $DIST_TAG points to ${tagged_version:-nothing}"
             exit 1
@@ -168,12 +199,23 @@ jobs:
           PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
           DIST_TAG: ${{ steps.release.outputs.dist_tag }}
         run: |
-          for attempt in 1 2 3 4 5; do
-            version="$(npm view "$PACKAGE_NAME" "dist-tags.$DIST_TAG" --json 2>/dev/null | tr -d '"' || true)"
-            if [ "$version" = "$PACKAGE_VERSION" ]; then
-              exit 0
-            fi
-            sleep $((attempt * 2))
-          done
-          echo "::error::Registry dist-tag $DIST_TAG did not resolve to $PACKAGE_VERSION"
-          exit 1
+          node --input-type=module - <<'NODE'
+          const packageUrl = `https://registry.npmjs.org/${encodeURIComponent(process.env.PACKAGE_NAME)}`;
+          let lastVersion = '';
+          for (let attempt = 1; attempt <= 5; attempt += 1) {
+            try {
+              const response = await fetch(`${packageUrl}?cacheBust=${Date.now()}`, {
+                signal: AbortSignal.timeout(15000),
+                cache: 'no-store',
+              });
+              if (!response.ok) throw new Error(`npm registry returned ${response.status}`);
+              const metadata = await response.json();
+              lastVersion = metadata['dist-tags']?.[process.env.DIST_TAG] ?? '';
+              if (lastVersion === process.env.PACKAGE_VERSION) process.exit(0);
+            } catch (error) {
+              if (attempt === 5) throw error;
+            }
+            await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+          }
+          throw new Error(`Registry dist-tag ${process.env.DIST_TAG} resolved to ${lastVersion || 'nothing'}, expected ${process.env.PACKAGE_VERSION}`);
+          NODE

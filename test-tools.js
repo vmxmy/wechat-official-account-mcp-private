@@ -874,6 +874,9 @@ check(
     npmPublishWorkflowSource.includes("packResult['@ziikoo/woa'] ?? Object.values(packResult)[0]") &&
     npmPublishWorkflowSource.includes('diff --recursive --brief --no-dereference') &&
     npmPublishWorkflowSource.includes('extracted package contents match') &&
+    npmPublishWorkflowSource.includes('https://registry.npmjs.org/${encodeURIComponent(process.env.PACKAGE_NAME)}') &&
+    npmPublishWorkflowSource.includes('AbortSignal.timeout(15000)') &&
+    npmPublishWorkflowSource.includes("cache: 'no-store'") &&
     npmPublishWorkflowSource.includes('already published with the expected tarball and dist-tag; skipping publish') &&
     npmPublishWorkflowSource.includes('Verify npm automation token') &&
     npmPublishWorkflowSource.includes('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}') &&
