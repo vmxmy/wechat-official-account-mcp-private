@@ -71,6 +71,7 @@ function SecurityPage() {
   return (
     <>
       <PageHeader
+        eyebrow="访问控制"
         title="会话与授权客户端"
         description="撤销 Web session、CLI refresh token 或 MCP client 授权后，对应入口需要重新登录。"
       />

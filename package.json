@@ -58,6 +58,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-router": "^1.170.17",
+    "@ziikoo/woa": "^2.2.0",
     "agents": "^0.17.3",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",

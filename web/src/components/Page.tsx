@@ -5,13 +5,16 @@ import type { ReactNode } from 'react';
 export function PageHeader({
   title,
   description,
+  eyebrow,
 }: {
   title: string;
   description: string;
+  eyebrow?: string;
 }) {
   return (
     <header className="page-header">
       <VStack className="page-header-copy" gap={2}>
+        {eyebrow ? <span className="page-eyebrow">{eyebrow}</span> : null}
         <Heading level={1} type="display-3" textWrap="balance">{title}</Heading>
         <Text type="supporting" as="p" textWrap="pretty">{description}</Text>
       </VStack>
@@ -31,11 +34,28 @@ export function PageGrid({ children, columns }: { children: ReactNode; columns?:
   );
 }
 
-export function SurfaceSection({ title, children }: { title: string; children: ReactNode }) {
+export function SurfaceSection({
+  title,
+  children,
+  tone = 'default',
+  className,
+}: {
+  title: string;
+  children: ReactNode;
+  tone?: 'default' | 'accent' | 'quiet';
+  className?: string;
+}) {
+  const sectionClassName = ['surface-section', `surface-section--${tone}`, className]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <Section className="surface-section" variant="transparent" padding={5}>
+    <Section className={sectionClassName} variant="transparent" padding={5} data-tone={tone}>
       <VStack gap={4}>
-        <Heading level={2}>{title}</Heading>
+        <div className="surface-section-heading">
+          <span className="surface-section-marker" aria-hidden="true" />
+          <Heading level={2}>{title}</Heading>
+        </div>
         {children}
       </VStack>
     </Section>

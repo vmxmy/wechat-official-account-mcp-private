@@ -47,11 +47,12 @@ function BillingPage() {
   return (
     <>
       <PageHeader
+        eyebrow="订阅管理"
         title="订阅与用量"
         description="订阅绑定 Tenant。Free 自动生效；Plus/Pro 由 Web 或 CLI 创建 Stripe Checkout，MCP 只返回升级指引。"
       />
       <PageStack>
-        <SurfaceSection title="当前订阅">
+        <SurfaceSection title="当前订阅" tone="accent">
           <DefinitionList columns="multi" items={[
             { label: 'Tenant', value: tenantId ?? (current.isLoading ? '读取中…' : '未创建') },
             { label: 'Plan', value: billing.data?.plan ?? '—' },
@@ -74,9 +75,15 @@ function BillingPage() {
               const isPaidPlan = plan.plan !== 'free';
               const isCurrentAttempt = checkout.variables === plan.plan;
               return (
-                <Card key={plan.name} padding={5} variant={plan.plan === 'pro' ? 'teal' : 'default'}>
+                <Card
+                  key={plan.name}
+                  className={`plan-card${plan.plan === 'pro' ? ' plan-card--featured' : ''}`}
+                  padding={5}
+                  variant={plan.plan === 'pro' ? 'teal' : 'default'}
+                >
                   <VStack gap={4}>
                     <VStack gap={1}>
+                      {plan.plan === 'pro' ? <span className="plan-badge">推荐</span> : null}
                       <Heading level={3}>{plan.name}</Heading>
                       <Text type="large" weight="semibold">{plan.price}</Text>
                     </VStack>

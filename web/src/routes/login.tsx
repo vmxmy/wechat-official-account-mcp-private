@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, Card, Center, Divider, FormLayout, Heading, Link, Text, TextInput, VStack } from '@astryxdesign/core';
+import { Button, Card, Divider, FormLayout, Heading, Link, Text, TextInput, VStack } from '@astryxdesign/core';
+import { Activity, Cable, Github, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { z } from 'zod';
 import { VerificationCodeInput } from '../components/VerificationCodeInput.js';
 
@@ -34,88 +36,155 @@ function LoginPage() {
 
   return (
     <div className="auth-page">
-      <Center axis="both" height="100%">
-        <VStack gap={4} hAlign="center" width="min(100%, 440px)">
-          <VStack gap={2} hAlign="center">
-            <div className="auth-logo" aria-hidden="true">WOA</div>
-            <Heading level={1} type="display-3" justify="center" textWrap="balance">登录 WOA</Heading>
-            <Text type="supporting" as="p" justify="center" textWrap="pretty">
-              使用同一个账户管理微信公众号 MCP、OAuth 授权、用量和订阅。
-            </Text>
-          </VStack>
+      <div className="auth-shell">
+        <section className="auth-story" aria-label="WOA 产品介绍">
+          <div className="auth-story-content">
+            <div className="auth-brand-row">
+              <div className="auth-logo" aria-hidden="true">W</div>
+              <div>
+                <strong className="auth-brand-name">WOA</strong>
+                <span className="auth-brand-subtitle">微信公众号 MCP</span>
+              </div>
+            </div>
 
-          <Card padding={8} width="100%" maxWidth={440}>
-            <VStack gap={4}>
-              {errorCode ? (
-                <div className="form-error" role="alert">登录请求未完成：{loginErrorMessage(errorCode)}</div>
-              ) : null}
+            <div className="auth-story-copy">
+              <span className="page-eyebrow">REMOTE CONTROL CENTER</span>
+              <h1 className="auth-story-title">让公众号能力，安全地进入你的 AI 工作流。</h1>
+              <p className="auth-story-description">
+                WOA 将微信 API、OAuth、租户隔离和边缘运行统一成一个清晰、可控的远程 MCP 入口。
+              </p>
+            </div>
 
-              <Button
-                label="使用 GitHub 继续"
-                href={githubLoginHref}
-                variant="primary"
-                className="auth-full-width"
+            <div className="auth-benefit-list">
+              <AuthBenefit
+                icon={<Cable aria-hidden="true" size={19} strokeWidth={1.8} />}
+                title="远程 MCP"
+                description="Streamable HTTP 与原生 OAuth 授权"
               />
+              <AuthBenefit
+                icon={<ShieldCheck aria-hidden="true" size={19} strokeWidth={1.8} />}
+                title="凭据隔离"
+                description="AppSecret 只进入受保护的 Worker"
+              />
+              <AuthBenefit
+                icon={<Activity aria-hidden="true" size={19} strokeWidth={1.8} />}
+                title="持续可控"
+                description="用量、会话和授权状态集中可见"
+              />
+            </div>
+          </div>
 
-              <Divider label="或使用邮箱验证码" />
+          <p className="auth-story-meta">Cloudflare Workers · OAuth · D1 / R2</p>
+        </section>
 
-              <form method="post" action="/api/v1/auth/email-code/request">
-                <input type="hidden" name="returnTo" value={returnTo} />
-                <FormLayout className="auth-email-request-grid">
-                  <TextInput
-                    label="邮箱地址"
-                    type="email"
-                    htmlName="email"
-                    value={email}
-                    onChange={setEmail}
-                    placeholder="operator@example.com"
-                    status={emailError ? { type: 'error', message: emailError } : undefined}
-                    isRequired
-                    hasAutoFocus={!isCodeSent}
-                  />
-                  {turnstileSiteKey ? (
-                    <div className="auth-turnstile cf-turnstile" data-sitekey={turnstileSiteKey} />
-                  ) : (
-                    <Text type="supporting" as="p">当前构建未配置 Turnstile site key；生产环境必须配置后端 secret 并启用小组件。</Text>
-                  )}
-                  {isCodeSent ? (
-                    <div className="auth-success" role="status">验证码已发送，请查收邮箱并在下方输入 6 位数字。</div>
+        <main className="auth-panel">
+          <div className="auth-panel-inner">
+            <VStack gap={5}>
+              <VStack className="auth-panel-heading" gap={2}>
+                <span className="page-eyebrow">安全登录</span>
+                <Heading level={1} type="display-3" textWrap="balance">欢迎回来</Heading>
+                <Text type="supporting" as="p" textWrap="pretty">
+                  登录后继续管理公众号接入、MCP 授权、用量与订阅。
+                </Text>
+              </VStack>
+
+              <Card className="auth-card" padding={6} width="100%" maxWidth={480}>
+                <VStack gap={4}>
+                  {errorCode ? (
+                    <div className="form-error" role="alert">登录请求未完成：{loginErrorMessage(errorCode)}</div>
                   ) : null}
-                  <Button
-                    label="发送验证码"
-                    type="submit"
-                    className="auth-full-width"
-                    isDisabled={!!emailError || !email}
-                  />
-                </FormLayout>
-              </form>
 
-              <form method="post" action="/api/v1/auth/email-code/verify">
-                <input type="hidden" name="returnTo" value={returnTo} />
-                <input type="hidden" name="email" value={email} />
-                <FormLayout>
-                  <VerificationCodeInput
-                    value={code}
-                    onChange={setCode}
-                    hasAutoFocus={isCodeSent}
-                  />
                   <Button
-                    label="完成登录"
-                    type="submit"
+                    label="使用 GitHub 继续"
+                    href={githubLoginHref}
+                    icon={<Github aria-hidden="true" size={18} strokeWidth={1.8} />}
                     variant="primary"
-                    className="auth-full-width"
-                    isDisabled={!email || !isCodeComplete}
+                    className="auth-full-width auth-provider-button"
                   />
-                </FormLayout>
-              </form>
-            </VStack>
-          </Card>
 
-          <Text type="supporting" as="p" justify="center">
-            无法登录？联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>
-          </Text>
-        </VStack>
-      </Center>
+                  <Divider label="或使用邮箱验证码" />
+
+                  <form method="post" action="/api/v1/auth/email-code/request">
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <FormLayout className="auth-email-request-grid">
+                      <TextInput
+                        label="邮箱地址"
+                        type="email"
+                        htmlName="email"
+                        value={email}
+                        onChange={setEmail}
+                        placeholder="operator@example.com"
+                        status={emailError ? { type: 'error', message: emailError } : undefined}
+                        isRequired
+                        hasAutoFocus={!isCodeSent}
+                      />
+                      {turnstileSiteKey ? (
+                        <div className="auth-turnstile cf-turnstile" data-sitekey={turnstileSiteKey} />
+                      ) : (
+                        <Text className="auth-build-note" type="supporting" as="p">
+                          当前构建未配置 Turnstile site key；生产环境必须配置后端 secret 并启用小组件。
+                        </Text>
+                      )}
+                      {isCodeSent ? (
+                        <div className="auth-success" role="status">验证码已发送，请查收邮箱并在下方输入 6 位数字。</div>
+                      ) : null}
+                      <Button
+                        label="发送验证码"
+                        type="submit"
+                        className="auth-full-width"
+                        isDisabled={!!emailError || !email}
+                      />
+                    </FormLayout>
+                  </form>
+
+                  <form method="post" action="/api/v1/auth/email-code/verify">
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <input type="hidden" name="email" value={email} />
+                    <FormLayout>
+                      <VerificationCodeInput
+                        value={code}
+                        onChange={setCode}
+                        hasAutoFocus={isCodeSent}
+                      />
+                      <Button
+                        label="完成登录"
+                        type="submit"
+                        variant="primary"
+                        className="auth-full-width"
+                        isDisabled={!email || !isCodeComplete}
+                      />
+                    </FormLayout>
+                  </form>
+                </VStack>
+              </Card>
+
+              <Text className="auth-support" type="supporting" as="p" justify="center">
+                无法登录？联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>
+              </Text>
+            </VStack>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function AuthBenefit({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="auth-benefit">
+      <span className="auth-benefit-icon">{icon}</span>
+      <span className="auth-benefit-copy">
+        <strong>{title}</strong>
+        <span>{description}</span>
+      </span>
     </div>
   );
 }

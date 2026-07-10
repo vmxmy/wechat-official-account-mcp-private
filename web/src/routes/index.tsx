@@ -73,11 +73,12 @@ function HomePage() {
   return (
     <>
       <PageHeader
+        eyebrow="控制台"
         title="WOA 概览"
         description="查看微信公众号连接、远程 MCP endpoint 与当前套餐用量，并继续完成最重要的下一步。"
       />
       <PageStack>
-        <SurfaceSection title="接入状态">
+        <SurfaceSection title="接入状态" tone="accent" className="overview-status-section">
           <VStack gap={5}>
             <DefinitionList items={[
               {
@@ -113,14 +114,18 @@ function HomePage() {
                 value: plan ? planLabels[plan] : quota.isLoading ? '读取中…' : tenantId ? '暂不可用' : '等待 Tenant',
               },
             ]} />
-            <VStack gap={2}>
-              <Text type="large" weight="semibold">{nextStep.title}</Text>
-              <Text type="supporting" as="p" textWrap="pretty">{nextStep.description}</Text>
-            </VStack>
-            <HStack gap={3} wrap="wrap">
-              <Button label={nextStep.label} variant="primary" href={nextStep.href} />
-              <Button label="查看订阅与用量" href="/billing" />
-            </HStack>
+            <div className="next-step-panel">
+              <VStack gap={3}>
+                <VStack gap={2}>
+                  <Text type="large" weight="semibold">{nextStep.title}</Text>
+                  <Text type="supporting" as="p" textWrap="pretty">{nextStep.description}</Text>
+                </VStack>
+                <HStack gap={3} wrap="wrap">
+                  <Button label={nextStep.label} variant="primary" href={nextStep.href} />
+                  <Button label="查看订阅与用量" href="/billing" />
+                </HStack>
+              </VStack>
+            </div>
           </VStack>
         </SurfaceSection>
 
@@ -136,7 +141,7 @@ function HomePage() {
           ) : quota.data?.counters.length ? (
             <PageGrid columns={{ minWidth: 280, max: 2 }}>
               {quota.data.counters.map(counter => (
-                <VStack key={counter.kind} gap={2}>
+                <VStack key={counter.kind} className="quota-item" gap={2}>
                   <ProgressBar
                     label={quotaLabels[counter.kind] ?? counter.kind}
                     value={counter.used}
@@ -157,7 +162,7 @@ function HomePage() {
           )}
         </SurfaceSection>
 
-        <SurfaceSection title="账户与支持">
+        <SurfaceSection title="账户与支持" tone="quiet">
           <VStack gap={4}>
             <DefinitionList columns="multi" items={[
               {

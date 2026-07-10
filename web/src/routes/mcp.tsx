@@ -13,11 +13,12 @@ function McpPage() {
   return (
     <>
       <PageHeader
+        eyebrow="远程连接"
         title="远程 MCP 配置"
         description="复制 Streamable HTTP endpoint 到支持原生 Remote MCP/OAuth 的客户端。配置不包含 OAuth token，也不恢复本地 stdio/SSE。"
       />
       <PageStack>
-        <SurfaceSection title="Endpoint">
+        <SurfaceSection title="Endpoint" tone="accent">
           <VStack gap={2}>
             <p className="section-copy mono">{mcpUrl()}</p>
             <p className="section-copy">授权由客户端通过 OAuth 完成；不要把 AppSecret 或 access token 写进 MCP 配置文件。</p>

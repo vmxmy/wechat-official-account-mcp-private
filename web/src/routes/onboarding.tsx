@@ -58,11 +58,12 @@ function OnboardingPage() {
     <div className="onboarding-layout">
       <div className="onboarding-main">
         <PageHeader
+          eyebrow="接入设置"
           title="配置微信公众号资源"
           description="每个 Tenant 至少有一个未配置资源。AppID/AppSecret 通过平台 HTTPS relay 验证成功后才会激活；Webhook 凭据可稍后补充。"
         />
         <PageStack>
-          <SurfaceSection title="Tenant 与资源状态">
+          <SurfaceSection title="Tenant 与资源状态" tone={status?.configured ? 'accent' : 'default'}>
             <DefinitionList columns="multi" items={[
               { label: 'Tenant', value: status?.tenantId ?? (onboarding.isLoading ? '读取中…' : '未创建') },
               { label: '微信公众号资源', value: status?.resourceName ?? resourceName },
@@ -71,7 +72,7 @@ function OnboardingPage() {
             ]} />
           </SurfaceSection>
           <SurfaceSection title="提交凭据">
-            <form onSubmit={submitCredentials}>
+            <form className="credential-form" onSubmit={submitCredentials}>
               <FormLayout>
                 <TextInput label="资源名称" htmlName="name" value={resourceName} onChange={setResourceName} />
                 <TextInput label="AppID" htmlName="appId" value={appId} onChange={setAppId} placeholder="wx..." isRequired />
