@@ -869,8 +869,11 @@ check(
     npmPublishWorkflowSource.includes('expected_tag="woa-v${package_version}"') &&
     npmPublishWorkflowSource.includes('git merge-base --is-ancestor') &&
     npmPublishWorkflowSource.includes('local_shasum=') &&
+    npmPublishWorkflowSource.includes('local_tarball=') &&
     npmPublishWorkflowSource.includes('Array.isArray(packResult)') &&
     npmPublishWorkflowSource.includes("packResult['@ziikoo/woa'] ?? Object.values(packResult)[0]") &&
+    npmPublishWorkflowSource.includes('diff --recursive --brief --no-dereference') &&
+    npmPublishWorkflowSource.includes('extracted package contents match') &&
     npmPublishWorkflowSource.includes('already published with the expected tarball and dist-tag; skipping publish') &&
     npmPublishWorkflowSource.includes('Verify npm automation token') &&
     npmPublishWorkflowSource.includes('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}') &&
@@ -878,7 +881,7 @@ check(
     npmPublishWorkflowSource.includes('Publish with npm automation token') &&
     npmPublishWorkflowSource.includes(pinnedCheckoutSha) &&
     npmPublishWorkflowSource.includes(pinnedSetupNodeSha),
-  'npm 发布校验 tag/version/main 可达性与 tarball shasum，验证自动化 Token，并支持带 provenance 的幂等发布',
+  'npm 发布校验 tag/version/main 可达性与包内容，验证自动化 Token，并支持带 provenance 的跨环境幂等发布',
 );
 check(
   turnstileWorkflowSource.includes('group: turnstile-production') &&

@@ -113,6 +113,7 @@ jobs:
             throw new Error('Published tarball would not contain dist/src/cli/woa.js');
           }
           console.log(`local_shasum=${item.shasum}`);
+          console.log(`local_tarball=${item.filename}`);
           NODE
 
       - name: Check registry version and dist-tag
@@ -122,6 +123,7 @@ jobs:
           PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
           DIST_TAG: ${{ steps.release.outputs.dist_tag }}
           LOCAL_SHASUM: ${{ steps.package.outputs.local_shasum }}
+          LOCAL_TARBALL: ${{ steps.package.outputs.local_tarball }}
         run: |
           remote_shasum="$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.shasum --json 2>/dev/null | tr -d '"' || true)"
           if [ -z "$remote_shasum" ]; then
@@ -129,8 +131,22 @@ jobs:
             exit 0
           fi
           if [ "$remote_shasum" != "$LOCAL_SHASUM" ]; then
-            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION already exists with a different tarball shasum"
-            exit 1
+            remote_tarball="$(npm view "$PACKAGE_NAME@$PACKAGE_VERSION" dist.tarball --json 2>/dev/null | tr -d '"' || true)"
+            if [ -z "$remote_tarball" ] || [ ! -f "$LOCAL_TARBALL" ]; then
+              echo "::error::Unable to compare package contents after tarball shasum mismatch"
+              exit 1
+            fi
+            compare_dir="$(mktemp -d)"
+            mkdir -p "$compare_dir/local" "$compare_dir/remote"
+            curl --fail --silent --show-error --location --retry 5 --retry-all-errors --connect-timeout 10 --max-time 60 "$remote_tarball" --output "$compare_dir/remote.tgz"
+            tar -xzf "$LOCAL_TARBALL" -C "$compare_dir/local" --strip-components=1
+            tar -xzf "$compare_dir/remote.tgz" -C "$compare_dir/remote" --strip-components=1
+            if ! diff --recursive --brief --no-dereference "$compare_dir/local" "$compare_dir/remote"; then
+              echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION already exists with different package contents"
+              exit 1
+            fi
+            echo "::notice::Tarball archive shasums differ across build environments, but extracted package contents match"
+            rm -rf "$compare_dir"
           fi
           tagged_version="$(npm view "$PACKAGE_NAME" "dist-tags.$DIST_TAG" --json 2>/dev/null | tr -d '"' || true)"
           if [ "$tagged_version" != "$PACKAGE_VERSION" ]; then

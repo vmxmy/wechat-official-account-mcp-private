@@ -17,7 +17,7 @@
 
 - 新增 Pull Request CI，独立执行类型检查、lint、完整测试和 Worker dry-run。
 - 生产部署改为 Secret 缺失时 fail-closed，并在 D1 migration 前验证 bundle、部署后检查 health 与 `/mcp` OAuth 边界。
-- npm 发布增加 tag/version/main 可达性、tarball shasum 和重复版本校验，使用 bypass-2FA 自动化 Token 并保留 provenance。
+- npm 发布增加 tag/version/main 可达性、tarball/包内容和重复版本校验，使用 bypass-2FA 自动化 Token 并保留 provenance。
 - 第三方 GitHub Actions 固定到 commit SHA；Turnstile 配置不再回退到通用 Cloudflare Token。
 
 ## v2.2.0 (2026-05-24)
