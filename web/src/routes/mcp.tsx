@@ -1,7 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { CodeBlock, Heading, Link, VStack } from '@astryxdesign/core';
+import { CodeBlock, Heading, Link, Text, VStack } from '@astryxdesign/core';
 import { PageGrid, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
-import { claudeMcpConfig, codexMcpConfig, mcpUrl } from '../lib/mcp-config.js';
+import {
+  claudeMcpCli,
+  claudeMcpConfig,
+  codexMcpCli,
+  codexMcpConfig,
+  mcpUrl,
+} from '../lib/mcp-config.js';
 import { requireWebSession } from '../route-guards.js';
 
 export const Route = createFileRoute('/mcp')({
@@ -28,17 +34,28 @@ function McpPage() {
           <PageGrid columns={{ minWidth: 320, max: 2 }}>
             <VStack gap={2}>
               <Heading level={3}>Codex</Heading>
-              <CodeBlock code={JSON.stringify(codexMcpConfig(), null, 2)} language="json" title="codex mcp config" width="100%" />
+              <CodeBlock code={codexMcpConfig()} language="toml" title="~/.codex/config.toml" width="100%" />
             </VStack>
             <VStack gap={2}>
-              <Heading level={3}>Claude</Heading>
-              <CodeBlock code={JSON.stringify(claudeMcpConfig(), null, 2)} language="json" title="claude mcp config" width="100%" />
+              <Heading level={3}>Claude Code</Heading>
+              <CodeBlock code={JSON.stringify(claudeMcpConfig(), null, 2)} language="json" title=".mcp.json" width="100%" />
             </VStack>
           </PageGrid>
         </SurfaceSection>
         <SurfaceSection title="CLI 生成">
-          <VStack gap={2}>
-            <CodeBlock code="npx -y --package @ziikoo/woa woa mcp config codex --server https://woa.ziikoo.app" language="bash" title="terminal" width="100%" />
+          <VStack gap={4}>
+            <PageGrid columns={{ minWidth: 320, max: 2 }}>
+              <VStack gap={2}>
+                <Heading level={3}>Claude Code CLI</Heading>
+                <Text type="supporting" as="p">添加用户级远程 MCP，并通过浏览器完成 OAuth 登录。</Text>
+                <CodeBlock code={claudeMcpCli()} language="bash" title="terminal" width="100%" size="sm" />
+              </VStack>
+              <VStack gap={2}>
+                <Heading level={3}>Codex CLI</Heading>
+                <Text type="supporting" as="p">写入 Codex MCP 配置，并通过浏览器完成 OAuth 登录。</Text>
+                <CodeBlock code={codexMcpCli()} language="bash" title="terminal" width="100%" size="sm" />
+              </VStack>
+            </PageGrid>
             <p className="section-copy">需要帮助请联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>。</p>
           </VStack>
         </SurfaceSection>

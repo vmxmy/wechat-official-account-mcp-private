@@ -48,9 +48,10 @@ export function SurfaceSection({
   const sectionClassName = ['surface-section', `surface-section--${tone}`, className]
     .filter(Boolean)
     .join(' ');
+  const sectionVariant = tone === 'quiet' ? 'muted' : 'section';
 
   return (
-    <Section className={sectionClassName} variant="transparent" padding={5} data-tone={tone}>
+    <Section className={sectionClassName} variant={sectionVariant} padding={5} data-tone={tone}>
       <VStack gap={4}>
         <div className="surface-section-heading">
           <span className="surface-section-marker" aria-hidden="true" />

@@ -57,6 +57,7 @@ import {
   fetchGitHubOAuthProfile,
   selectVerifiedGitHubEmail,
 } from './dist/src/worker/github-oauth.js';
+import { renderAuthorizationConsentForm } from './dist/src/worker/oauth-consent.js';
 
 let failed = false;
 
@@ -187,12 +188,12 @@ check(
 const providersSource = readFileSync('./web/src/providers.tsx', 'utf8');
 const webCssEntrySource = readFileSync('./web/src/styles/index.css', 'utf8');
 check(
-  providersSource.includes("./ziikoo-woa.js") &&
-    providersSource.includes('ziikooWoaTheme') &&
-    webCssEntrySource.includes('../ziikoo-woa.css') &&
-    existsSync('./web/src/ziikoo-woa.css') &&
-    existsSync('./web/src/ziikoo-woa.js'),
-  'Astryx 自定义主题使用预构建 ziikoo-woa CSS/JS，避免运行时 style injection',
+  providersSource.includes("@astryxdesign/theme-stone/built") &&
+    providersSource.includes('stoneTheme') &&
+    webCssEntrySource.includes('@astryxdesign/theme-stone/theme.css') &&
+    !existsSync('./web/src/ziikoo-woa.css') &&
+    !existsSync('./web/src/ziikoo-woa.js'),
+  'Astryx 使用官方预构建 Stone 主题 CSS/JS，避免本地主题漂移和运行时 style injection',
 );
 
 console.log('\n=== HTTP/Storage Seam 验证 ===');
@@ -714,6 +715,22 @@ check(
     securityRouteSource.includes("invalidateQueries({ queryKey: ['security-sessions'] })"),
   'Web onboarding/security 页面使用真实 API query/mutation，未保留 current-account 静态提交路径',
 );
+const webMcpConfigSource = readFileSync('./web/src/lib/mcp-config.ts', 'utf8');
+const webMcpRouteSource = readFileSync('./web/src/routes/mcp.tsx', 'utf8');
+check(
+  webMcpConfigSource.includes('[mcp_servers.wechat-woa]') &&
+    webMcpConfigSource.includes('claude mcp add') &&
+    webMcpConfigSource.includes('--transport http') &&
+    webMcpConfigSource.includes('--scope user') &&
+    webMcpConfigSource.includes('claude mcp login wechat-woa') &&
+    webMcpConfigSource.includes('codex mcp add') &&
+    webMcpConfigSource.includes('--url') &&
+    webMcpConfigSource.includes('codex mcp login wechat-woa') &&
+    webMcpRouteSource.includes('Claude Code CLI') &&
+    webMcpRouteSource.includes('Codex CLI') &&
+    !webMcpRouteSource.includes('npx -y --package @ziikoo/woa'),
+  'Web MCP 页面区分 Claude Code/Codex CLI，并为 Codex 输出原生 TOML 配置',
+);
 const woaConfig = execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'mcp', 'config', 'codex', '--server', 'https://worker.example.test'], { encoding: 'utf8' });
 check(
   woaConfig.includes('https://worker.example.test/mcp') &&
@@ -797,6 +814,19 @@ check(
   'woa CLI 删除命令默认支持 dry-run 预检，不要求本地 MCP 或微信凭据',
 );
 const workerIndexSource = readFileSync('./src/worker/index.ts', 'utf8');
+const oauthConsentResponse = renderAuthorizationConsentForm({
+  query: 'response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A8787%2Fcallback',
+  clientId: 'cli_test',
+  scopes: ['wechat.mcp'],
+});
+const oauthConsentCsp = oauthConsentResponse.headers.get('content-security-policy') ?? '';
+const oauthConsentHtml = await oauthConsentResponse.text();
+check(
+  oauthConsentHtml.includes('method="POST"') &&
+    oauthConsentHtml.includes('name="consent" value="approve"') &&
+    !/(?:^|;)\s*form-action\b/.test(oauthConsentCsp),
+  'OAuth 授权页允许已验证 redirect_uri 的表单重定向链到达 CLI 本机回调',
+);
 check(
   workerIndexSource.includes("'/api/v1': managementApiHandler") &&
     workerIndexSource.includes('handleWebSessionManagementApiRequest') &&
