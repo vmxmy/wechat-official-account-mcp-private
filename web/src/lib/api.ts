@@ -65,6 +65,7 @@ export const onboardingStatusSchema = z.object({
 export const accountSchema = z.object({
   accountId: z.string(),
   tenantId: z.string(),
+  slug: z.string().optional(),
   name: z.string().optional(),
   accountName: z.string().optional(),
   appId: z.string().optional(),
@@ -73,10 +74,22 @@ export const accountSchema = z.object({
   hasAppSecret: z.boolean().optional(),
   hasWebhookToken: z.boolean().optional(),
   hasEncodingAESKey: z.boolean().optional(),
+  createdAt: z.number().optional(),
+  updatedAt: z.number().optional(),
 }).passthrough();
 
 const accountListSchema = z.object({
   accounts: z.array(accountSchema).default([]),
+});
+
+const accountMutationSchema = z.object({
+  account: accountSchema,
+});
+
+const accountDeleteSchema = z.object({
+  accountId: z.string(),
+  deleted: z.boolean(),
+  secretsPurged: z.boolean(),
 });
 
 const accountStatusSchema = z.object({
@@ -147,6 +160,46 @@ export async function getAccounts(tenantId: string): Promise<z.infer<typeof acco
 
 export async function getAccountStatus(tenantId: string, accountId: string): Promise<z.infer<typeof accountStatusSchema>> {
   return await apiGet(`/api/v1/tenants/${encodeURIComponent(tenantId)}/accounts/${encodeURIComponent(accountId)}/status`, accountStatusSchema);
+}
+
+export async function createAccount(input: {
+  tenantId: string;
+  name: string;
+}): Promise<z.infer<typeof accountSchema>> {
+  const { account } = await apiPost(
+    `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts`,
+    { name: input.name },
+    accountMutationSchema,
+  );
+  return account;
+}
+
+export async function updateAccount(input: {
+  tenantId: string;
+  accountId: string;
+  name?: string;
+  isDefault?: boolean;
+}): Promise<z.infer<typeof accountSchema>> {
+  const { account } = await apiPatch(
+    `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}`,
+    {
+      name: input.name,
+      isDefault: input.isDefault,
+    },
+    accountMutationSchema,
+  );
+  return account;
+}
+
+export async function deleteAccount(input: {
+  tenantId: string;
+  accountId: string;
+}): Promise<z.infer<typeof accountDeleteSchema>> {
+  return await apiPost(
+    `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}/disable`,
+    { confirmation: `DELETE ${input.accountId}` },
+    accountDeleteSchema,
+  );
 }
 
 export async function configureAccount(input: {
@@ -246,6 +299,10 @@ async function apiGet<T extends z.ZodType>(path: string, schema: T): Promise<z.i
 
 async function apiPost<T extends z.ZodType>(path: string, body: unknown, schema: T): Promise<z.infer<T>> {
   return await apiRequest(path, { method: 'POST', body, schema });
+}
+
+async function apiPatch<T extends z.ZodType>(path: string, body: unknown, schema: T): Promise<z.infer<T>> {
+  return await apiRequest(path, { method: 'PATCH', body, schema });
 }
 
 async function apiRequest<T extends z.ZodType>(path: string, options: {

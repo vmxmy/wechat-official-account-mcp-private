@@ -1052,20 +1052,24 @@ export class D1SaasOnboardingStore {
     }
 
     const now = input.now ?? Date.now();
+    const updateWebhookToken = input.config.token !== undefined;
+    const updateEncodingAESKey = input.config.encodingAESKey !== undefined;
     await this.db.prepare(
       `UPDATE wechat_accounts
        SET app_id = ?,
            app_secret = ?,
-           webhook_token = ?,
-           encoding_aes_key = ?,
+           webhook_token = CASE WHEN ? = 1 THEN ? ELSE webhook_token END,
+           encoding_aes_key = CASE WHEN ? = 1 THEN ? ELSE encoding_aes_key END,
            status = 'active',
            updated_at = ?
        WHERE tenant_id = ? AND id = ? AND status != 'disabled'`,
     ).bind(
       input.config.appId,
       this.encryptValue(input.config.appSecret),
-      this.encryptValue(input.config.token ?? null),
-      this.encryptValue(input.config.encodingAESKey ?? null),
+      updateWebhookToken ? 1 : 0,
+      this.encryptValue(input.config.token),
+      updateEncodingAESKey ? 1 : 0,
+      this.encryptValue(input.config.encodingAESKey),
       now,
       input.tenantId,
       input.resourceId,

@@ -1,11 +1,36 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, FormLayout, Heading, StatusDot, Text, TextInput, VStack } from '@astryxdesign/core';
+import {
+  AlertDialog,
+  Button,
+  EmptyState,
+  FormLayout,
+  HStack,
+  StatusDot,
+  Table,
+  Text,
+  TextInput,
+  VStack,
+  type TableColumn,
+} from '@astryxdesign/core';
+import { proportional } from '@astryxdesign/core/Table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import type { z } from 'zod';
 import { DefinitionList, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
-import { configureAccount, getCurrentOperator, getOnboardingStatus } from '../lib/api.js';
+import {
+  accountSchema,
+  configureAccount,
+  createAccount,
+  deleteAccount,
+  getAccountStatus,
+  getAccounts,
+  getCurrentOperator,
+  updateAccount,
+} from '../lib/api.js';
 import { requireWebSession } from '../route-guards.js';
+
+type AccountRecord = z.infer<typeof accountSchema>;
 
 export const Route = createFileRoute('/onboarding')({
   beforeLoad: requireWebSession,
@@ -18,40 +43,94 @@ function OnboardingPage() {
     queryKey: ['current-operator'],
     queryFn: getCurrentOperator,
   });
-  const onboarding = useQuery({
-    queryKey: ['onboarding', current.data?.defaultTenantId, current.data?.defaultAccountId],
-    queryFn: () => getOnboardingStatus(current.data!),
-    enabled: Boolean(current.data),
+  const tenantId = current.data?.defaultTenantId;
+  const accounts = useQuery({
+    queryKey: ['accounts', tenantId],
+    queryFn: async () => await getAccounts(tenantId!),
+    enabled: Boolean(tenantId),
   });
-  const [appId, setAppId] = useState('');
-  const [appSecret, setAppSecret] = useState('');
-  const [webhookToken, setWebhookToken] = useState('');
-  const [encodingAESKey, setEncodingAESKey] = useState('');
-  const [resourceName, setResourceName] = useState('默认微信公众号资源');
-  const status = onboarding.data;
-  const mutation = useMutation({
+  const rows = accounts.data?.accounts ?? [];
+  const [selectedAccountId, setSelectedAccountId] = useState<string>();
+  const [newResourceName, setNewResourceName] = useState('新的微信公众号资源');
+  const selectedAccount = rows.find(account => account.accountId === selectedAccountId)
+    ?? rows.find(account => account.accountId === current.data?.defaultAccountId)
+    ?? rows.find(account => account.isDefault)
+    ?? rows[0];
+  const canWrite = current.data?.scopes.length
+    ? current.data.scopes.includes('woa:account:write')
+    : true;
+
+  const createMutation = useMutation({
     mutationFn: async () => {
-      if (!status?.tenantId || !status.resourceId) {
-        throw new Error('当前 Tenant 尚未创建可配置的微信公众号资源，请先完成登录引导。');
-      }
-      return await configureAccount({
-        tenantId: status.tenantId,
-        accountId: status.resourceId,
-        appId,
-        appSecret,
-        token: webhookToken,
-        encodingAESKey,
-      });
+      if (!tenantId) throw new Error('当前 Operator 尚无可用 Tenant。');
+      const name = newResourceName.trim();
+      if (!name) throw new Error('请填写公众号资源名称。');
+      return await createAccount({ tenantId, name });
     },
-    onSuccess: async () => {
-      setAppSecret('');
-      await queryClient.invalidateQueries({ queryKey: ['onboarding'] });
+    onSuccess: async account => {
+      setNewResourceName('新的微信公众号资源');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['accounts', tenantId] }),
+        queryClient.invalidateQueries({ queryKey: ['current-operator'] }),
+        queryClient.invalidateQueries({ queryKey: ['onboarding'] }),
+      ]);
+      setSelectedAccountId(account.accountId);
     },
   });
 
-  function submitCredentials(event: FormEvent<HTMLFormElement>) {
+  const columns: TableColumn<AccountRecord>[] = [
+    {
+      key: 'resource',
+      header: '公众号资源',
+      width: proportional(1.35),
+      renderCell: account => (
+        <VStack gap={1}>
+          <Text weight="semibold">{account.name ?? account.accountName ?? '未命名资源'}</Text>
+          <Text type="supporting">
+            <span className="mono">{account.accountId}</span>{account.isDefault ? ' · 默认资源' : ''}
+          </Text>
+        </VStack>
+      ),
+    },
+    {
+      key: 'appId',
+      header: 'AppID',
+      width: proportional(1),
+      renderCell: account => account.appId ? <span className="mono">{account.appId}</span> : '未配置',
+    },
+    {
+      key: 'status',
+      header: '授权状态',
+      width: proportional(0.8),
+      renderCell: account => {
+        const configured = isAccountConfigured(account);
+        return (
+          <HStack gap={2} as="span" vAlign="center">
+            <StatusDot variant={configured ? 'success' : 'warning'} label={configured ? '授权有效' : '等待配置'} />
+            <Text>{configured ? '已验证' : '未配置'}</Text>
+          </HStack>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: '操作',
+      width: proportional(0.6),
+      renderCell: account => (
+        <Button
+          label={selectedAccount?.accountId === account.accountId ? '正在管理' : '管理'}
+          size="sm"
+          variant="ghost"
+          isDisabled={selectedAccount?.accountId === account.accountId}
+          clickAction={() => setSelectedAccountId(account.accountId)}
+        />
+      ),
+    },
+  ];
+
+  function submitNewResource(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    mutation.mutate();
+    createMutation.mutate();
   }
 
   return (
@@ -59,58 +138,342 @@ function OnboardingPage() {
       <div className="onboarding-main">
         <PageHeader
           eyebrow="接入设置"
-          title="配置微信公众号资源"
-          description="每个 Tenant 至少有一个未配置资源。AppID/AppSecret 通过平台 HTTPS relay 验证成功后才会激活；Webhook 凭据可稍后补充。"
+          title="微信公众号授权信息"
+          description="查看当前 Tenant 的公众号资源，验证或更新 AppID/AppSecret，并在不再使用时删除资源和关联密钥。"
         />
         <PageStack>
-          <SurfaceSection title="Tenant 与资源状态" tone={status?.configured ? 'accent' : 'default'}>
-            <DefinitionList columns="multi" items={[
-              { label: 'Tenant', value: status?.tenantId ?? (onboarding.isLoading ? '读取中…' : '未创建') },
-              { label: '微信公众号资源', value: status?.resourceName ?? resourceName },
-              { label: '凭据状态', value: <span className="inline-status"><StatusDot variant={status?.configured ? 'success' : 'warning'} label={status?.configured ? '已配置' : '未配置'} />{status?.configured ? `已验证 ${status.appId ?? ''}` : '未配置 AppID/AppSecret'}</span> },
-              { label: 'Webhook', value: status?.webhookConfigured ? '已配置' : '可选；仅收件箱和入站消息能力需要' },
-            ]} />
+          <SurfaceSection title="公众号资源">
+            {!tenantId || current.isLoading || accounts.isLoading ? (
+              <Text type="supporting" as="p">正在读取当前 Tenant 与公众号资源…</Text>
+            ) : rows.length === 0 ? (
+              <EmptyState
+                title="当前 Tenant 没有公众号资源"
+                description="创建资源后再提交 AppID/AppSecret；凭据验证失败时不会保存。"
+                actions={<Button label="创建资源" clickAction={() => createMutation.mutate()} isDisabled={!canWrite} />}
+                isCompact
+              />
+            ) : (
+              <Table data={rows} idKey="accountId" columns={columns} dividers="rows" hasHover textOverflow="wrap" />
+            )}
+            {current.error || accounts.error ? (
+              <p className="form-error" role="alert">
+                {errorMessage(current.error ?? accounts.error, '读取公众号资源失败，请刷新后重试。')}
+              </p>
+            ) : null}
           </SurfaceSection>
-          <SurfaceSection title="提交凭据">
-            <form className="credential-form" onSubmit={submitCredentials}>
+
+          <SurfaceSection title="新增公众号资源" tone="quiet">
+            <form onSubmit={submitNewResource}>
               <FormLayout>
-                <TextInput label="资源名称" htmlName="name" value={resourceName} onChange={setResourceName} />
-                <TextInput label="AppID" htmlName="appId" value={appId} onChange={setAppId} placeholder="wx..." isRequired />
-                <TextInput label="AppSecret" htmlName="appSecret" type="password" value={appSecret} onChange={setAppSecret} placeholder="只发送到远程 Worker，不保存在浏览器" isRequired />
-                <TextInput label="Webhook Token（可选）" htmlName="token" value={webhookToken} onChange={setWebhookToken} placeholder="启用收件箱前再配置也可以" />
-                <TextInput label="EncodingAESKey（可选）" htmlName="encodingAESKey" value={encodingAESKey} onChange={setEncodingAESKey} placeholder="安全模式回调需要" />
+                <TextInput
+                  label="资源名称"
+                  htmlName="newResourceName"
+                  value={newResourceName}
+                  onChange={setNewResourceName}
+                  description="新资源创建后处于未配置状态；可用数量受当前套餐限制。"
+                  isRequired
+                />
               </FormLayout>
               <div className="inline-actions">
-                <Button label="验证并保存" type="submit" variant="primary" isLoading={mutation.isPending} isDisabled={!appId || !appSecret || !status?.tenantId || !status.resourceId} />
-                <Button label="稍后配置 Webhook" href="/mcp" />
+                <Button
+                  label="创建未配置资源"
+                  type="submit"
+                  isLoading={createMutation.isPending}
+                  isDisabled={!tenantId || !canWrite || !newResourceName.trim()}
+                />
               </div>
             </form>
-            {mutation.error ? (
-              <p className="section-copy">
-                {mutation.error instanceof Error ? mutation.error.message : '凭据验证失败，请确认微信白名单和 AppSecret。'}
-              </p>
-            ) : null}
-            {onboarding.error ? (
-              <p className="section-copy">
-                {onboarding.error instanceof Error ? onboarding.error.message : '读取 onboarding 状态失败。'}
-              </p>
+            {createMutation.error ? (
+              <p className="form-error" role="alert">{errorMessage(createMutation.error, '创建公众号资源失败。')}</p>
             ) : null}
           </SurfaceSection>
+
+          {tenantId && selectedAccount ? (
+            <AccountAuthorizationEditor
+              key={selectedAccount.accountId}
+              tenantId={tenantId}
+              account={selectedAccount}
+              canWrite={canWrite}
+              onDeleted={() => setSelectedAccountId(undefined)}
+            />
+          ) : null}
         </PageStack>
       </div>
-      <aside className="onboarding-guidance" aria-label="补充说明">
+
+      <aside className="onboarding-guidance" aria-label="授权信息说明">
         <VStack gap={3}>
-          <Heading level={2}>平台 relay 白名单</Heading>
+          <Text type="large" weight="semibold">密钥处理规则</Text>
           <Text type="supporting" as="p" textWrap="pretty">
-            在微信公众平台把 SaaS relay 的固定出口 IP 加入白名单后再提交凭据。验证失败不会保存 AppSecret。
+            Web 端只显示 AppID 和密钥是否已配置。AppSecret、Webhook Token 与 EncodingAESKey 不会从服务端回显。
           </Text>
           <ul className="notice-list">
-            <li>确认公众号类型支持对应接口权限。</li>
-            <li>确认 AppSecret 未过期且与 AppID 匹配。</li>
-            <li>如果微信返回 IP 白名单错误，先更新平台 relay 出口 IP，再重试验证。</li>
+            <li>AppID/AppSecret 必须通过微信 access token 验证后才会保存。</li>
+            <li>更新 AppID/AppSecret 时，留空的 Webhook 字段会保留现值。</li>
+            <li>删除资源会清除 AppSecret、Webhook 凭据和缓存 access token。</li>
+            <li>微信返回 IP 白名单错误时，先更新平台 relay 出口 IP。</li>
           </ul>
         </VStack>
       </aside>
     </div>
   );
+}
+
+function AccountAuthorizationEditor({
+  tenantId,
+  account,
+  canWrite,
+  onDeleted,
+}: {
+  tenantId: string;
+  account: AccountRecord;
+  canWrite: boolean;
+  onDeleted: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [resourceName, setResourceName] = useState(account.name ?? account.accountName ?? '未命名资源');
+  const [appId, setAppId] = useState(account.appId ?? '');
+  const [appSecret, setAppSecret] = useState('');
+  const [webhookToken, setWebhookToken] = useState('');
+  const [encodingAESKey, setEncodingAESKey] = useState('');
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const status = useQuery({
+    queryKey: ['account-status', tenantId, account.accountId],
+    queryFn: async () => await getAccountStatus(tenantId, account.accountId),
+  });
+
+  async function invalidateAccountState() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['accounts', tenantId] }),
+      queryClient.invalidateQueries({ queryKey: ['account-status', tenantId, account.accountId] }),
+      queryClient.invalidateQueries({ queryKey: ['current-operator'] }),
+      queryClient.invalidateQueries({ queryKey: ['onboarding'] }),
+    ]);
+  }
+
+  const renameMutation = useMutation({
+    mutationFn: async () => {
+      const name = resourceName.trim();
+      if (!name) throw new Error('请填写公众号资源名称。');
+      return await updateAccount({ tenantId, accountId: account.accountId, name });
+    },
+    onSuccess: async updated => {
+      setResourceName(updated.name ?? resourceName.trim());
+      await invalidateAccountState();
+    },
+  });
+  const defaultMutation = useMutation({
+    mutationFn: async () => await updateAccount({ tenantId, accountId: account.accountId, isDefault: true }),
+    onSuccess: invalidateAccountState,
+  });
+  const configureMutation = useMutation({
+    mutationFn: async () => {
+      if (!appId.trim() || !appSecret) throw new Error('AppID 和 AppSecret 均为必填项。');
+      return await configureAccount({
+        tenantId,
+        accountId: account.accountId,
+        appId: appId.trim(),
+        appSecret,
+        token: webhookToken,
+        encodingAESKey,
+      });
+    },
+    onSuccess: async updated => {
+      setAppId(updated.appId ?? appId.trim());
+      setAppSecret('');
+      setWebhookToken('');
+      setEncodingAESKey('');
+      await invalidateAccountState();
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async () => await deleteAccount({ tenantId, accountId: account.accountId }),
+    onSuccess: async () => {
+      setIsDeleteOpen(false);
+      await invalidateAccountState();
+      onDeleted();
+    },
+  });
+
+  const config = status.data?.config;
+  const configured = status.data?.configured ?? isAccountConfigured(account);
+  const currentAppId = config?.appId ?? account.appId;
+  const hasAppSecret = config?.hasAppSecret ?? account.hasAppSecret ?? false;
+  const hasWebhookToken = config?.hasToken ?? account.hasWebhookToken ?? false;
+  const hasEncodingAESKey = config?.hasEncodingAESKey ?? account.hasEncodingAESKey ?? false;
+
+  function submitResourceSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    renameMutation.mutate();
+  }
+
+  function submitCredentials(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    configureMutation.mutate();
+  }
+
+  return (
+    <>
+      <SurfaceSection title="当前授权信息" tone={configured ? 'accent' : 'default'}>
+        <DefinitionList columns="multi" items={[
+          { label: '资源名称', value: account.name ?? account.accountName ?? '未命名资源' },
+          { label: 'Account ID', value: <span className="mono">{account.accountId}</span> },
+          {
+            label: '授权状态',
+            value: (
+              <HStack gap={2} as="span" vAlign="center">
+                <StatusDot variant={configured ? 'success' : status.error ? 'error' : 'warning'} label={configured ? '授权有效' : status.error ? '状态读取失败' : '未配置'} />
+                <Text>{configured ? '已验证并启用' : status.error ? '状态暂不可用' : '等待 AppID/AppSecret'}</Text>
+              </HStack>
+            ),
+          },
+          { label: 'AppID', value: currentAppId ? <span className="mono">{currentAppId}</span> : '未配置' },
+          { label: 'AppSecret', value: hasAppSecret ? '已加密保存' : '未配置' },
+          { label: 'Webhook Token', value: hasWebhookToken ? '已加密保存' : '未配置' },
+          { label: 'EncodingAESKey', value: hasEncodingAESKey ? '已加密保存' : '未配置' },
+          { label: '默认资源', value: account.isDefault ? '是' : '否' },
+          { label: '最后更新', value: formatTime(account.updatedAt) },
+        ]} />
+        {status.error ? (
+          <p className="form-error" role="alert">{errorMessage(status.error, '读取当前授权状态失败。')}</p>
+        ) : null}
+      </SurfaceSection>
+
+      <SurfaceSection title="资源设置">
+        <form onSubmit={submitResourceSettings}>
+          <FormLayout>
+            <TextInput
+              label="资源名称"
+              htmlName="resourceName"
+              value={resourceName}
+              onChange={setResourceName}
+              description="名称仅用于 Tenant 内识别，不会同步到微信公众平台。"
+              isRequired
+            />
+          </FormLayout>
+          <div className="inline-actions">
+            <Button
+              label="保存名称"
+              type="submit"
+              isLoading={renameMutation.isPending}
+              isDisabled={!canWrite || !resourceName.trim()}
+            />
+            <Button
+              label={account.isDefault ? '当前默认资源' : '设为默认资源'}
+              variant="ghost"
+              isLoading={defaultMutation.isPending}
+              isDisabled={!canWrite || account.isDefault}
+              clickAction={() => defaultMutation.mutate()}
+            />
+          </div>
+        </form>
+        {renameMutation.isSuccess ? <p className="auth-success">资源名称已保存。</p> : null}
+        {renameMutation.error || defaultMutation.error ? (
+          <p className="form-error" role="alert">
+            {errorMessage(renameMutation.error ?? defaultMutation.error, '更新公众号资源失败。')}
+          </p>
+        ) : null}
+      </SurfaceSection>
+
+      <SurfaceSection title={configured ? '更新授权凭据' : '创建授权凭据'}>
+        <form className="credential-form" onSubmit={submitCredentials}>
+          <FormLayout>
+            <TextInput
+              label="AppID"
+              htmlName="appId"
+              value={appId}
+              onChange={setAppId}
+              placeholder="wx..."
+              isRequired
+            />
+            <TextInput
+              label="AppSecret"
+              htmlName="appSecret"
+              type="password"
+              value={appSecret}
+              onChange={setAppSecret}
+              description={configured ? '服务端不会回显现有值；更新授权时必须重新输入。' : '只发送到受保护的 Worker，不保存在浏览器。'}
+              isRequired
+            />
+            <TextInput
+              label="Webhook Token"
+              htmlName="token"
+              value={webhookToken}
+              onChange={setWebhookToken}
+              description={hasWebhookToken ? '已配置；留空会保留现有值，填写后替换。' : '可选；启用收件箱和入站消息前配置。'}
+              isOptional
+            />
+            <TextInput
+              label="EncodingAESKey"
+              htmlName="encodingAESKey"
+              value={encodingAESKey}
+              onChange={setEncodingAESKey}
+              description={hasEncodingAESKey ? '已配置；留空会保留现有值，填写后替换。' : '可选；微信安全模式回调需要。'}
+              isOptional
+            />
+          </FormLayout>
+          <div className="inline-actions">
+            <Button
+              label={configured ? '验证并更新授权' : '验证并保存授权'}
+              type="submit"
+              variant="primary"
+              isLoading={configureMutation.isPending}
+              isDisabled={!canWrite || !appId.trim() || !appSecret}
+            />
+          </div>
+        </form>
+        {configureMutation.isSuccess ? <p className="auth-success">公众号授权信息已验证并保存。</p> : null}
+        {configureMutation.error ? (
+          <p className="form-error" role="alert">
+            {errorMessage(configureMutation.error, '凭据验证失败，请确认 AppID、AppSecret 和微信 IP 白名单。')}
+          </p>
+        ) : null}
+      </SurfaceSection>
+
+      <SurfaceSection title="删除资源与授权信息" tone="quiet">
+        <VStack gap={3}>
+          <Text type="supporting" as="p" textWrap="pretty">
+            删除后资源会停用，AppSecret、Webhook Token、EncodingAESKey 和缓存 access token 会被清除；历史审计记录保留。
+          </Text>
+          <div className="inline-actions">
+            <Button
+              label="删除当前公众号资源"
+              variant="destructive"
+              isDisabled={!canWrite}
+              clickAction={() => setIsDeleteOpen(true)}
+            />
+          </div>
+          {deleteMutation.error ? (
+            <p className="form-error" role="alert">{errorMessage(deleteMutation.error, '删除公众号资源失败。')}</p>
+          ) : null}
+        </VStack>
+      </SurfaceSection>
+
+      <AlertDialog
+        isOpen={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        title={`删除“${account.name ?? account.accountId}”？`}
+        description="该操作会停用资源并永久清除相关密钥与 access token。历史审计记录不会删除。"
+        cancelLabel="取消"
+        actionLabel="删除资源与密钥"
+        isActionLoading={deleteMutation.isPending}
+        onAction={() => deleteMutation.mutate()}
+      />
+    </>
+  );
+}
+
+function isAccountConfigured(account: AccountRecord): boolean {
+  return account.status === 'active' && account.hasAppSecret === true;
+}
+
+function formatTime(value: number | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value < 1_000_000_000_000 ? value * 1000 : value);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleString('zh-CN', { hour12: false });
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }

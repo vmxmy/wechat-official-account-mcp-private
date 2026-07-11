@@ -58,6 +58,14 @@ import {
   selectVerifiedGitHubEmail,
 } from './dist/src/worker/github-oauth.js';
 import { renderAuthorizationConsentForm } from './dist/src/worker/oauth-consent.js';
+import {
+  configureAccount as configureWebAccount,
+  createAccount as createWebAccount,
+  deleteAccount as deleteWebAccount,
+  getAccountStatus as getWebAccountStatus,
+  getAccounts as getWebAccounts,
+  updateAccount as updateWebAccount,
+} from './dist/web/src/lib/api.js';
 
 let failed = false;
 
@@ -692,6 +700,9 @@ check(
     'getOnboardingStatus',
     'getAccounts',
     'getAccountStatus',
+    'createAccount',
+    'updateAccount',
+    'deleteAccount',
     'configureAccount',
     'getBillingStatus',
     'mcpConfigStatusSchema',
@@ -703,17 +714,92 @@ check(
     webApiClientSource.includes('/api/v1/me'),
   'Web API client 覆盖 /me、onboarding、account、billing、MCP config、quota 与 sessions 的 Zod 边界',
 );
+const webAccountApiRequests = [];
+const originalWebAccountFetch = globalThis.fetch;
+globalThis.fetch = async (input, init = {}) => {
+  const url = String(input);
+  const method = init.method ?? 'GET';
+  const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+  webAccountApiRequests.push({ url, method, body });
+  const account = {
+    tenantId: 'ten_web',
+    accountId: 'acct_web',
+    name: body?.name ?? 'Web 公众号',
+    appId: body?.appId ?? 'wx_web',
+    status: 'active',
+    isDefault: body?.isDefault === true,
+    hasAppSecret: true,
+    hasWebhookToken: true,
+    hasEncodingAESKey: true,
+  };
+  let data;
+  let status = 200;
+  if (method === 'GET' && url.endsWith('/accounts')) {
+    data = { accounts: [account] };
+  } else if (method === 'GET' && url.endsWith('/status')) {
+    data = { account, configured: true, config: { appId: account.appId, hasAppSecret: true, hasToken: true, hasEncodingAESKey: true } };
+  } else if (method === 'POST' && url.endsWith('/accounts')) {
+    data = { account };
+    status = 201;
+  } else if (method === 'PATCH') {
+    data = { account };
+  } else if (method === 'POST' && url.endsWith('/configure')) {
+    data = account;
+  } else if (method === 'POST' && url.endsWith('/disable')) {
+    data = { accountId: 'acct_web', deleted: true, secretsPurged: true };
+  } else {
+    return new Response(JSON.stringify({ success: false, error: { code: 'unexpected_test_request', message: `${method} ${url}` } }), { status: 500 });
+  }
+  return new Response(JSON.stringify({ success: true, data }), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+};
+let listedWebAccounts;
+let webAccountStatus;
+let createdWebAccount;
+let updatedWebAccount;
+let configuredWebAccount;
+let deletedWebAccount;
+try {
+  listedWebAccounts = await getWebAccounts('ten_web');
+  webAccountStatus = await getWebAccountStatus('ten_web', 'acct_web');
+  createdWebAccount = await createWebAccount({ tenantId: 'ten_web', name: '新公众号' });
+  updatedWebAccount = await updateWebAccount({ tenantId: 'ten_web', accountId: 'acct_web', name: '更新公众号', isDefault: true });
+  configuredWebAccount = await configureWebAccount({ tenantId: 'ten_web', accountId: 'acct_web', appId: 'wx_web', appSecret: 'APP_SECRET' });
+  deletedWebAccount = await deleteWebAccount({ tenantId: 'ten_web', accountId: 'acct_web' });
+} finally {
+  globalThis.fetch = originalWebAccountFetch;
+}
+check(
+  listedWebAccounts.accounts[0]?.accountId === 'acct_web' &&
+    webAccountStatus.configured === true &&
+    createdWebAccount.name === '新公众号' &&
+    updatedWebAccount.name === '更新公众号' && updatedWebAccount.isDefault === true &&
+    configuredWebAccount.hasAppSecret === true &&
+    deletedWebAccount.deleted === true && deletedWebAccount.secretsPurged === true &&
+    webAccountApiRequests.some(request => request.method === 'POST' && request.url.endsWith('/accounts') && request.body?.name === '新公众号') &&
+    webAccountApiRequests.some(request => request.method === 'PATCH' && request.body?.name === '更新公众号' && request.body?.isDefault === true) &&
+    webAccountApiRequests.some(request => request.method === 'POST' && request.url.endsWith('/configure') && request.body?.appSecret === 'APP_SECRET') &&
+    webAccountApiRequests.some(request => request.method === 'POST' && request.url.endsWith('/disable') && request.body?.confirmation === 'DELETE acct_web'),
+  'Web 公众号资源 API 行为级覆盖查询、新建、重命名/设默认、配置授权与确认删除',
+);
 const onboardingRouteSource = readFileSync('./web/src/routes/onboarding.tsx', 'utf8');
 const securityRouteSource = readFileSync('./web/src/routes/security.tsx', 'utf8');
 check(
-  onboardingRouteSource.includes('getOnboardingStatus') &&
+  onboardingRouteSource.includes('getAccounts') &&
+    onboardingRouteSource.includes('getAccountStatus') &&
+    onboardingRouteSource.includes('createAccount') &&
+    onboardingRouteSource.includes('updateAccount') &&
+    onboardingRouteSource.includes('deleteAccount') &&
     onboardingRouteSource.includes('configureAccount') &&
-    onboardingRouteSource.includes('mutation.mutate') &&
+    onboardingRouteSource.includes('<Table') &&
+    onboardingRouteSource.includes('<AlertDialog') &&
     !onboardingRouteSource.includes('/api/v1/tenants/current/accounts/current/configure') &&
     securityRouteSource.includes('getSecuritySessions') &&
     securityRouteSource.includes('revokeSecuritySession') &&
     securityRouteSource.includes("invalidateQueries({ queryKey: ['security-sessions'] })"),
-  'Web onboarding/security 页面使用真实 API query/mutation，未保留 current-account 静态提交路径',
+  'Web 公众号资源页支持真实 CRUD/授权管理，security 页面使用真实会话 API',
 );
 const webMcpConfigSource = readFileSync('./web/src/lib/mcp-config.ts', 'utf8');
 const webMcpRouteSource = readFileSync('./web/src/routes/mcp.tsx', 'utf8');
@@ -2769,10 +2855,17 @@ class MemorySaasD1Statement {
     }
 
     if (q.startsWith('UPDATE wechat_accounts SET app_id = ?')) {
-      const [appId, appSecret, webhookToken, encodingAESKey, updatedAt, tenantId, resourceId] = this.values;
+      const [appId, appSecret, updateWebhookToken, webhookToken, updateEncodingAESKey, encodingAESKey, updatedAt, tenantId, resourceId] = this.values;
       const row = this.db.accounts.get(resourceId);
       if (row && row.tenant_id === tenantId && row.status !== 'disabled') {
-        Object.assign(row, { app_id: appId, app_secret: appSecret, webhook_token: webhookToken, encoding_aes_key: encodingAESKey, status: 'active', updated_at: updatedAt });
+        Object.assign(row, {
+          app_id: appId,
+          app_secret: appSecret,
+          webhook_token: updateWebhookToken === 1 ? webhookToken : row.webhook_token,
+          encoding_aes_key: updateEncodingAESKey === 1 ? encodingAESKey : row.encoding_aes_key,
+          status: 'active',
+          updated_at: updatedAt,
+        });
         return { success: true, meta: { changes: 1 } };
       }
       return { success: true, meta: { changes: 0 } };
@@ -3246,6 +3339,17 @@ const configured = await saasStore.configureValidatedWechatCredentials({
   tokenInfo: { accessToken: 'ACCESS_TOKEN', expiresIn: 7200, expiresAt: 99_999 },
   now: 58_000,
 });
+const configuredRawBeforeUpdate = { ...saasDb.accounts.get('acct_second') };
+const reconfigured = await saasStore.configureValidatedWechatCredentials({
+  tenantId: 'ten_owner',
+  resourceId: 'acct_second',
+  config: { appId: 'wx_valid', appSecret: 'UPDATED_APP_SECRET' },
+  now: 58_500,
+});
+const configuredRawAfterUpdate = saasDb.accounts.get('acct_second');
+const optionalCredentialsPreserved =
+  configuredRawAfterUpdate.webhook_token === configuredRawBeforeUpdate.webhook_token &&
+  configuredRawAfterUpdate.encoding_aes_key === configuredRawBeforeUpdate.encoding_aes_key;
 const thirdResource = await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '第三个资源', resourceId: 'acct_third', now: 59_000 });
 let duplicateDenied = false;
 try {
@@ -3273,6 +3377,7 @@ check(
     freeAllowanceRejected && secondResource.status === 'unconfigured' && renamedResource.name === '已验证公众号' &&
     defaultSwitchedContext.defaultAccountId === 'acct_second' && failedValidationDidNotPersist &&
     configured.status === 'active' && configured.hasAppSecret && configured.hasWebhookToken && configured.hasEncodingAESKey &&
+    reconfigured.hasWebhookToken && reconfigured.hasEncodingAESKey && optionalCredentialsPreserved &&
     duplicateDenied && rawStoredSecond.app_secret === null && rawStoredSecond.status === 'disabled' &&
     released.appId === 'wx_valid' && rawStoredThird.app_secret.startsWith('enc:'),
   'D1SaasOnboardingStore 首登 bootstrap、Free 账号上限、Plus 创建、重命名/默认切换、凭据验证非持久化、AppID 唯一与删除释放正确',
