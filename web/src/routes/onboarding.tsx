@@ -1,12 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
 import {
   AlertDialog,
+  Banner,
   Button,
   EmptyState,
   FormLayout,
   HStack,
   List,
   ListItem,
+  Spinner,
   StatusDot,
   Table,
   Text,
@@ -61,6 +63,9 @@ function OnboardingPage() {
   const canWrite = current.data?.scopes.length
     ? current.data.scopes.includes('woa:account:write')
     : true;
+  const resourceError = current.error ?? accounts.error;
+  const isResourceLoading = current.isLoading || (Boolean(tenantId) && accounts.isLoading);
+  const hasNoTenant = !current.isLoading && !current.error && !tenantId;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -77,8 +82,35 @@ function OnboardingPage() {
         queryClient.invalidateQueries({ queryKey: ['onboarding'] }),
       ]);
       setSelectedAccountId(account.accountId);
+      focusAccountEditor();
     },
   });
+
+  function focusNewResourceForm() {
+    const input = document.querySelector<HTMLInputElement>('input[name="newResourceName"]');
+    input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input?.focus({ preventScroll: true });
+  }
+
+  function selectAccount(accountId: string) {
+    setSelectedAccountId(accountId);
+    focusAccountEditor();
+  }
+
+  function focusAccountEditor() {
+    window.setTimeout(() => {
+      const editor = document.querySelector<HTMLElement>('[data-account-editor]');
+      editor?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      editor?.focus({ preventScroll: true });
+    }, 0);
+  }
+
+  async function retryResources() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['current-operator'] }),
+      queryClient.invalidateQueries({ queryKey: ['accounts', tenantId] }),
+    ]);
+  }
 
   const columns: TableColumn<AccountRecord>[] = [
     {
@@ -126,7 +158,7 @@ function OnboardingPage() {
             label="管理"
             size="sm"
             variant="ghost"
-            clickAction={() => setSelectedAccountId(account.accountId)}
+            clickAction={() => selectAccount(account.accountId)}
           />
         )
       ),
@@ -143,18 +175,40 @@ function OnboardingPage() {
       <div className="onboarding-main">
         <PageHeader
           eyebrow="接入设置"
-          title="连接微信公众号"
+          title="公众号连接"
           description="选择要管理的公众号，验证或更新 AppID/AppSecret，并查看当前连接状态。"
         />
         <PageStack>
+          {!canWrite ? (
+            <Banner
+              status="warning"
+              title="当前为只读访问"
+              description="你可以查看连接状态，但创建、更新和删除公众号需要 woa:account:write 权限。"
+              container="section"
+            />
+          ) : null}
           <SurfaceSection title="公众号资源">
-            {!tenantId || current.isLoading || accounts.isLoading ? (
-              <Text type="supporting" as="p">正在读取当前工作空间与公众号资源…</Text>
+            {isResourceLoading ? (
+              <Spinner label="正在读取当前工作空间与公众号资源…" />
+            ) : resourceError ? (
+              <Banner
+                status="error"
+                title="无法读取公众号资源"
+                description={errorMessage(resourceError, '读取公众号资源失败，请重试。')}
+                endContent={<Button label="重新加载" size="sm" clickAction={retryResources} />}
+              />
+            ) : hasNoTenant ? (
+              <Banner
+                status="warning"
+                title="当前账户没有可用工作空间"
+                description="请联系管理员将你加入工作空间，然后重新加载页面。"
+                endContent={<Button label="重新加载" size="sm" clickAction={retryResources} />}
+              />
             ) : rows.length === 0 ? (
               <EmptyState
-                title="当前工作空间没有公众号资源"
-                description="创建资源后再提交 AppID/AppSecret；凭据验证失败时不会保存。"
-                actions={<Button label="创建资源" clickAction={() => createMutation.mutate()} isDisabled={!canWrite} />}
+                title="还没有连接公众号"
+                description="先填写一个便于识别的公众号名称，再提交 AppID/AppSecret 完成连接。"
+                actions={<Button label="填写公众号名称" clickAction={focusNewResourceForm} isDisabled={!canWrite} tooltip={!canWrite ? '需要公众号写入权限' : undefined} />}
                 isCompact
               />
             ) : (
@@ -182,7 +236,7 @@ function OnboardingPage() {
                                 <Text type="supporting">当前正在管理</Text>
                               ) : (
                                 <div className="responsive-row-action">
-                                  <Button label="管理此公众号" size="sm" clickAction={() => setSelectedAccountId(account.accountId)} />
+                                  <Button label="管理此公众号" size="sm" clickAction={() => selectAccount(account.accountId)} />
                                 </div>
                               )}
                             </VStack>
@@ -194,48 +248,53 @@ function OnboardingPage() {
                 </div>
               </>
             )}
-            {current.error || accounts.error ? (
-              <p className="form-error" role="alert">
-                {errorMessage(current.error ?? accounts.error, '读取公众号资源失败，请刷新后重试。')}
-              </p>
-            ) : null}
           </SurfaceSection>
 
-          {tenantId && selectedAccount ? (
-            <AccountAuthorizationEditor
-              key={selectedAccount.accountId}
-              tenantId={tenantId}
-              account={selectedAccount}
-              canWrite={canWrite}
-              onDeleted={() => setSelectedAccountId(undefined)}
-            />
-          ) : null}
-
-          <SurfaceSection title="新增公众号资源" tone="quiet">
+          {!resourceError && tenantId ? <SurfaceSection title="新增公众号">
             <form onSubmit={submitNewResource}>
               <FormLayout>
                 <TextInput
-                  label="资源名称（必填）"
+                  label="公众号名称"
                   htmlName="newResourceName"
                   value={newResourceName}
-                  onChange={setNewResourceName}
-                  description="新资源创建后处于未配置状态；可用数量受当前套餐限制。"
-                  aria-required="true"
+                  onChange={value => {
+                    setNewResourceName(value);
+                    createMutation.reset();
+                  }}
+                  description="仅用于当前工作空间内识别，不会同步到微信公众平台。创建后再配置 AppID/AppSecret。"
+                  isRequired
+                  isDisabled={!canWrite}
+                  disabledMessage="需要公众号写入权限"
                 />
               </FormLayout>
               <div className="inline-actions">
                 <Button
-                  label="创建未配置资源"
+                  label="创建公众号连接"
                   type="submit"
+                  variant="primary"
                   isLoading={createMutation.isPending}
                   isDisabled={!tenantId || !canWrite || !newResourceName.trim()}
+                  tooltip={!canWrite ? '需要公众号写入权限' : undefined}
                 />
               </div>
             </form>
+            {createMutation.isSuccess ? <p className="auth-success" role="status">公众号已创建，请继续填写连接凭据。</p> : null}
             {createMutation.error ? (
               <p className="form-error" role="alert">{errorMessage(createMutation.error, '创建公众号资源失败。')}</p>
             ) : null}
-          </SurfaceSection>
+          </SurfaceSection> : null}
+
+          {tenantId && selectedAccount ? (
+            <div data-account-editor tabIndex={-1} className="account-editor">
+              <AccountAuthorizationEditor
+                key={selectedAccount.accountId}
+                tenantId={tenantId}
+                account={selectedAccount}
+                canWrite={canWrite}
+                onDeleted={() => setSelectedAccountId(undefined)}
+              />
+            </div>
+          ) : null}
         </PageStack>
       </div>
 
@@ -334,7 +393,15 @@ function AccountAuthorizationEditor({
   });
 
   const config = status.data?.config;
-  const configured = status.data?.configured ?? isAccountConfigured(account);
+  const recordedConfigured = isAccountConfigured(account);
+  const configured = status.data?.configured ?? recordedConfigured;
+  const connectionState = status.isLoading
+    ? { variant: 'neutral' as const, label: '正在确认授权状态', text: '正在确认当前连接' }
+    : status.error
+      ? { variant: 'warning' as const, label: '当前状态无法确认', text: recordedConfigured ? '上次记录已启用，当前无法确认' : '当前授权状态无法确认' }
+      : configured
+        ? { variant: 'success' as const, label: '授权有效', text: '已验证并启用' }
+        : { variant: 'warning' as const, label: '等待配置', text: '等待 AppID/AppSecret' };
   const currentAppId = config?.appId ?? account.appId;
   const hasAppSecret = config?.hasAppSecret ?? account.hasAppSecret ?? false;
   const hasWebhookToken = config?.hasToken ?? account.hasWebhookToken ?? false;
@@ -352,16 +419,16 @@ function AccountAuthorizationEditor({
 
   return (
     <>
-      <SurfaceSection title="当前连接状态" tone={configured ? 'accent' : 'default'}>
+      <SurfaceSection title="当前连接状态" tone={!status.error && !status.isLoading && configured ? 'accent' : 'default'}>
         <DefinitionList columns="multi" items={[
-          { label: '资源名称', value: account.name ?? account.accountName ?? '未命名资源' },
-          { label: '资源 ID', value: <span className="mono">{account.accountId}</span> },
+          { label: '公众号名称', value: account.name ?? account.accountName ?? '未命名公众号' },
+          { label: '连接 ID', value: <span className="mono">{account.accountId}</span> },
           {
             label: '授权状态',
             value: (
               <HStack gap={2} as="span" vAlign="center">
-                <StatusDot variant={configured ? 'success' : status.error ? 'error' : 'warning'} label={configured ? '授权有效' : status.error ? '状态读取失败' : '未配置'} />
-                <Text>{configured ? '已验证并启用' : status.error ? '状态暂不可用' : '等待 AppID/AppSecret'}</Text>
+                <StatusDot variant={connectionState.variant} label={connectionState.label} />
+                <Text>{connectionState.text}</Text>
               </HStack>
             ),
           },
@@ -369,83 +436,79 @@ function AccountAuthorizationEditor({
           { label: 'AppSecret', value: hasAppSecret ? '已加密保存' : '未配置' },
           { label: 'Webhook Token', value: hasWebhookToken ? '已加密保存' : '未配置' },
           { label: 'EncodingAESKey', value: hasEncodingAESKey ? '已加密保存' : '未配置' },
-          { label: '默认资源', value: account.isDefault ? '是' : '否' },
+          { label: '默认公众号', value: account.isDefault ? '是' : '否' },
           { label: '最后更新', value: formatTime(account.updatedAt) },
         ]} />
         {status.error ? (
-          <p className="form-error" role="alert">{errorMessage(status.error, '读取当前授权状态失败。')}</p>
-        ) : null}
-      </SurfaceSection>
-
-      <SurfaceSection title="资源名称与默认设置">
-        <form onSubmit={submitResourceSettings}>
-          <FormLayout>
-            <TextInput
-              label="资源名称（必填）"
-              htmlName="resourceName"
-              value={resourceName}
-              onChange={setResourceName}
-              description="名称仅用于当前工作空间内识别，不会同步到微信公众平台。"
-              aria-required="true"
-            />
-          </FormLayout>
-          <div className="inline-actions">
-            <Button
-              label="保存名称"
-              type="submit"
-              isLoading={renameMutation.isPending}
-              isDisabled={!canWrite || !resourceName.trim()}
-            />
-            <Button
-              label={account.isDefault ? '当前默认资源' : '设为默认资源'}
-              variant="ghost"
-              isLoading={defaultMutation.isPending}
-              isDisabled={!canWrite || account.isDefault}
-              clickAction={() => defaultMutation.mutate()}
-            />
-          </div>
-        </form>
-        {renameMutation.isSuccess ? <p className="auth-success" role="status">资源名称已保存。</p> : null}
-        {renameMutation.error || defaultMutation.error ? (
-          <p className="form-error" role="alert">
-            {errorMessage(renameMutation.error ?? defaultMutation.error, '更新公众号资源失败。')}
-          </p>
+          <Banner
+            status="warning"
+            title="无法确认实时授权状态"
+            description={errorMessage(status.error, '当前显示的是上次保存的配置记录，请稍后重试。')}
+            endContent={<Button label="重新检查" size="sm" clickAction={async () => { await status.refetch(); }} />}
+          />
         ) : null}
       </SurfaceSection>
 
       <SurfaceSection title={configured ? '更新公众号凭据' : '连接公众号凭据'}>
         <form className="credential-form" onSubmit={submitCredentials}>
+          <Banner
+            status="info"
+            title="提交前检查"
+            description="AppID/AppSecret 验证成功后才会保存。若微信提示 IP 白名单错误，请先将服务出口 IP 加入公众号白名单。"
+          />
           <FormLayout>
             <TextInput
-              label="AppID（必填）"
+              label="AppID"
               htmlName="appId"
               value={appId}
-              onChange={setAppId}
+              onChange={value => {
+                setAppId(value);
+                configureMutation.reset();
+              }}
               placeholder="wx..."
-              aria-required="true"
+              isRequired
+              isDisabled={!canWrite}
+              disabledMessage="需要公众号写入权限"
             />
             <TextInput
-              label="AppSecret（必填）"
+              label="AppSecret"
               htmlName="appSecret"
               type="password"
               value={appSecret}
-              onChange={setAppSecret}
+              onChange={value => {
+                setAppSecret(value);
+                configureMutation.reset();
+              }}
               description={configured ? '系统不会显示现有值；更新连接时必须重新输入。' : '只发送到受保护的服务端，不保存在浏览器。'}
-              aria-required="true"
+              isRequired
+              isDisabled={!canWrite}
+              disabledMessage="需要公众号写入权限"
             />
             <TextInput
-              label="Webhook Token（可选）"
+              label="Webhook Token"
               htmlName="token"
               value={webhookToken}
-              onChange={setWebhookToken}
+              onChange={value => {
+                setWebhookToken(value);
+                configureMutation.reset();
+              }}
               description={hasWebhookToken ? '已配置；留空会保留现有值，填写后替换。' : '可选；启用收件箱和入站消息前配置。'}
+              isOptional
+              isDisabled={!canWrite}
+              disabledMessage="需要公众号写入权限"
             />
             <TextInput
-              label="EncodingAESKey（可选）"
+              label="EncodingAESKey"
               htmlName="encodingAESKey"
               value={encodingAESKey}
-              onChange={setEncodingAESKey}
+              onChange={value => {
+                setEncodingAESKey(value);
+                configureMutation.reset();
+              }}
               description={hasEncodingAESKey ? '已配置；留空会保留现有值，填写后替换。' : '可选；微信安全模式回调需要。'}
+              isOptional
+              isDisabled={!canWrite}
+              disabledMessage="需要公众号写入权限"
             />
           </FormLayout>
           <div className="inline-actions">
@@ -455,6 +518,7 @@ function AccountAuthorizationEditor({
               variant="primary"
               isLoading={configureMutation.isPending}
               isDisabled={!canWrite || !appId.trim() || !appSecret}
+              tooltip={!canWrite ? '需要公众号写入权限' : undefined}
             />
           </div>
         </form>
@@ -466,16 +530,66 @@ function AccountAuthorizationEditor({
         ) : null}
       </SurfaceSection>
 
-      <SurfaceSection title="删除资源与授权信息" tone="quiet">
+      <SurfaceSection title="公众号名称与默认设置">
+        <form onSubmit={submitResourceSettings}>
+          <FormLayout>
+            <TextInput
+              label="公众号名称"
+              htmlName="resourceName"
+              value={resourceName}
+              onChange={value => {
+                setResourceName(value);
+                renameMutation.reset();
+              }}
+              description="名称仅用于当前工作空间内识别，不会同步到微信公众平台。"
+              isRequired
+              isDisabled={!canWrite}
+              disabledMessage="需要公众号写入权限"
+            />
+          </FormLayout>
+          <div className="inline-actions">
+            <Button
+              label="保存名称"
+              type="submit"
+              isLoading={renameMutation.isPending}
+              isDisabled={!canWrite || !resourceName.trim()}
+              tooltip={!canWrite ? '需要公众号写入权限' : undefined}
+            />
+            {account.isDefault ? (
+              <Text type="supporting">当前默认公众号</Text>
+            ) : (
+              <Button
+                label="设为默认公众号"
+                variant="ghost"
+                isLoading={defaultMutation.isPending}
+                isDisabled={!canWrite}
+                tooltip={!canWrite ? '需要公众号写入权限' : undefined}
+                clickAction={() => defaultMutation.mutate()}
+              />
+            )}
+          </div>
+        </form>
+        {renameMutation.isSuccess ? <p className="auth-success" role="status">公众号名称已保存。</p> : null}
+        {defaultMutation.isSuccess ? <p className="auth-success" role="status">已设为默认公众号。</p> : null}
+        {renameMutation.error || defaultMutation.error ? (
+          <p className="form-error" role="alert">
+            {errorMessage(renameMutation.error ?? defaultMutation.error, '更新公众号资源失败。')}
+          </p>
+        ) : null}
+      </SurfaceSection>
+
+      <SurfaceSection title="删除公众号连接" tone="quiet">
         <VStack gap={3}>
           <Text type="supporting" as="p" textWrap="pretty">
-            删除后资源会停用，AppSecret、Webhook Token、EncodingAESKey 和缓存访问令牌会被清除；历史审计记录保留。
+            删除后公众号连接会停用，AppSecret、Webhook Token、EncodingAESKey 和缓存访问令牌会被清除；历史审计记录保留。
+            {account.isDefault ? ' 这是当前默认公众号，删除后需要重新选择默认公众号。' : ''}
           </Text>
           <div className="inline-actions">
             <Button
-              label="删除当前公众号资源"
+              label="删除当前公众号连接"
               variant="destructive"
               isDisabled={!canWrite}
+              tooltip={!canWrite ? '需要公众号写入权限' : undefined}
               clickAction={() => setIsDeleteOpen(true)}
             />
           </div>
@@ -489,9 +603,9 @@ function AccountAuthorizationEditor({
         isOpen={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
         title={`删除“${account.name ?? account.accountId}”？`}
-        description="该操作会停用资源并永久清除相关密钥与缓存访问令牌。历史审计记录不会删除。"
+        description={`该操作会停用公众号连接并永久清除相关密钥与缓存访问令牌。历史审计记录不会删除。${account.isDefault ? ' 删除后需要重新选择默认公众号。' : ''}`}
         cancelLabel="取消"
-        actionLabel="删除资源与密钥"
+        actionLabel="删除公众号连接与密钥"
         isActionLoading={deleteMutation.isPending}
         onAction={() => deleteMutation.mutate()}
       />

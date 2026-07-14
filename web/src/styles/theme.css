@@ -1,5 +1,6 @@
 :root {
   color-scheme: light dark;
+  --color-text-secondary: light-dark(#626269, #b8b8bd);
 }
 
 html {
@@ -43,6 +44,7 @@ select {
 .astryx-app-shell {
   min-width: 0;
   background: var(--color-background-body);
+  --color-text-secondary: light-dark(#626269, #b8b8bd);
 }
 
 .astryx-app-shell-header {
@@ -379,6 +381,14 @@ select {
 .onboarding-main,
 .onboarding-guidance {
   min-width: 0;
+}
+
+.account-editor {
+  display: grid;
+  min-width: 0;
+  gap: var(--spacing-5);
+  scroll-margin-top: calc(68px + var(--spacing-4));
+  outline: none;
 }
 
 .onboarding-guidance {
@@ -793,6 +803,15 @@ select {
   .onboarding-guidance {
     padding: var(--spacing-5);
     border-radius: var(--radius-container);
+  }
+
+  .account-editor {
+    gap: var(--spacing-4);
+    scroll-margin-top: calc(60px + var(--spacing-3));
+  }
+
+  .onboarding-layout .astryx-button {
+    min-height: 40px;
   }
 
   .responsive-table-desktop {
