@@ -1,21 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { PageHeader, PageStack, SurfaceSection } from '../../components/Page.js';
-import { requireWebSession } from '../../route-guards.js';
 
 export const Route = createFileRoute('/legal/privacy')({
-  beforeLoad: requireWebSession,
   component: PrivacyPage,
 });
 
 function PrivacyPage() {
   return (
     <>
-      <PageHeader title="隐私说明" description="说明 WOA 如何处理登录、凭据、支付和保留周期数据。" />
+      <PageHeader title="隐私说明" description="说明 WOA 如何处理登录、公众号凭据、支付和保留周期数据。生效日期：2026 年 7 月 15 日。" />
       <PageStack>
         <SurfaceSection title="凭据与支付">
           <ul className="notice-list">
             <li>WeChat AppSecret 加密存储在 Cloudflare D1，失败验证不会持久化。</li>
-            <li>Stripe 处理支付方式；WOA 保存 Tenant 订阅状态和 Stripe 标识符，不保存银行卡号。</li>
+            <li>Stripe 处理支付方式；WOA 保存工作空间订阅状态和 Stripe 标识符，不保存银行卡号。</li>
             <li>CLI 本地只保存 OAuth/session 数据，不保存微信 AppSecret。</li>
           </ul>
         </SurfaceSection>

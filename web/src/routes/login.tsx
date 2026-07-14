@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, Card, Divider, FormLayout, Heading, Link, Text, TextInput, VStack } from '@astryxdesign/core';
-import { Activity, Cable, Github, ShieldCheck } from 'lucide-react';
+import { Banner, Button, Card, Divider, FormLayout, Heading, Link, Text, TextInput, VStack } from '@astryxdesign/core';
+import { Github } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import { z } from 'zod';
 import { VerificationCodeInput } from '../components/VerificationCodeInput.js';
 
@@ -33,6 +32,7 @@ function LoginPage() {
   const errorCode = notice?.get('error');
   const isCodeSent = notice?.get('sent') === '1';
   const isCodeComplete = /^\d{6}$/.test(code);
+  const emailLoginAvailable = Boolean(turnstileSiteKey);
 
   return (
     <div className="auth-page">
@@ -48,33 +48,21 @@ function LoginPage() {
             </div>
 
             <div className="auth-story-copy">
-              <span className="page-eyebrow">REMOTE CONTROL CENTER</span>
-              <h1 className="auth-story-title">让公众号能力，安全地进入你的 AI 工作流。</h1>
+              <span className="page-eyebrow">微信公众号远程接入</span>
+              <h1 className="auth-story-title">安全连接公众号与 AI 客户端</h1>
               <p className="auth-story-description">
-                WOA 将微信 API、OAuth、租户隔离和边缘运行统一成一个清晰、可控的远程 MCP 入口。
+                在一个入口中配置公众号凭据、连接远程 MCP，并查看授权与套餐用量。
               </p>
             </div>
 
-            <div className="auth-benefit-list">
-              <AuthBenefit
-                icon={<Cable aria-hidden="true" size={19} strokeWidth={1.8} />}
-                title="远程 MCP"
-                description="Streamable HTTP 与原生 OAuth 授权"
-              />
-              <AuthBenefit
-                icon={<ShieldCheck aria-hidden="true" size={19} strokeWidth={1.8} />}
-                title="凭据隔离"
-                description="AppSecret 只进入受保护的 Worker"
-              />
-              <AuthBenefit
-                icon={<Activity aria-hidden="true" size={19} strokeWidth={1.8} />}
-                title="持续可控"
-                description="用量、会话和授权状态集中可见"
-              />
-            </div>
+            <ul className="auth-fact-list">
+              <li>AppSecret 仅发送到受保护的服务端，不写入浏览器配置。</li>
+              <li>AI 客户端通过 OAuth 连接远程 MCP，无需复制访问令牌。</li>
+              <li>会话、授权和套餐用量可随时查看与撤销。</li>
+            </ul>
           </div>
 
-          <p className="auth-story-meta">Cloudflare Workers · OAuth · D1 / R2</p>
+          <p className="auth-story-meta">远程 MCP · OAuth 授权 · 凭据加密存储</p>
         </section>
 
         <main className="auth-panel">
@@ -94,97 +82,81 @@ function LoginPage() {
                     <div className="form-error" role="alert">登录请求未完成：{loginErrorMessage(errorCode)}</div>
                   ) : null}
 
-                  <Button
-                    label="使用 GitHub 继续"
-                    href={githubLoginHref}
-                    icon={<Github aria-hidden="true" size={18} strokeWidth={1.8} />}
-                    variant="primary"
-                    className="auth-full-width auth-provider-button"
-                  />
-
-                  <Divider label="或使用邮箱验证码" />
-
                   <form method="post" action="/api/v1/auth/email-code/request">
                     <input type="hidden" name="returnTo" value={returnTo} />
                     <FormLayout className="auth-email-request-grid">
                       <TextInput
-                        label="邮箱地址"
+                        label="邮箱地址（必填）"
                         type="email"
                         htmlName="email"
                         value={email}
                         onChange={setEmail}
                         placeholder="operator@example.com"
                         status={emailError ? { type: 'error', message: emailError } : undefined}
-                        isRequired
+                        aria-required="true"
                         hasAutoFocus={!isCodeSent}
                       />
                       {turnstileSiteKey ? (
                         <div className="auth-turnstile cf-turnstile" data-sitekey={turnstileSiteKey} />
-                      ) : (
-                        <Text className="auth-build-note" type="supporting" as="p">
-                          当前构建未配置 Turnstile site key；生产环境必须配置后端 secret 并启用小组件。
-                        </Text>
-                      )}
+                      ) : !isCodeSent ? (
+                        <Banner
+                          status="warning"
+                          title="邮箱验证码登录暂不可用"
+                          description="请暂时使用 GitHub 登录，或联系支持人员。"
+                        />
+                      ) : null}
                       {isCodeSent ? (
                         <div className="auth-success" role="status">验证码已发送，请查收邮箱并在下方输入 6 位数字。</div>
                       ) : null}
                       <Button
-                        label="发送验证码"
+                        label={isCodeSent ? '重新发送验证码' : '发送验证码'}
                         type="submit"
+                        variant="primary"
                         className="auth-full-width"
-                        isDisabled={!!emailError || !email}
+                        isDisabled={!emailLoginAvailable || !!emailError || !email}
                       />
                     </FormLayout>
                   </form>
 
-                  <form method="post" action="/api/v1/auth/email-code/verify">
-                    <input type="hidden" name="returnTo" value={returnTo} />
-                    <input type="hidden" name="email" value={email} />
-                    <FormLayout>
-                      <VerificationCodeInput
-                        value={code}
-                        onChange={setCode}
-                        hasAutoFocus={isCodeSent}
-                      />
-                      <Button
-                        label="完成登录"
-                        type="submit"
-                        variant="primary"
-                        className="auth-full-width"
-                        isDisabled={!email || !isCodeComplete}
-                      />
-                    </FormLayout>
-                  </form>
+                  {isCodeSent ? (
+                    <form method="post" action="/api/v1/auth/email-code/verify">
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <input type="hidden" name="email" value={email} />
+                      <FormLayout>
+                        <VerificationCodeInput
+                          value={code}
+                          onChange={setCode}
+                          hasAutoFocus
+                        />
+                        <Button
+                          label="完成登录"
+                          type="submit"
+                          variant="primary"
+                          className="auth-full-width"
+                          isDisabled={!email || !isCodeComplete}
+                        />
+                      </FormLayout>
+                    </form>
+                  ) : null}
+
+                  <Divider label="其他登录方式" />
+
+                  <Button
+                    label="使用 GitHub 登录"
+                    href={githubLoginHref}
+                    icon={<Github aria-hidden="true" size={18} strokeWidth={1.8} />}
+                    className="auth-full-width auth-provider-button"
+                  />
                 </VStack>
               </Card>
 
               <Text className="auth-support" type="supporting" as="p" justify="center">
-                无法登录？联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>
+                <Link href="/legal/terms">服务条款</Link> · <Link href="/legal/privacy">隐私说明</Link> · 无法登录请联系 <Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>
               </Text>
             </VStack>
           </div>
         </main>
       </div>
-    </div>
-  );
-}
-
-function AuthBenefit({
-  icon,
-  title,
-  description,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="auth-benefit">
-      <span className="auth-benefit-icon">{icon}</span>
-      <span className="auth-benefit-copy">
-        <strong>{title}</strong>
-        <span>{description}</span>
-      </span>
     </div>
   );
 }

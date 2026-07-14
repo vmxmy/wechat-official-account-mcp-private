@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, HStack, Link, ProgressBar, StatusDot, Text, VStack } from '@astryxdesign/core';
+import { Banner, Button, HStack, Link, List, ListItem, ProgressBar, StatusDot, Text, VStack } from '@astryxdesign/core';
 import { useQuery } from '@tanstack/react-query';
-import { DefinitionList, PageGrid, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
+import { DefinitionList, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 import { getCurrentOperator, getOnboardingStatus, getQuotaSummary } from '../lib/api.js';
 import { mcpUrl } from '../lib/mcp-config.js';
 import { requireWebSession } from '../route-guards.js';
@@ -56,16 +56,22 @@ function HomePage() {
         ? `已配置${onboarding.data?.resourceName ? ` · ${onboarding.data.resourceName}` : ''}`
         : '等待配置 AppID / AppSecret';
   const plan = quota.data?.plan;
-  const nextStep = accountConfigured
+  const nextStep = onboarding.error
     ? {
+        title: '公众号状态暂不可用',
+        description: '当前无法确认公众号是否已连接。重新读取后再继续配置 MCP 或公众号凭据。',
+        label: '重新检查状态',
+        clickAction: () => { void onboarding.refetch(); },
+      }
+    : accountConfigured
+      ? {
         title: '连接你的 AI 客户端',
-        description: '公众号凭据已就绪。将远程 endpoint 添加到 Codex 或 Claude，并在客户端完成 OAuth 授权。',
+        description: '公众号凭据已就绪。将远程 MCP 地址添加到 Codex 或 Claude，并在客户端完成 OAuth 授权。',
         label: '配置 MCP 客户端',
         href: '/mcp',
-      }
-    : {
+      } : {
         title: '完成公众号连接',
-        description: '先验证 AppID / AppSecret，之后远程 MCP 才能代表当前 Tenant 调用公众号能力。',
+        description: '先验证 AppID / AppSecret，之后远程 MCP 才能调用这个公众号的能力。',
         label: '配置微信公众号',
         href: '/onboarding',
       };
@@ -75,7 +81,7 @@ function HomePage() {
       <PageHeader
         eyebrow="控制台"
         title="WOA 概览"
-        description="查看微信公众号连接、远程 MCP endpoint 与当前套餐用量，并继续完成最重要的下一步。"
+        description="查看公众号连接、远程 MCP 地址和当前套餐用量，并继续完成下一步。"
       />
       <PageStack>
         <SurfaceSection title="接入状态" tone="accent" className="overview-status-section">
@@ -98,11 +104,11 @@ function HomePage() {
                 value: onboarding.data?.appId ?? (onboarding.isLoading ? '读取中…' : '尚未配置'),
               },
               {
-                label: 'MCP endpoint',
+                label: 'MCP 地址',
                 value: (
                   <VStack gap={1}>
                     <HStack gap={2} as="span" vAlign="center">
-                      <StatusDot variant="success" label="MCP endpoint 已就绪" />
+                      <StatusDot variant="success" label="MCP 地址已就绪" />
                       <Text weight="medium">已就绪 · OAuth</Text>
                     </HStack>
                     <Text type="code" color="secondary">{mcpUrl()}</Text>
@@ -110,8 +116,8 @@ function HomePage() {
                 ),
               },
               {
-                label: '当前 Plan',
-                value: plan ? planLabels[plan] : quota.isLoading ? '读取中…' : tenantId ? '暂不可用' : '等待 Tenant',
+                label: '当前套餐',
+                value: plan ? planLabels[plan] : quota.isLoading ? '读取中…' : tenantId ? '暂不可用' : '等待工作空间',
               },
             ]} />
             <div className="next-step-panel">
@@ -121,7 +127,12 @@ function HomePage() {
                   <Text type="supporting" as="p" textWrap="pretty">{nextStep.description}</Text>
                 </VStack>
                 <HStack gap={3} wrap="wrap">
-                  <Button label={nextStep.label} variant="primary" href={nextStep.href} />
+                  <Button
+                    label={nextStep.label}
+                    variant="primary"
+                    href={'href' in nextStep ? nextStep.href : undefined}
+                    clickAction={'clickAction' in nextStep ? nextStep.clickAction : undefined}
+                  />
                   <Button label="查看订阅与用量" href="/billing" />
                 </HStack>
               </VStack>
@@ -131,32 +142,40 @@ function HomePage() {
 
         <SurfaceSection title="本周期用量">
           {!tenantId ? (
-            <Text type="supporting" as="p">当前 Operator 尚无可读取配额的 Tenant。</Text>
+            <Text type="supporting" as="p">当前用户尚无可读取配额的工作空间。</Text>
           ) : quota.isLoading ? (
             <ProgressBar label="正在读取配额" isIndeterminate />
           ) : quota.error ? (
-            <Text type="supporting" as="p" role="alert">
-              {quota.error instanceof Error ? quota.error.message : '配额读取失败，请稍后重试。'}
-            </Text>
+            <Banner
+              status="error"
+              title="套餐用量读取失败"
+              description={quota.error instanceof Error ? quota.error.message : '请稍后重试。'}
+              endContent={<Button label="重新读取" size="sm" clickAction={() => { void quota.refetch(); }} />}
+            />
           ) : quota.data?.counters.length ? (
-            <PageGrid columns={{ minWidth: 280, max: 2 }}>
+            <List header="本周期配额明细" hasDividers density="balanced">
               {quota.data.counters.map(counter => (
-                <VStack key={counter.kind} className="quota-item" gap={2}>
-                  <ProgressBar
-                    label={quotaLabels[counter.kind] ?? counter.kind}
-                    value={counter.used}
-                    max={counter.limit}
-                    hasValueLabel
-                    formatValueLabel={() => `${numberFormatter.format(counter.used)} / ${numberFormatter.format(counter.limit)}`}
-                    variant={quotaVariant(counter.used, counter.limit)}
-                  />
-                  <Text type="supporting">
-                    剩余 {numberFormatter.format(counter.remaining)}
-                    {counter.resetAt ? ` · ${formatResetAt(counter.resetAt)} 重置` : ''}
-                  </Text>
-                </VStack>
+                <ListItem
+                  key={counter.kind}
+                  label={`${quotaLabels[counter.kind] ?? counter.kind} · ${numberFormatter.format(counter.used)} / ${numberFormatter.format(counter.limit)}`}
+                  description={(
+                    <VStack gap={1}>
+                      <ProgressBar
+                        label={quotaLabels[counter.kind] ?? counter.kind}
+                        value={counter.used}
+                        max={counter.limit}
+                        isLabelHidden
+                        variant={quotaVariant(counter.used, counter.limit)}
+                      />
+                      <Text type="supporting">
+                        剩余 {numberFormatter.format(counter.remaining)}
+                        {counter.resetAt ? ` · ${formatResetAt(counter.resetAt)} 重置` : ''}
+                      </Text>
+                    </VStack>
+                  )}
+                />
               ))}
-            </PageGrid>
+            </List>
           ) : (
             <Text type="supporting" as="p">服务端暂未返回可展示的配额计数。</Text>
           )}
@@ -166,10 +185,10 @@ function HomePage() {
           <VStack gap={4}>
             <DefinitionList columns="multi" items={[
               {
-                label: 'Operator',
+                label: '当前用户',
                 value: current.data?.operator?.displayName ?? current.data?.operator?.email ?? current.data?.userId ?? (current.isLoading ? '读取中…' : '当前用户'),
               },
-              { label: 'Tenant', value: tenantId ?? (current.isLoading || onboarding.isLoading ? '读取中…' : '尚未创建') },
+              { label: '工作空间', value: tenantId ?? (current.isLoading || onboarding.isLoading ? '读取中…' : '尚未创建') },
             ]} />
             <Text type="supporting" as="p">
               法务与支持：<Link href="/legal/terms">服务条款</Link>、<Link href="/legal/privacy">隐私说明</Link>、<Link href="mailto:support@ziikoo.app">support@ziikoo.app</Link>。

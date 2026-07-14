@@ -150,6 +150,28 @@ export class WebApiError extends Error {
   }
 }
 
+export interface HealthStatus {
+  ok: boolean;
+  checkedAt: number;
+}
+
+export async function getHealthStatus(): Promise<HealthStatus> {
+  const response = await fetch('/api/health', {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+  });
+  const text = await response.text();
+  const raw = text ? parseJson(text) : null;
+  const parsed = z.object({ success: z.literal(true) }).passthrough().safeParse(raw);
+
+  if (!response.ok || !parsed.success) {
+    throw new WebApiError('服务健康检查失败。', response.status, 'health_check_failed');
+  }
+
+  return { ok: true, checkedAt: Date.now() };
+}
+
 export async function getCurrentOperator(): Promise<z.infer<typeof currentOperatorSchema>> {
   return await apiGet('/api/v1/me', currentOperatorSchema);
 }

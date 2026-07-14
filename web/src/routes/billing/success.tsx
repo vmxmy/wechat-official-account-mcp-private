@@ -11,7 +11,7 @@ export const Route = createFileRoute('/billing/success')({
 function BillingSuccessPage() {
   return (
     <>
-      <PageHeader title="订阅处理中" description="Stripe 已返回成功页面。Webhook 同步完成后，Tenant 额度会更新。" />
+      <PageHeader title="订阅处理中" description="Stripe 已确认结账返回。支付状态同步完成后，工作空间额度会自动更新。" />
       <PageStack>
         <SurfaceSection title="下一步">
           <p className="section-copy">返回订阅页确认当前计划、周期结束时间和剩余额度。</p>

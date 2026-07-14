@@ -1,8 +1,10 @@
 import {
   AppShell,
   Avatar,
+  Button,
   DropdownMenu,
   HStack,
+  MobileNav,
   SideNav,
   SideNavItem,
   SideNavSection,
@@ -17,7 +19,7 @@ import { Cable, Gauge, RadioTower, ShieldCheck, WalletCards } from 'lucide-react
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { getCurrentOperator, logout } from '../lib/api.js';
+import { getCurrentOperator, getHealthStatus, logout } from '../lib/api.js';
 
 const navSections: Array<{
   title: string;
@@ -48,12 +50,20 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [logoutError, setLogoutError] = useState<string | null>(null);
-  const isPublicRoute = location.pathname === '/login';
+  const isLoginRoute = location.pathname === '/login';
+  const isPublicDocumentRoute = location.pathname.startsWith('/legal/');
   const current = useQuery({
     queryKey: ['current-operator'],
     queryFn: getCurrentOperator,
     retry: false,
-    enabled: !isPublicRoute,
+    enabled: !isLoginRoute && !isPublicDocumentRoute,
+  });
+  const health = useQuery({
+    queryKey: ['service-health'],
+    queryFn: getHealthStatus,
+    retry: false,
+    refetchInterval: 30_000,
+    enabled: !isLoginRoute && !isPublicDocumentRoute,
   });
   const operator = current.data?.operator;
   const accountLabel = operator?.displayName || operator?.email || '账户';
@@ -80,13 +90,51 @@ export function AppChrome({ children }: { children: ReactNode }) {
     }
   }
 
-  if (isPublicRoute) {
+  if (isLoginRoute) {
     return (
       <AppShell contentPadding={0} height="auto" mobileNav={false} variant="wash">
         {children}
       </AppShell>
     );
   }
+
+  if (isPublicDocumentRoute) {
+    return (
+      <AppShell
+        topNav={
+          <TopNav
+            className="app-top-nav"
+            heading={
+              <TopNavHeading
+                logo={<span className="app-brand-mark" aria-hidden="true">W</span>}
+                heading="WOA"
+                headingHref="/login"
+                subheading="微信公众号 MCP"
+              />
+            }
+            endContent={<Button label="登录" href="/login" size="sm" />}
+            label="公共页面导航"
+          />
+        }
+        contentPadding={0}
+        height="auto"
+        mobileNav={false}
+        variant="wash"
+      >
+        <div className="app-layout-content app-layout-content--public">
+          <div className="app-page-frame app-page-frame--document">{children}</div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const healthLabel = health.isLoading
+    ? '正在检查服务'
+    : health.error
+      ? '服务状态异常'
+      : '服务正常';
+  const healthVariant = health.isLoading ? 'neutral' : health.error ? 'error' : 'success';
+  const navigationSections = renderNavigationSections(location.pathname);
 
   return (
     <AppShell
@@ -104,8 +152,8 @@ export function AppChrome({ children }: { children: ReactNode }) {
           endContent={
             <HStack gap={3} vAlign="center">
               <HStack className="app-service-status" gap={2} as="span" vAlign="center">
-                <StatusDot variant="success" label="WOA 服务运行正常" />
-                <Text type="supporting" weight="medium">服务正常</Text>
+                <StatusDot variant={healthVariant} label={healthLabel} />
+                <Text type="supporting" weight="medium">{healthLabel}</Text>
               </HStack>
               {operator ? (
                 <>
@@ -135,24 +183,26 @@ export function AppChrome({ children }: { children: ReactNode }) {
       }
       sideNav={
         <SideNav className="app-side-nav" collapsible={{ buttonLabel: '收起导航' }}>
-          {navSections.map(section => (
-            <SideNavSection key={section.title} title={section.title}>
-              {section.items.map(item => {
-                const Icon = item.icon;
-                return (
-                  <SideNavItem
-                    key={item.href}
-                    label={item.label}
-                    href={item.href}
-                    icon={<Icon aria-hidden="true" size={18} strokeWidth={1.8} />}
-                    isSelected={isCurrentRoute(location.pathname, item.href)}
-                  />
-                );
-              })}
-            </SideNavSection>
-          ))}
+          {navigationSections}
         </SideNav>
       }
+      mobileNav={{
+        hasToggle: true,
+        breakpoint: 'md',
+        content: (
+          <MobileNav header="主导航">
+            {navigationSections}
+            <div className="app-mobile-account">
+              <HStack gap={2} vAlign="center">
+                <StatusDot variant={healthVariant} label={healthLabel} />
+                <Text type="supporting">{healthLabel}</Text>
+              </HStack>
+              {operator ? <Text type="supporting">{accountLabel}</Text> : null}
+              <Button label="退出登录" clickAction={() => { void handleLogout(); }} className="auth-full-width" />
+            </div>
+          </MobileNav>
+        ),
+      }}
       contentPadding={0}
       height="fill"
       variant="wash"
@@ -162,6 +212,25 @@ export function AppChrome({ children }: { children: ReactNode }) {
       </div>
     </AppShell>
   );
+}
+
+function renderNavigationSections(pathname: string) {
+  return navSections.map(section => (
+    <SideNavSection key={section.title} title={section.title}>
+      {section.items.map(item => {
+        const Icon = item.icon;
+        return (
+          <SideNavItem
+            key={item.href}
+            label={item.label}
+            href={item.href}
+            icon={<Icon aria-hidden="true" size={18} strokeWidth={1.8} />}
+            isSelected={isCurrentRoute(pathname, item.href)}
+          />
+        );
+      })}
+    </SideNavSection>
+  ));
 }
 
 function isCurrentRoute(pathname: string, href: string): boolean {

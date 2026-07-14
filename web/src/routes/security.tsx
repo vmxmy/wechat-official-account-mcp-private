@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, EmptyState, HStack, StatusDot, Table, type TableColumn } from '@astryxdesign/core';
+import { Banner, Button, EmptyState, HStack, List, ListItem, Spinner, StatusDot, Table, Text, type TableColumn } from '@astryxdesign/core';
 import { proportional } from '@astryxdesign/core/Table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
@@ -58,10 +58,10 @@ function SecurityPage() {
       header: '操作',
       renderCell: row => (
         <Button
-          label="撤销"
+          label={row.revokedAt ? '已撤销' : '撤销授权'}
           size="sm"
-          isLoading={revoke.isPending}
-          isDisabled={!row.canRevoke}
+          isLoading={revoke.isPending && revoke.variables === row.id}
+          isDisabled={!row.canRevoke || revoke.isPending}
           clickAction={() => revoke.mutate(row.id)}
         />
       ),
@@ -73,28 +73,72 @@ function SecurityPage() {
       <PageHeader
         eyebrow="访问控制"
         title="会话与授权客户端"
-        description="撤销 Web session、CLI refresh token 或 MCP client 授权后，对应入口需要重新登录。"
+        description="查看 Web、命令行和 MCP 客户端的登录授权；撤销后，对应客户端需要重新登录。"
       />
       <PageStack>
         <SurfaceSection title="授权列表">
-          {rows.length === 0 ? (
+          {sessions.isLoading ? (
+            <Spinner label="正在读取授权会话…" />
+          ) : sessions.error ? (
+            <Banner
+              status="error"
+              title="授权会话读取失败"
+              description={sessions.error instanceof Error ? sessions.error.message : '请稍后重试。'}
+              endContent={<Button label="重新读取" size="sm" clickAction={() => { void sessions.refetch(); }} />}
+            />
+          ) : rows.length === 0 ? (
             <EmptyState
               title="暂无可显示的授权会话"
-              description="登录后会显示 Web、CLI 或 MCP 授权记录。"
+              description="新的 Web、CLI 或 MCP 客户端完成登录后会显示在这里。"
               isCompact
             />
           ) : (
-            <Table data={rows} idKey="id" columns={columns} dividers="rows" hasHover />
+            <>
+              <div className="responsive-table-desktop">
+                <Table data={rows} idKey="id" columns={columns} dividers="rows" hasHover />
+              </div>
+              <div className="responsive-list-mobile">
+                <List header="授权客户端" hasDividers density="compact">
+                  {rows.map(row => (
+                    <ListItem
+                      key={row.id}
+                      label={row.clientName ?? row.clientId ?? row.kind ?? '未知客户端'}
+                      description={(
+                        <div className="responsive-row-content">
+                          <Text type="supporting">
+                            {row.revokedAt ? '已撤销' : '有效'} · 创建于 {formatTime(row.createdAt)} · 到期 {formatTime(row.expiresAt)}
+                          </Text>
+                          <div className="responsive-row-action">
+                            <Button
+                              label={row.revokedAt ? '已撤销' : '撤销授权'}
+                              size="sm"
+                              isLoading={revoke.isPending && revoke.variables === row.id}
+                              isDisabled={!row.canRevoke || revoke.isPending}
+                              clickAction={() => revoke.mutate(row.id)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    />
+                  ))}
+                </List>
+              </div>
+            </>
           )}
-          {sessions.error ? (
-            <p className="section-copy">
-              {sessions.error instanceof Error ? sessions.error.message : '读取授权会话失败。'}
-            </p>
-          ) : null}
           {revoke.error ? (
-            <p className="section-copy">
-              {revoke.error instanceof Error ? revoke.error.message : '撤销失败，请刷新后重试。'}
-            </p>
+            <Banner
+              status="error"
+              title="撤销授权失败"
+              description={revoke.error instanceof Error ? revoke.error.message : '请刷新后重试。'}
+            />
+          ) : revoke.isSuccess ? (
+            <Banner
+              status="success"
+              title="授权已撤销"
+              description="对应客户端再次访问时需要重新登录。"
+              isDismissable
+              onDismiss={() => revoke.reset()}
+            />
           ) : null}
         </SurfaceSection>
       </PageStack>

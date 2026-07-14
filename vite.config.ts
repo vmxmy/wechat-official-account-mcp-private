@@ -14,7 +14,7 @@ export default defineConfig({
       quoteStyle: 'single',
       semicolons: true,
       addExtensions: '.js',
-      autoCodeSplitting: false,
+      autoCodeSplitting: true,
     }),
     react(),
     tsconfigPaths(),
@@ -22,6 +22,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('@astryxdesign')) return 'vendor-astryx';
+          if (id.includes('@tanstack')) return 'vendor-tanstack';
+          if (id.includes('react-dom') || id.includes('/react/') || id.includes('/scheduler/')) return 'vendor-react';
+          if (id.includes('lucide-react')) return 'vendor-icons';
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     proxy: {

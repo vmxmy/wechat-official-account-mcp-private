@@ -35,11 +35,10 @@ export function VerificationCodeInput({
 
   return (
     <Field
-      label="6 位验证码"
+      label="6 位验证码（必填）"
       inputID={inputID}
       description="验证码有效期有限；如未收到，可重新发送。"
       descriptionID={descriptionID}
-      isRequired
       width="100%"
     >
       <div className="auth-code-control">

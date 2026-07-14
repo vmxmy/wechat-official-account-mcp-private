@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button, Card, Grid, Heading, HStack, StatusDot, Text, VStack } from '@astryxdesign/core';
+import { Button, Card, Grid, Heading, HStack, Link, StatusDot, Text, VStack } from '@astryxdesign/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DefinitionList, PageHeader, PageStack, SurfaceSection } from '../components/Page.js';
 import { createCheckoutSession, getBillingStatus, getCurrentOperator } from '../lib/api.js';
@@ -13,6 +13,9 @@ const plans: Array<{ name: string; plan: 'free' | PaidPlan; price: string; accou
   { name: 'Plus', plan: 'plus', price: '$9/月', accounts: '3 个资源', publishes: '300 次成功发布', calls: '3,000 次工具调用' },
   { name: 'Pro', plan: 'pro', price: '$29/月', accounts: '10 个资源', publishes: '3,000 次成功发布', calls: '30,000 次工具调用' },
 ];
+
+const planOrder = { free: 0, plus: 1, pro: 2 } as const;
+const planLabels = { free: 'Free', plus: 'Plus', pro: 'Pro' } as const;
 
 export const Route = createFileRoute('/billing')({
   beforeLoad: requireWebSession,
@@ -43,21 +46,22 @@ function BillingPage() {
       window.location.assign(session.url);
     },
   });
+  const currentPlan = billing.data?.plan;
 
   return (
     <>
       <PageHeader
         eyebrow="订阅管理"
         title="订阅与用量"
-        description="订阅绑定 Tenant。Free 自动生效；Plus/Pro 由 Web 或 CLI 创建 Stripe Checkout，MCP 只返回升级指引。"
+        description="查看当前套餐、周期重置时间和可用额度，并在需要时升级套餐。"
       />
       <PageStack>
         <SurfaceSection title="当前订阅" tone="accent">
           <DefinitionList columns="multi" items={[
-            { label: 'Tenant', value: tenantId ?? (current.isLoading ? '读取中…' : '未创建') },
-            { label: 'Plan', value: billing.data?.plan ?? '—' },
-            { label: '状态', value: billing.data?.status ?? (billing.isLoading ? '读取中…' : '—') },
-            { label: '周期重置', value: billing.data?.currentPeriodEnd ? new Date(billing.data.currentPeriodEnd).toLocaleString('zh-CN', { hour12: false }) : '按服务端配额周期' },
+            { label: '工作空间', value: tenantId ?? (current.isLoading ? '读取中…' : '未创建') },
+            { label: '当前套餐', value: currentPlan ? planLabels[currentPlan] : billing.isLoading ? '读取中…' : '—' },
+            { label: '订阅状态', value: billing.isLoading ? '读取中…' : formatBillingStatus(billing.data?.status) },
+            { label: '周期重置', value: billing.data?.currentPeriodEnd ? formatBillingTime(billing.data.currentPeriodEnd) : '按服务端配额周期' },
           ]} />
         </SurfaceSection>
         {current.error || billing.error ? (
@@ -73,6 +77,8 @@ function BillingPage() {
           <Grid columns={{ minWidth: 260, max: 3 }} gap={4} align="stretch">
             {plans.map(plan => {
               const isPaidPlan = plan.plan !== 'free';
+              const isCurrentPlan = currentPlan === plan.plan;
+              const canUpgrade = isPaidPlan && (!currentPlan || planOrder[plan.plan] > planOrder[currentPlan]);
               const isCurrentAttempt = checkout.variables === plan.plan;
               return (
                 <Card
@@ -83,7 +89,7 @@ function BillingPage() {
                 >
                   <VStack gap={4}>
                     <VStack gap={1}>
-                      {plan.plan === 'pro' ? <span className="plan-badge">推荐</span> : null}
+                      {isCurrentPlan ? <span className="plan-badge">当前套餐</span> : plan.plan === 'pro' ? <span className="plan-badge">适合高频运营</span> : null}
                       <Heading level={3}>{plan.name}</Heading>
                       <Text type="large" weight="semibold">{plan.price}</Text>
                     </VStack>
@@ -93,7 +99,7 @@ function BillingPage() {
                       { label: '工具调用', value: plan.calls },
                       { label: '状态', value: <HStack gap={2} as="span"><StatusDot variant={plan.plan === 'free' ? 'neutral' : 'accent'} label={plan.name} />{plan.plan === 'free' ? '自动启用' : 'Stripe 月付'}</HStack> },
                     ]} />
-                    {isPaidPlan ? (
+                    {canUpgrade ? (
                       <VStack gap={2}>
                         <Button
                           label={`升级到 ${plan.name}`}
@@ -103,13 +109,18 @@ function BillingPage() {
                           isDisabled={!tenantId || checkout.isPending}
                           clickAction={async () => checkout.mutate(plan.plan as PaidPlan)}
                         />
-                        <Text type="supporting" as="p" className="mono">woa billing checkout --plan {plan.plan}</Text>
+                        <Text type="supporting" as="p">将前往 Stripe 安全结账页面，付款前可再次确认价格。</Text>
                         {checkout.isError && isCurrentAttempt ? (
                           <p className="form-error" role="alert">
                             {checkout.error instanceof Error ? checkout.error.message : '请稍后重试。'}
                           </p>
                         ) : null}
                       </VStack>
+                    ) : isCurrentPlan ? (
+                      <HStack gap={2} vAlign="center">
+                        <StatusDot variant="success" label={`${plan.name} 是当前套餐`} />
+                        <Text type="supporting">当前正在使用</Text>
+                      </HStack>
                     ) : null}
                   </VStack>
                 </Card>
@@ -117,7 +128,29 @@ function BillingPage() {
             })}
           </Grid>
         </SurfaceSection>
+        <SurfaceSection title="账单说明" tone="quiet">
+          <Text type="supporting" as="p">
+            订阅按月结算。支付由 Stripe 处理；WOA 不保存银行卡号。查看 <Link href="/legal/terms">服务条款</Link> 与 <Link href="/legal/privacy">隐私说明</Link>。
+          </Text>
+        </SurfaceSection>
       </PageStack>
     </>
   );
+}
+
+function formatBillingTime(value: number): string {
+  const timestamp = value < 1_000_000_000_000 ? value * 1000 : value;
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime())
+    ? '时间暂不可用'
+    : date.toLocaleString('zh-CN', { hour12: false });
+}
+
+function formatBillingStatus(status: string | undefined): string {
+  if (!status) return '暂不可用';
+  if (status === 'active_free') return 'Free 套餐生效中';
+  if (status === 'active_paid' || status === 'active') return '付费套餐生效中';
+  if (status === 'past_due') return '付款需要处理';
+  if (status === 'canceled') return '订阅已取消';
+  return '状态待确认';
 }

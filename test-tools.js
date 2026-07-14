@@ -179,6 +179,9 @@ const protectedWebRouteFiles = [
   './web/src/routes/billing/cancel.tsx',
   './web/src/routes/mcp.tsx',
   './web/src/routes/security.tsx',
+];
+const publicWebRouteFiles = [
+  './web/src/routes/login.tsx',
   './web/src/routes/legal/privacy.tsx',
   './web/src/routes/legal/terms.tsx',
 ];
@@ -187,10 +190,14 @@ check(
     const source = readFileSync(file, 'utf8');
     return source.includes('requireWebSession') && source.includes('beforeLoad: requireWebSession');
   }) &&
+    publicWebRouteFiles.every(file => {
+      const source = readFileSync(file, 'utf8');
+      return !source.includes('beforeLoad: requireWebSession');
+    }) &&
     routeGuardSource.includes('getCurrentOperator') &&
     routeGuardSource.includes('/login?returnTo=') &&
     routeGuardSource.includes('error.status === 401'),
-  'Web 非登录页面统一通过 /api/v1/me 校验会话，未登录重定向到 /login?returnTo=当前路径',
+  'Web 业务页面通过 /api/v1/me 校验会话并保留 returnTo；登录与法务页面保持公开',
 );
 
 const providersSource = readFileSync('./web/src/providers.tsx', 'utf8');

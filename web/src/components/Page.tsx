@@ -28,7 +28,7 @@ export function PageStack({ children }: { children: ReactNode }) {
 
 export function PageGrid({ children, columns }: { children: ReactNode; columns?: GridColumns }) {
   return (
-    <Grid columns={columns ?? { minWidth: 320, max: 2 }} gap={4} align="start">
+    <Grid columns={columns ?? { minWidth: 280, max: 2 }} gap={4} align="start">
       {children}
     </Grid>
   );
@@ -54,7 +54,6 @@ export function SurfaceSection({
     <Section className={sectionClassName} variant={sectionVariant} padding={5} data-tone={tone}>
       <VStack gap={4}>
         <div className="surface-section-heading">
-          <span className="surface-section-marker" aria-hidden="true" />
           <Heading level={2}>{title}</Heading>
         </div>
         {children}

@@ -5,6 +5,8 @@ import {
   EmptyState,
   FormLayout,
   HStack,
+  List,
+  ListItem,
   StatusDot,
   Table,
   Text,
@@ -62,7 +64,7 @@ function OnboardingPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!tenantId) throw new Error('当前 Operator 尚无可用 Tenant。');
+      if (!tenantId) throw new Error('当前用户尚无可用工作空间。');
       const name = newResourceName.trim();
       if (!name) throw new Error('请填写公众号资源名称。');
       return await createAccount({ tenantId, name });
@@ -117,13 +119,16 @@ function OnboardingPage() {
       header: '操作',
       width: proportional(0.6),
       renderCell: account => (
-        <Button
-          label={selectedAccount?.accountId === account.accountId ? '正在管理' : '管理'}
-          size="sm"
-          variant="ghost"
-          isDisabled={selectedAccount?.accountId === account.accountId}
-          clickAction={() => setSelectedAccountId(account.accountId)}
-        />
+        selectedAccount?.accountId === account.accountId ? (
+          <Text type="supporting">当前管理</Text>
+        ) : (
+          <Button
+            label="管理"
+            size="sm"
+            variant="ghost"
+            clickAction={() => setSelectedAccountId(account.accountId)}
+          />
+        )
       ),
     },
   ];
@@ -138,22 +143,56 @@ function OnboardingPage() {
       <div className="onboarding-main">
         <PageHeader
           eyebrow="接入设置"
-          title="微信公众号授权信息"
-          description="查看当前 Tenant 的公众号资源，验证或更新 AppID/AppSecret，并在不再使用时删除资源和关联密钥。"
+          title="连接微信公众号"
+          description="选择要管理的公众号，验证或更新 AppID/AppSecret，并查看当前连接状态。"
         />
         <PageStack>
           <SurfaceSection title="公众号资源">
             {!tenantId || current.isLoading || accounts.isLoading ? (
-              <Text type="supporting" as="p">正在读取当前 Tenant 与公众号资源…</Text>
+              <Text type="supporting" as="p">正在读取当前工作空间与公众号资源…</Text>
             ) : rows.length === 0 ? (
               <EmptyState
-                title="当前 Tenant 没有公众号资源"
+                title="当前工作空间没有公众号资源"
                 description="创建资源后再提交 AppID/AppSecret；凭据验证失败时不会保存。"
                 actions={<Button label="创建资源" clickAction={() => createMutation.mutate()} isDisabled={!canWrite} />}
                 isCompact
               />
             ) : (
-              <Table data={rows} idKey="accountId" columns={columns} dividers="rows" hasHover textOverflow="wrap" />
+              <>
+                <div className="responsive-table-desktop">
+                  <Table data={rows} idKey="accountId" columns={columns} dividers="rows" hasHover textOverflow="wrap" />
+                </div>
+                <div className="responsive-list-mobile">
+                  <List header="公众号资源" hasDividers density="compact">
+                    {rows.map(account => {
+                      const configured = isAccountConfigured(account);
+                      const isSelected = selectedAccount?.accountId === account.accountId;
+                      return (
+                        <ListItem
+                          key={account.accountId}
+                          label={account.name ?? account.accountName ?? '未命名资源'}
+                          description={(
+                            <VStack gap={1}>
+                              <Text type="supporting"><span className="mono">{account.appId ?? 'AppID 未配置'}</span></Text>
+                              <HStack gap={2} vAlign="center">
+                                <StatusDot variant={configured ? 'success' : 'warning'} label={configured ? '授权有效' : '等待配置'} />
+                                <Text type="supporting">{configured ? '已验证' : '未配置'}{account.isDefault ? ' · 默认资源' : ''}</Text>
+                              </HStack>
+                              {isSelected ? (
+                                <Text type="supporting">当前正在管理</Text>
+                              ) : (
+                                <div className="responsive-row-action">
+                                  <Button label="管理此公众号" size="sm" clickAction={() => setSelectedAccountId(account.accountId)} />
+                                </div>
+                              )}
+                            </VStack>
+                          )}
+                        />
+                      );
+                    })}
+                  </List>
+                </div>
+              </>
             )}
             {current.error || accounts.error ? (
               <p className="form-error" role="alert">
@@ -162,16 +201,26 @@ function OnboardingPage() {
             ) : null}
           </SurfaceSection>
 
+          {tenantId && selectedAccount ? (
+            <AccountAuthorizationEditor
+              key={selectedAccount.accountId}
+              tenantId={tenantId}
+              account={selectedAccount}
+              canWrite={canWrite}
+              onDeleted={() => setSelectedAccountId(undefined)}
+            />
+          ) : null}
+
           <SurfaceSection title="新增公众号资源" tone="quiet">
             <form onSubmit={submitNewResource}>
               <FormLayout>
                 <TextInput
-                  label="资源名称"
+                  label="资源名称（必填）"
                   htmlName="newResourceName"
                   value={newResourceName}
                   onChange={setNewResourceName}
                   description="新资源创建后处于未配置状态；可用数量受当前套餐限制。"
-                  isRequired
+                  aria-required="true"
                 />
               </FormLayout>
               <div className="inline-actions">
@@ -187,16 +236,6 @@ function OnboardingPage() {
               <p className="form-error" role="alert">{errorMessage(createMutation.error, '创建公众号资源失败。')}</p>
             ) : null}
           </SurfaceSection>
-
-          {tenantId && selectedAccount ? (
-            <AccountAuthorizationEditor
-              key={selectedAccount.accountId}
-              tenantId={tenantId}
-              account={selectedAccount}
-              canWrite={canWrite}
-              onDeleted={() => setSelectedAccountId(undefined)}
-            />
-          ) : null}
         </PageStack>
       </div>
 
@@ -204,13 +243,13 @@ function OnboardingPage() {
         <VStack gap={3}>
           <Text type="large" weight="semibold">密钥处理规则</Text>
           <Text type="supporting" as="p" textWrap="pretty">
-            Web 端只显示 AppID 和密钥是否已配置。AppSecret、Webhook Token 与 EncodingAESKey 不会从服务端回显。
+            Web 端只显示 AppID 和密钥是否已配置。AppSecret、Webhook Token 与 EncodingAESKey 不会显示原值。
           </Text>
           <ul className="notice-list">
-            <li>AppID/AppSecret 必须通过微信 access token 验证后才会保存。</li>
+            <li>AppID/AppSecret 通过微信接口验证后才会保存。</li>
             <li>更新 AppID/AppSecret 时，留空的 Webhook 字段会保留现值。</li>
-            <li>删除资源会清除 AppSecret、Webhook 凭据和缓存 access token。</li>
-            <li>微信返回 IP 白名单错误时，先更新平台 relay 出口 IP。</li>
+            <li>删除资源会清除 AppSecret、Webhook 凭据和缓存访问令牌。</li>
+            <li>微信提示 IP 白名单错误时，请将服务出口 IP 加入白名单。</li>
           </ul>
         </VStack>
       </aside>
@@ -313,10 +352,10 @@ function AccountAuthorizationEditor({
 
   return (
     <>
-      <SurfaceSection title="当前授权信息" tone={configured ? 'accent' : 'default'}>
+      <SurfaceSection title="当前连接状态" tone={configured ? 'accent' : 'default'}>
         <DefinitionList columns="multi" items={[
           { label: '资源名称', value: account.name ?? account.accountName ?? '未命名资源' },
-          { label: 'Account ID', value: <span className="mono">{account.accountId}</span> },
+          { label: '资源 ID', value: <span className="mono">{account.accountId}</span> },
           {
             label: '授权状态',
             value: (
@@ -338,16 +377,16 @@ function AccountAuthorizationEditor({
         ) : null}
       </SurfaceSection>
 
-      <SurfaceSection title="资源设置">
+      <SurfaceSection title="资源名称与默认设置">
         <form onSubmit={submitResourceSettings}>
           <FormLayout>
             <TextInput
-              label="资源名称"
+              label="资源名称（必填）"
               htmlName="resourceName"
               value={resourceName}
               onChange={setResourceName}
-              description="名称仅用于 Tenant 内识别，不会同步到微信公众平台。"
-              isRequired
+              description="名称仅用于当前工作空间内识别，不会同步到微信公众平台。"
+              aria-required="true"
             />
           </FormLayout>
           <div className="inline-actions">
@@ -366,7 +405,7 @@ function AccountAuthorizationEditor({
             />
           </div>
         </form>
-        {renameMutation.isSuccess ? <p className="auth-success">资源名称已保存。</p> : null}
+        {renameMutation.isSuccess ? <p className="auth-success" role="status">资源名称已保存。</p> : null}
         {renameMutation.error || defaultMutation.error ? (
           <p className="form-error" role="alert">
             {errorMessage(renameMutation.error ?? defaultMutation.error, '更新公众号资源失败。')}
@@ -374,41 +413,39 @@ function AccountAuthorizationEditor({
         ) : null}
       </SurfaceSection>
 
-      <SurfaceSection title={configured ? '更新授权凭据' : '创建授权凭据'}>
+      <SurfaceSection title={configured ? '更新公众号凭据' : '连接公众号凭据'}>
         <form className="credential-form" onSubmit={submitCredentials}>
           <FormLayout>
             <TextInput
-              label="AppID"
+              label="AppID（必填）"
               htmlName="appId"
               value={appId}
               onChange={setAppId}
               placeholder="wx..."
-              isRequired
+              aria-required="true"
             />
             <TextInput
-              label="AppSecret"
+              label="AppSecret（必填）"
               htmlName="appSecret"
               type="password"
               value={appSecret}
               onChange={setAppSecret}
-              description={configured ? '服务端不会回显现有值；更新授权时必须重新输入。' : '只发送到受保护的 Worker，不保存在浏览器。'}
-              isRequired
+              description={configured ? '系统不会显示现有值；更新连接时必须重新输入。' : '只发送到受保护的服务端，不保存在浏览器。'}
+              aria-required="true"
             />
             <TextInput
-              label="Webhook Token"
+              label="Webhook Token（可选）"
               htmlName="token"
               value={webhookToken}
               onChange={setWebhookToken}
               description={hasWebhookToken ? '已配置；留空会保留现有值，填写后替换。' : '可选；启用收件箱和入站消息前配置。'}
-              isOptional
             />
             <TextInput
-              label="EncodingAESKey"
+              label="EncodingAESKey（可选）"
               htmlName="encodingAESKey"
               value={encodingAESKey}
               onChange={setEncodingAESKey}
               description={hasEncodingAESKey ? '已配置；留空会保留现有值，填写后替换。' : '可选；微信安全模式回调需要。'}
-              isOptional
             />
           </FormLayout>
           <div className="inline-actions">
@@ -421,7 +458,7 @@ function AccountAuthorizationEditor({
             />
           </div>
         </form>
-        {configureMutation.isSuccess ? <p className="auth-success">公众号授权信息已验证并保存。</p> : null}
+        {configureMutation.isSuccess ? <p className="auth-success" role="status">公众号授权信息已验证并保存。</p> : null}
         {configureMutation.error ? (
           <p className="form-error" role="alert">
             {errorMessage(configureMutation.error, '凭据验证失败，请确认 AppID、AppSecret 和微信 IP 白名单。')}
@@ -432,7 +469,7 @@ function AccountAuthorizationEditor({
       <SurfaceSection title="删除资源与授权信息" tone="quiet">
         <VStack gap={3}>
           <Text type="supporting" as="p" textWrap="pretty">
-            删除后资源会停用，AppSecret、Webhook Token、EncodingAESKey 和缓存 access token 会被清除；历史审计记录保留。
+            删除后资源会停用，AppSecret、Webhook Token、EncodingAESKey 和缓存访问令牌会被清除；历史审计记录保留。
           </Text>
           <div className="inline-actions">
             <Button
@@ -452,7 +489,7 @@ function AccountAuthorizationEditor({
         isOpen={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
         title={`删除“${account.name ?? account.accountId}”？`}
-        description="该操作会停用资源并永久清除相关密钥与 access token。历史审计记录不会删除。"
+        description="该操作会停用资源并永久清除相关密钥与缓存访问令牌。历史审计记录不会删除。"
         cancelLabel="取消"
         actionLabel="删除资源与密钥"
         isActionLoading={deleteMutation.isPending}
