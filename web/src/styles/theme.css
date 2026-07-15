@@ -311,27 +311,6 @@ select {
   word-break: break-word;
 }
 
-.responsive-list-mobile {
-  display: none;
-}
-
-.responsive-table-desktop,
-.responsive-list-mobile {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.responsive-row-content {
-  display: grid;
-  min-width: 0;
-  gap: var(--spacing-2);
-}
-
-.responsive-row-action {
-  width: fit-content;
-  max-width: 100%;
-}
-
 /* Billing */
 .plan-card {
   position: relative;
@@ -371,34 +350,44 @@ select {
 }
 
 /* Onboarding */
-.onboarding-layout {
+.onboarding-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
   align-items: start;
-  gap: var(--spacing-7);
-}
-
-.onboarding-main,
-.onboarding-guidance {
+  gap: var(--spacing-6);
   min-width: 0;
 }
 
-.account-editor {
+.onboarding-list-panel,
+.onboarding-detail-panel {
+  min-width: 0;
+}
+
+.onboarding-list-panel {
+  position: sticky;
+  top: 94px;
+}
+
+.onboarding-detail-panel {
   display: grid;
-  min-width: 0;
   gap: var(--spacing-5);
   scroll-margin-top: calc(68px + var(--spacing-4));
   outline: none;
 }
 
-.onboarding-guidance {
-  position: sticky;
-  top: 94px;
-  padding: var(--spacing-6);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-page);
-  background: var(--color-background-surface);
-  box-shadow: var(--shadow-low);
+.onboarding-list-action {
+  display: flex;
+  margin-top: var(--spacing-4);
+}
+
+.onboarding-mobile-back {
+  display: none;
+}
+
+.onboarding-create-dialog {
+  display: grid;
+  gap: var(--spacing-5);
+  padding: var(--spacing-5);
 }
 
 .notice-list {
@@ -704,16 +693,6 @@ select {
   }
 }
 
-@media (max-width: 1100px) {
-  .onboarding-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .onboarding-guidance {
-    position: static;
-  }
-}
-
 @media (max-width: 900px) {
   .app-layout-content {
     padding: 36px 28px 56px;
@@ -744,6 +723,23 @@ select {
 
   .auth-panel {
     padding: 36px 28px 44px;
+  }
+
+  .onboarding-workspace {
+    display: block;
+  }
+
+  .onboarding-list-panel {
+    position: static;
+  }
+
+  .onboarding-workspace--list .onboarding-detail-panel,
+  .onboarding-workspace--detail .onboarding-list-panel {
+    display: none;
+  }
+
+  .onboarding-mobile-back {
+    display: flex;
   }
 }
 
@@ -800,26 +796,13 @@ select {
     padding: var(--spacing-4);
   }
 
-  .onboarding-guidance {
-    padding: var(--spacing-5);
-    border-radius: var(--radius-container);
-  }
-
-  .account-editor {
+  .onboarding-detail-panel {
     gap: var(--spacing-4);
     scroll-margin-top: calc(60px + var(--spacing-3));
   }
 
-  .onboarding-layout .astryx-button {
+  .onboarding-workspace .astryx-button {
     min-height: 40px;
-  }
-
-  .responsive-table-desktop {
-    display: none;
-  }
-
-  .responsive-list-mobile {
-    display: block;
   }
 
   .surface-section .astryx-metadata-list[data-columns="multi"] {
@@ -923,7 +906,6 @@ select {
   .astryx-app-shell-header,
   .astryx-app-shell-sidenav,
   .surface-section > .astryx-section,
-  .onboarding-guidance,
   .auth-shell,
   .auth-code-cell {
     border-color: var(--color-text-primary);
