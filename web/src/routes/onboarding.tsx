@@ -3,6 +3,7 @@ import {
   AlertDialog,
   Banner,
   Button,
+  Card,
   Dialog,
   DialogHeader,
   EmptyState,
@@ -61,12 +62,10 @@ function OnboardingPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newResourceName, setNewResourceName] = useState('');
   const [creationNotice, setCreationNotice] = useState<string | null>(null);
-  const selectedAccount = rows.find(account => account.accountId === search.accountId)
-    ?? rows.find(account => account.accountId === current.data?.defaultAccountId)
-    ?? rows.find(account => account.isDefault)
-    ?? rows[0];
+  const selectedAccount = rows.find(account => account.accountId === search.accountId);
   const hasRequestedAccount = Boolean(search.accountId);
   const hasUnknownRequestedAccount = hasRequestedAccount && !rows.some(account => account.accountId === search.accountId);
+  const configuredAccountCount = rows.filter(isAccountConfigured).length;
   const canWrite = current.data?.scopes.length
     ? current.data.scopes.includes('woa:account:write')
     : true;
@@ -96,15 +95,10 @@ function OnboardingPage() {
 
   async function selectAccount(accountId: string) {
     await navigate({ to: '/onboarding', search: { accountId } });
-    window.setTimeout(() => {
-      const detail = document.querySelector<HTMLElement>('[data-account-detail]');
-      detail?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      detail?.focus({ preventScroll: true });
-    }, 0);
   }
 
   async function showAccountList() {
-    await navigate({ to: '/onboarding', search: {} });
+    await navigate({ to: '/onboarding', search: {}, replace: true });
   }
 
   function handleCreateOpenChange(isOpen: boolean) {
@@ -140,99 +134,125 @@ function OnboardingPage() {
             container="section"
           />
         ) : null}
-        <div className={`onboarding-workspace ${hasRequestedAccount ? 'onboarding-workspace--detail' : 'onboarding-workspace--list'}`}>
-          <section className="onboarding-list-panel" aria-label="公众号列表">
-            <SurfaceSection title="公众号列表">
-              {isResourceLoading ? (
-                <Spinner label="正在读取当前工作空间与公众号资源…" />
-              ) : resourceError ? (
-                <Banner
-                  status="error"
-                  title="无法读取公众号资源"
-                  description={errorMessage(resourceError, '读取公众号资源失败，请重试。')}
-                  endContent={<Button label="重新加载" size="sm" clickAction={retryResources} />}
-                />
-              ) : hasNoTenant ? (
-                <Banner
-                  status="warning"
-                  title="当前账户没有可用工作空间"
-                  description="请联系管理员将你加入工作空间，然后重新加载页面。"
-                  endContent={<Button label="重新加载" size="sm" clickAction={retryResources} />}
-                />
-              ) : rows.length === 0 ? (
-                <EmptyState
-                  title="还没有连接公众号"
-                  description="创建一个公众号连接后，再提交 AppID/AppSecret 完成授权。"
-                  actions={<Button label="新增公众号" clickAction={() => setIsCreateOpen(true)} isDisabled={!canWrite} tooltip={!canWrite ? '需要公众号写入权限' : undefined} />}
-                  isCompact
-                />
-              ) : (
-                <List header="已连接公众号" hasDividers density="compact">
-                  {rows.map(account => {
-                    const configured = isAccountConfigured(account);
-                    const isSelected = selectedAccount?.accountId === account.accountId;
-                    return (
-                      <ListItem
-                        key={account.accountId}
-                        label={account.name ?? account.accountName ?? '未命名公众号'}
-                        description={(
-                          <VStack gap={1}>
-                            <Text type="supporting"><span className="mono">{account.appId ?? 'AppID 未配置'}</span></Text>
-                            <HStack gap={2} vAlign="center">
-                              <StatusDot variant={configured ? 'success' : 'warning'} label={configured ? '已连接' : '等待配置'} />
-                              <Text type="supporting">{configured ? '已连接' : '等待配置'}{account.isDefault ? ' · 默认公众号' : ''}</Text>
-                            </HStack>
-                          </VStack>
-                        )}
-                        endContent={<Text type="supporting">{isSelected ? '当前' : '管理'}</Text>}
-                        isSelected={isSelected}
-                        onClick={() => { void selectAccount(account.accountId); }}
-                      />
-                    );
-                  })}
-                </List>
-              )}
-              {!resourceError && tenantId && rows.length > 0 ? (
-                <div className="onboarding-list-action">
-                  <Button label="新增公众号" variant="primary" clickAction={() => setIsCreateOpen(true)} isDisabled={!canWrite} tooltip={!canWrite ? '需要公众号写入权限' : undefined} />
-                </div>
-              ) : null}
-            </SurfaceSection>
+        {!isResourceLoading && !resourceError && !hasNoTenant ? (
+          <section className="onboarding-summary" aria-label="公众号连接概览">
+            <Card padding={4}>
+              <VStack gap={1}>
+                <Text type="supporting">已连接公众号</Text>
+                <Text type="large" weight="semibold">{rows.length}</Text>
+              </VStack>
+            </Card>
+            <Card padding={4}>
+              <VStack gap={1}>
+                <Text type="supporting">授权有效</Text>
+                <Text type="large" weight="semibold">{configuredAccountCount}</Text>
+              </VStack>
+            </Card>
+            <Card padding={4}>
+              <VStack gap={1}>
+                <Text type="supporting">等待配置</Text>
+                <Text type="large" weight="semibold">{rows.length - configuredAccountCount}</Text>
+              </VStack>
+            </Card>
           </section>
+        ) : null}
 
-          <section data-account-detail tabIndex={-1} className="onboarding-detail-panel" aria-label="公众号详情">
-            <div className="onboarding-mobile-back">
-              <Button label="返回公众号列表" variant="ghost" clickAction={() => { void showAccountList(); }} />
+        <SurfaceSection title="公众号列表">
+          {isResourceLoading ? (
+            <Spinner label="正在读取当前工作空间与公众号资源…" />
+          ) : resourceError ? (
+            <Banner
+              status="error"
+              title="无法读取公众号资源"
+              description={errorMessage(resourceError, '读取公众号资源失败，请重试。')}
+              endContent={<Button label="重新加载" size="sm" clickAction={retryResources} />}
+            />
+          ) : hasNoTenant ? (
+            <Banner
+              status="warning"
+              title="当前账户没有可用工作空间"
+              description="请联系管理员将你加入工作空间，然后重新加载页面。"
+              endContent={<Button label="重新加载" size="sm" clickAction={retryResources} />}
+            />
+          ) : rows.length === 0 ? (
+            <EmptyState
+              title="还没有连接公众号"
+              description="创建一个公众号连接后，再提交 AppID/AppSecret 完成授权。"
+              actions={<Button label="新增公众号" clickAction={() => setIsCreateOpen(true)} isDisabled={!canWrite} tooltip={!canWrite ? '需要公众号写入权限' : undefined} />}
+              isCompact
+            />
+          ) : (
+            <List header="已连接公众号" hasDividers density="compact">
+              {rows.map(account => {
+                const configured = isAccountConfigured(account);
+                const isSelected = selectedAccount?.accountId === account.accountId;
+                return (
+                  <ListItem
+                    key={account.accountId}
+                    label={account.name ?? account.accountName ?? '未命名公众号'}
+                    description={(
+                      <VStack gap={1}>
+                        <Text type="supporting"><span className="mono">{account.appId ?? 'AppID 未配置'}</span></Text>
+                        <HStack gap={2} vAlign="center">
+                          <StatusDot variant={configured ? 'success' : 'warning'} label={configured ? '已连接' : '等待配置'} />
+                          <Text type="supporting">{configured ? '已连接' : '等待配置'}{account.isDefault ? ' · 默认公众号' : ''}</Text>
+                        </HStack>
+                      </VStack>
+                    )}
+                    endContent={<Text type="supporting">{isSelected ? '正在配置' : '配置'}</Text>}
+                    isSelected={isSelected}
+                    onClick={() => { void selectAccount(account.accountId); }}
+                  />
+                );
+              })}
+            </List>
+          )}
+          {!resourceError && tenantId && rows.length > 0 ? (
+            <div className="onboarding-list-action">
+              <Button label="新增公众号" variant="primary" clickAction={() => setIsCreateOpen(true)} isDisabled={!canWrite} tooltip={!canWrite ? '需要公众号写入权限' : undefined} />
             </div>
-            {creationNotice ? (
-              <Banner status="success" title="公众号已创建" description={creationNotice} isDismissable onDismiss={() => setCreationNotice(null)} />
-            ) : null}
-            {hasUnknownRequestedAccount ? (
-              <Banner
-                status="warning"
-                title="找不到该公众号"
-                description="它可能已被删除，或不属于当前工作空间。"
-                endContent={<Button label="返回列表" size="sm" clickAction={showAccountList} />}
-              />
-            ) : selectedAccount && tenantId ? (
-              <AccountAuthorizationEditor
-                key={selectedAccount.accountId}
-                tenantId={tenantId}
-                account={selectedAccount}
-                canWrite={canWrite}
-                onDeleted={() => { void showAccountList(); }}
-              />
-            ) : !isResourceLoading && !resourceError ? (
-              <EmptyState
-                title="选择一个公众号"
-                description="从左侧列表选择公众号后查看和管理连接详情。"
-                headingLevel={2}
-                isCompact
-              />
-            ) : null}
-          </section>
-        </div>
+          ) : null}
+        </SurfaceSection>
       </PageStack>
+
+      <Dialog
+        className="onboarding-config-drawer"
+        isOpen={hasRequestedAccount}
+        onOpenChange={isOpen => {
+          if (!isOpen) void showAccountList();
+        }}
+        width="min(620px, 100vw)"
+        maxHeight="100dvh"
+        position={{ top: 0, right: 0, bottom: 0 }}
+        purpose="form"
+      >
+        <DialogHeader
+          title={selectedAccount?.name ?? selectedAccount?.accountName ?? '公众号配置'}
+          subtitle="更新连接状态、授权凭据与默认设置。"
+          onOpenChange={() => { void showAccountList(); }}
+        />
+        <div className="onboarding-config-drawer-content">
+          {creationNotice ? (
+            <Banner status="success" title="公众号已创建" description={creationNotice} isDismissable onDismiss={() => setCreationNotice(null)} />
+          ) : null}
+          {hasUnknownRequestedAccount ? (
+            <Banner
+              status="warning"
+              title="找不到该公众号"
+              description="它可能已被删除，或不属于当前工作空间。"
+              endContent={<Button label="关闭" size="sm" clickAction={showAccountList} />}
+            />
+          ) : selectedAccount && tenantId ? (
+            <AccountAuthorizationEditor
+              key={selectedAccount.accountId}
+              tenantId={tenantId}
+              account={selectedAccount}
+              canWrite={canWrite}
+              onDeleted={() => { void showAccountList(); }}
+            />
+          ) : null}
+        </div>
+      </Dialog>
 
       <Dialog
         isOpen={isCreateOpen}

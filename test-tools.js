@@ -801,8 +801,10 @@ check(
     onboardingRouteSource.includes('deleteAccount') &&
     onboardingRouteSource.includes('configureAccount') &&
     onboardingRouteSource.includes('validateSearch') &&
+    onboardingRouteSource.includes('<Card') &&
     onboardingRouteSource.includes('<List') &&
     onboardingRouteSource.includes('<Dialog') &&
+    onboardingRouteSource.includes('onboarding-config-drawer') &&
     onboardingRouteSource.includes('<AlertDialog') &&
     !onboardingRouteSource.includes('/api/v1/tenants/current/accounts/current/configure') &&
     securityRouteSource.includes('getSecuritySessions') &&

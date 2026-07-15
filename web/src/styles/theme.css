@@ -350,38 +350,30 @@ select {
 }
 
 /* Onboarding */
-.onboarding-workspace {
+.onboarding-summary {
   display: grid;
-  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-  align-items: start;
-  gap: var(--spacing-6);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-4);
   min-width: 0;
 }
 
-.onboarding-list-panel,
-.onboarding-detail-panel {
-  min-width: 0;
+.onboarding-config-drawer {
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
 }
 
-.onboarding-list-panel {
-  position: sticky;
-  top: 94px;
-}
-
-.onboarding-detail-panel {
+.onboarding-config-drawer-content {
   display: grid;
+  min-height: 0;
   gap: var(--spacing-5);
-  scroll-margin-top: calc(68px + var(--spacing-4));
-  outline: none;
+  padding: var(--spacing-5);
+  overflow-y: auto;
 }
 
 .onboarding-list-action {
   display: flex;
   margin-top: var(--spacing-4);
-}
-
-.onboarding-mobile-back {
-  display: none;
 }
 
 .onboarding-create-dialog {
@@ -725,21 +717,8 @@ select {
     padding: 36px 28px 44px;
   }
 
-  .onboarding-workspace {
-    display: block;
-  }
-
-  .onboarding-list-panel {
-    position: static;
-  }
-
-  .onboarding-workspace--list .onboarding-detail-panel,
-  .onboarding-workspace--detail .onboarding-list-panel {
-    display: none;
-  }
-
-  .onboarding-mobile-back {
-    display: flex;
+  .onboarding-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -796,12 +775,25 @@ select {
     padding: var(--spacing-4);
   }
 
-  .onboarding-detail-panel {
-    gap: var(--spacing-4);
-    scroll-margin-top: calc(60px + var(--spacing-3));
+  .onboarding-summary {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .onboarding-workspace .astryx-button {
+  .onboarding-config-drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .onboarding-config-drawer-content {
+    gap: var(--spacing-4);
+    padding: var(--spacing-4);
+  }
+
+  .onboarding-summary .astryx-card {
+    padding: var(--spacing-3);
+  }
+
+  .onboarding-config-drawer .astryx-button {
     min-height: 40px;
   }
 
