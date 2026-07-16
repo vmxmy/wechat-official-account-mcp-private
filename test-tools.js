@@ -1052,7 +1052,7 @@ check(
 );
 check(
   npmPublishWorkflowSource.includes('name: npm-release') &&
-    npmPublishWorkflowSource.includes('npm@12.0.0') &&
+    npmPublishWorkflowSource.includes('npm@12.0.1') &&
     npmPublishWorkflowSource.includes('expected_tag="woa-v${package_version}"') &&
     npmPublishWorkflowSource.includes('git merge-base --is-ancestor') &&
     npmPublishWorkflowSource.includes('local_shasum=') &&
