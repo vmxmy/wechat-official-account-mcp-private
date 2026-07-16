@@ -10,7 +10,7 @@
 本项目是一个 **微信公众号 MCP (Model Context Protocol) 服务器**，为 Claude Desktop、Cursor、Trae AI 等 AI 应用提供微信公众号常用运营 API 工具集。
 
 - **名称**: `wechat-official-account-mcp`
-- **版本**: `v2.2.0`
+- **版本**: `v2.2.1`
 - **作者**: xwang152-jack <xwang152@163.com>
 - **许可证**: MIT
 - **仓库**: https://github.com/xwang152-jack/wechat-official-account-mcp

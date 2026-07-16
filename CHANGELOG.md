@@ -6,6 +6,15 @@
 
 ## Unreleased
 
+## v2.2.1 (2026-07-16)
+
+### 运行时与 CLI 修复
+
+- 修复 remote-only `woa` CLI 在未显式传入 `--account` 时回退旧 `acct_default` 常量的问题；现在会从 `/api/v1/me` 解析并验证当前 Operator 的真实默认租户与公众号账号。
+- 兼容已部署 D1 中使用 `created_at` 的旧 `audit_logs` schema，同时支持新安装的 `occurred_at`，避免审计查询、写入和保留期清理返回 `no such column`。
+- 保持删除命令 dry-run 为纯本地预检，不因动态账号解析发起远端请求。
+- 移除 npm 包对自身 `@ziikoo/woa@^2.2.0` 的意外依赖，避免安装新 CLI 时嵌套旧版本。
+
 ### 媒体上传上下文优化
 
 - 新增 OAuth 保护的二进制媒体暂存接口，将本地文件写入租户/账号隔离的 `staging/` R2 key，并提供 30 天生命周期配置脚本。
