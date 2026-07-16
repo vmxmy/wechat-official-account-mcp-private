@@ -898,6 +898,73 @@ try {
   rmSync(mediaCliTempDir, { recursive: true, force: true });
   await new Promise(resolve => mediaCliServer.close(resolve));
 }
+const dynamicAccountCliRequests = [];
+const dynamicAccountCliServer = createServer((req, res) => {
+  dynamicAccountCliRequests.push(req.url);
+  res.setHeader('content-type', 'application/json');
+  if (req.url === '/api/v1/me') {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      success: true,
+      data: {
+        defaultTenantId: 'tenant_default',
+        defaultAccountId: 'acct_dynamic_default',
+        tenants: [{ tenantId: 'tenant_default', name: '默认租户' }],
+        accounts: [{
+          tenantId: 'tenant_default',
+          accountId: 'acct_dynamic_default',
+          name: '动态默认账号',
+          status: 'active',
+          isDefault: true,
+        }],
+      },
+    }));
+    return;
+  }
+  if (req.url === '/api/v1/tenants/tenant_default/accounts/acct_dynamic_default/status') {
+    res.writeHead(200);
+    res.end(JSON.stringify({ success: true, data: { configured: true, accountId: 'acct_dynamic_default' } }));
+    return;
+  }
+  res.writeHead(403);
+  res.end(JSON.stringify({
+    success: false,
+    error: {
+      code: 'account_forbidden',
+      message: 'Account acct_default is not accessible for the current user.',
+    },
+  }));
+});
+await new Promise(resolve => dynamicAccountCliServer.listen(0, '127.0.0.1', resolve));
+const dynamicAccountCliTempDir = mkdtempSync(path.join(tmpdir(), 'woa-dynamic-account-'));
+try {
+  const address = dynamicAccountCliServer.address();
+  const port = typeof address === 'object' && address ? address.port : 0;
+  const output = await execFileText(process.execPath, [
+    './dist/src/cli/woa.js',
+    'account',
+    'status',
+    '--server',
+    `http://127.0.0.1:${port}`,
+    '--token',
+    'TEST_TOKEN',
+  ], {
+    env: {
+      ...process.env,
+      WOA_CLI_CONFIG: path.join(dynamicAccountCliTempDir, 'cli.json'),
+    },
+  });
+  check(
+    dynamicAccountCliRequests[0] === '/api/v1/me' &&
+      dynamicAccountCliRequests[1] === '/api/v1/tenants/tenant_default/accounts/acct_dynamic_default/status' &&
+      output.includes('acct_dynamic_default') &&
+      !dynamicAccountCliRequests.some(request => request?.includes('/acct_default/')),
+    'woa CLI 未显式选择账号时从 /api/v1/me 使用当前 Operator 的动态默认账号，不回退旧 acct_default 常量',
+  );
+} finally {
+  rmSync(dynamicAccountCliTempDir, { recursive: true, force: true });
+  await new Promise(resolve => dynamicAccountCliServer.close(resolve));
+}
 const woaDraftDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'draft', 'delete', 'MEDIA_ID_FOR_DELETE', '--dry-run'], { encoding: 'utf8' }));
 const woaPublishDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'publish', 'delete', 'ARTICLE_ID_FOR_DELETE', '--index', '1', '--dry-run'], { encoding: 'utf8' }));
 const woaAccountDeleteDryRun = JSON.parse(execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'account', 'delete', 'ACCOUNT_ID_FOR_DELETE', '--dry-run'], { encoding: 'utf8' }));
@@ -1644,6 +1711,8 @@ try {
     `http://127.0.0.1:${usageCliPort}`,
     '--token',
     'TEST_TOKEN',
+    '--tenant',
+    DEFAULT_TENANT_ID,
   ]);
   check(
     usageCliRequestsOk(usageCliServerRequests) &&
@@ -4076,6 +4145,17 @@ class MemoryMaintenanceD1Database {
       bind(...values) { this.values = values; return this; },
       async first() { return null; },
       async all() {
+        if (normalized === 'PRAGMA table_info(audit_logs)') {
+          return {
+            success: true,
+            results: [
+              { name: 'id' },
+              { name: 'tenant_id' },
+              { name: 'account_id' },
+              { name: 'occurred_at' },
+            ],
+          };
+        }
         if (normalized.startsWith('SELECT object_key')) {
           const [now, limit] = this.values;
           return {
@@ -4535,6 +4615,18 @@ class MemoryInboxD1Statement {
   }
 
   async all() {
+    if (this.query === 'PRAGMA table_info(audit_logs)') {
+      return {
+        success: true,
+        results: [
+          { name: 'id' },
+          { name: 'tenant_id' },
+          { name: 'account_id' },
+          { name: 'occurred_at' },
+        ],
+      };
+    }
+
     if (this.query.startsWith('SELECT * FROM inbound_messages')) {
       const filterValueCount = this.filterValueCount();
       const limit = this.values[filterValueCount];
@@ -4703,6 +4795,117 @@ check(
   'AuditLogWriter/sanitizeAuditMetadata 写入审计元数据时脱敏 secret/token 字段',
 );
 check(missingConfirmationRejected, '高风险操作 confirmation marker 缺失时会被 guardrail 拒绝');
+
+class LegacyAuditD1Database {
+  auditRows = [];
+  queries = [];
+
+  prepare(query) {
+    return new LegacyAuditD1Statement(this, query);
+  }
+}
+
+class LegacyAuditD1Statement {
+  values = [];
+
+  constructor(db, query) {
+    this.db = db;
+    this.query = query.replace(/\s+/g, ' ').trim();
+  }
+
+  bind(...values) {
+    this.values = values;
+    return this;
+  }
+
+  async run() {
+    this.db.queries.push(this.query);
+    if (this.query.startsWith('CREATE TABLE IF NOT EXISTS audit_logs')) {
+      return { success: true, meta: { changes: 0 } };
+    }
+    if (this.query.startsWith('CREATE INDEX')) {
+      if (this.query.includes('occurred_at')) {
+        throw new Error('D1_ERROR: no such column: occurred_at at offset 79: SQLITE_ERROR');
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+    if (this.query.startsWith('INSERT INTO audit_logs')) {
+      if (this.query.includes('occurred_at')) {
+        throw new Error('D1_ERROR: table audit_logs has no column named occurred_at: SQLITE_ERROR');
+      }
+      const [userId, oauthClientId, tenantId, accountId, action, targetType, targetId, requestId, metadataJson, createdAt] = this.values;
+      this.db.auditRows.push({
+        id: 1,
+        user_id: userId,
+        oauth_client_id: oauthClientId,
+        tenant_id: tenantId,
+        account_id: accountId,
+        action,
+        target_type: targetType,
+        target_id: targetId,
+        request_id: requestId,
+        metadata_json: metadataJson,
+        created_at: createdAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+    if (this.query.startsWith('DELETE FROM audit_logs')) {
+      if (this.query.includes('occurred_at')) {
+        throw new Error('D1_ERROR: no such column: occurred_at: SQLITE_ERROR');
+      }
+      const before = this.db.auditRows.length;
+      this.db.auditRows = this.db.auditRows.filter(row => row.created_at >= this.values[0]);
+      return { success: true, meta: { changes: before - this.db.auditRows.length } };
+    }
+    return { success: true, meta: { changes: 0 } };
+  }
+
+  async all() {
+    this.db.queries.push(this.query);
+    if (this.query === 'PRAGMA table_info(audit_logs)') {
+      return {
+        success: true,
+        results: [
+          { name: 'id' },
+          { name: 'tenant_id' },
+          { name: 'account_id' },
+          { name: 'created_at' },
+        ],
+      };
+    }
+    if (this.query.startsWith('SELECT id,')) {
+      if (!this.query.includes('created_at AS occurred_at')) {
+        throw new Error('D1_ERROR: no such column: occurred_at at offset 79: SQLITE_ERROR');
+      }
+      return {
+        success: true,
+        results: this.db.auditRows.map(row => ({ ...row, occurred_at: row.created_at })),
+      };
+    }
+    throw new Error(`Unsupported legacy audit all query: ${this.query}`);
+  }
+
+  async first() {
+    throw new Error(`Unsupported legacy audit first query: ${this.query}`);
+  }
+}
+
+const legacyAuditDb = new LegacyAuditD1Database();
+const legacyAuditWriter = new D1AuditLogWriter(legacyAuditDb);
+await legacyAuditWriter.write({
+  tenantId: 'tenant_legacy',
+  accountId: 'acct_legacy',
+  action: 'account.status',
+  occurredAt: 1710000500000,
+});
+const legacyAuditRows = await legacyAuditWriter.list({ tenantId: 'tenant_legacy' });
+const legacyAuditPurged = await legacyAuditWriter.purgeOlderThan(1710000600000);
+check(
+  legacyAuditRows[0]?.occurredAt === 1710000500000 &&
+    legacyAuditPurged === 1 &&
+    legacyAuditDb.queries.some(query => query.includes('created_at AS occurred_at')),
+  'AuditLogWriter 兼容已应用旧 migration 的 created_at 列并统一返回 occurredAt',
+);
 
 const inboxToolList = await inboxMcpTool.handler({
   action: 'list_pending',

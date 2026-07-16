@@ -43,12 +43,25 @@ export interface AuditLogRecord {
 
 export class D1AuditLogWriter implements AuditLogWriter {
   private schemaReady = false;
+  private timeColumn: AuditTimeColumn = 'occurred_at';
 
   constructor(private readonly db: D1DatabaseLike) {}
 
   async ensureSchema(): Promise<void> {
     if (this.schemaReady) return;
-    for (const statement of AUDIT_LOGS_SCHEMA_SQL.split(';').map(part => part.trim()).filter(Boolean)) {
+    await this.db.prepare(AUDIT_LOGS_TABLE_SQL).run();
+    const columns = await this.db.prepare('PRAGMA table_info(audit_logs)').all<{ name?: unknown }>();
+    const columnNames = new Set((columns.results ?? []).map(column => stringValue(column.name)).filter(Boolean));
+    if (columnNames.has('occurred_at')) {
+      this.timeColumn = 'occurred_at';
+    } else if (columnNames.has('created_at')) {
+      // 0002_multi_tenant_foundation.sql 的已部署旧版本使用 created_at。
+      // D1 不会重放被修改过的历史 migration，因此运行时必须兼容该列名。
+      this.timeColumn = 'created_at';
+    } else {
+      throw new Error('audit_logs schema is missing occurred_at/created_at timestamp column');
+    }
+    for (const statement of auditLogIndexesSql(this.timeColumn)) {
       await this.db.prepare(statement).run();
     }
     this.schemaReady = true;
@@ -67,7 +80,7 @@ export class D1AuditLogWriter implements AuditLogWriter {
         target_id,
         request_id,
         metadata_json,
-        occurred_at
+        ${this.timeColumn}
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       event.userId ?? null,
@@ -109,10 +122,10 @@ export class D1AuditLogWriter implements AuditLogWriter {
               target_id,
               request_id,
               metadata_json,
-              occurred_at
+              ${this.timeColumn} AS occurred_at
        FROM audit_logs
        WHERE ${conditions.join(' AND ')}
-       ORDER BY occurred_at DESC, id DESC
+       ORDER BY ${this.timeColumn} DESC, id DESC
        LIMIT ? OFFSET ?`,
     ).bind(...values).all<Record<string, unknown>>();
     return (rows.results ?? []).map(row => ({
@@ -134,13 +147,13 @@ export class D1AuditLogWriter implements AuditLogWriter {
     await this.ensureSchema();
     const result = await this.db.prepare(
       `DELETE FROM audit_logs
-       WHERE occurred_at < ?`,
+       WHERE ${this.timeColumn} < ?`,
     ).bind(cutoff).run();
     return result.meta?.changes ?? 0;
   }
 }
 
-export const AUDIT_LOGS_SCHEMA_SQL = `
+const AUDIT_LOGS_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS audit_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,
@@ -153,11 +166,23 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   request_id TEXT,
   metadata_json TEXT NOT NULL,
   occurred_at INTEGER NOT NULL
-);
+)
+`;
+
+export const AUDIT_LOGS_SCHEMA_SQL = `${AUDIT_LOGS_TABLE_SQL};
 CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_time ON audit_logs(tenant_id, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_account_time ON audit_logs(account_id, occurred_at);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action_time ON audit_logs(action, occurred_at);
-`;
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_time ON audit_logs(action, occurred_at);`;
+
+type AuditTimeColumn = 'occurred_at' | 'created_at';
+
+function auditLogIndexesSql(timeColumn: AuditTimeColumn): string[] {
+  return [
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_time ON audit_logs(tenant_id, ${timeColumn})`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_account_time ON audit_logs(account_id, ${timeColumn})`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_action_time ON audit_logs(action, ${timeColumn})`,
+  ];
+}
 
 export function sanitizeAuditMetadata(value: unknown): unknown {
   if (Array.isArray(value)) {

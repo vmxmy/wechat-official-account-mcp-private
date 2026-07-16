@@ -6,7 +6,6 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { DEFAULT_ACCOUNT_ID, DEFAULT_TENANT_ID } from '../storage/types.js';
 import { ALLOWED_MEDIA_TYPES, FILE_SIZE_LIMITS } from '../utils/validation.js';
 
 interface CliConfig {
@@ -29,6 +28,22 @@ interface CliConfig {
 interface ParsedArgs {
   command: string[];
   flags: Record<string, string | boolean>;
+}
+
+interface CliTenantSelection {
+  tenantId: string;
+}
+
+interface CliAccountSelection extends CliTenantSelection {
+  accountId: string;
+  isDefault: boolean;
+}
+
+interface CliRemoteContext {
+  defaultTenantId?: string;
+  defaultAccountId?: string;
+  tenants: CliTenantSelection[];
+  accounts: CliAccountSelection[];
 }
 
 const DEFAULT_CLIENT_ID = 'woa-cli';
@@ -225,12 +240,15 @@ async function handleAccountCommand(
   }
 
   if (sub === 'delete') {
-    const { tenantId, accountId } = await resolveTenantAccount({ ...flags, account: leaf || flags.account || flags['account-id'] });
-    const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/disable`;
+    const selectionFlags = { ...flags, account: leaf || flags.account || flags['account-id'] };
     if (flags['dry-run']) {
+      const { tenantId, accountId } = await resolveTenantAccountForDryRun(selectionFlags);
+      const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/disable`;
       printDeleteDryRun('account', route, { tenantId, accountId });
       return;
     }
+    const { tenantId, accountId } = await resolveTenantAccount(selectionFlags);
+    const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/disable`;
     requireDeleteConfirmation(flags, 'account');
     console.log(JSON.stringify(await apiPost(route, { confirmDelete: true }, flags), null, 2));
     return;
@@ -646,33 +664,37 @@ function inferMediaMimeType(fileName: string): string {
 }
 
 async function deleteDraft(idArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
-  const { tenantId, accountId } = await resolveTenantAccount(flags);
   const mediaId = stringFlag(flags, 'media-id') || stringFlag(flags, 'mediaId') || idArg;
   if (!mediaId) {
     throw new Error('draft delete requires --media-id <media_id> or positional <media_id>.');
   }
-  const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/drafts/${encodeURIComponent(mediaId)}`;
   if (flags['dry-run']) {
+    const { tenantId, accountId } = await resolveTenantAccountForDryRun(flags);
+    const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/drafts/${encodeURIComponent(mediaId)}`;
     printDeleteDryRun('draft', route, { tenantId, accountId, mediaId });
     return;
   }
+  const { tenantId, accountId } = await resolveTenantAccount(flags);
+  const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/drafts/${encodeURIComponent(mediaId)}`;
   requireDeleteConfirmation(flags, 'draft');
   console.log(JSON.stringify(await apiDelete(route, flags), null, 2));
 }
 
 async function deletePublish(idArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
-  const { tenantId, accountId } = await resolveTenantAccount(flags);
   const articleId = stringFlag(flags, 'article-id') || stringFlag(flags, 'articleId') || idArg;
   if (!articleId) {
     throw new Error('publish delete requires --article-id <article_id> or positional <article_id>.');
   }
   const index = optionalNonNegativeIntFlag(flags, 'index');
   const query = index === undefined ? '' : `?index=${index}`;
-  const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/publishes/${encodeURIComponent(articleId)}${query}`;
   if (flags['dry-run']) {
+    const { tenantId, accountId } = await resolveTenantAccountForDryRun(flags);
+    const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/publishes/${encodeURIComponent(articleId)}${query}`;
     printDeleteDryRun('publish', route, { tenantId, accountId, articleId, index: index ?? null });
     return;
   }
+  const { tenantId, accountId } = await resolveTenantAccount(flags);
+  const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/publishes/${encodeURIComponent(articleId)}${query}`;
   requireDeleteConfirmation(flags, 'publish');
   console.log(JSON.stringify(await apiDelete(route, flags), null, 2));
 }
@@ -748,15 +770,116 @@ async function writeMcpConfig(target: string | undefined, flags: Record<string, 
 
 async function resolveTenantAccount(flags: Record<string, string | boolean>): Promise<{ tenantId: string; accountId: string }> {
   const config = await loadConfig();
+  const explicitTenantId = stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id');
+  const explicitAccountId = stringFlag(flags, 'account') || stringFlag(flags, 'account-id');
+  if (explicitTenantId && explicitAccountId) {
+    return { tenantId: explicitTenantId, accountId: explicitAccountId };
+  }
+
+  const current = await getCliRemoteContext(flags);
+  const accountCandidateId = explicitAccountId || config.activeAccountId;
+  const tenantCandidateId = explicitTenantId || config.activeTenantId;
+  const accountCandidate = accountCandidateId
+    ? current.accounts.find(account =>
+      account.accountId === accountCandidateId &&
+      (!explicitTenantId || account.tenantId === explicitTenantId),
+    )
+    : undefined;
+
+  if (explicitAccountId && !accountCandidate) {
+    throw new Error(`Account ${explicitAccountId} is not accessible for the current Operator. Run \`woa account list\` and retry with an accessible account ID.`);
+  }
+
+  const accessibleTenantIds = new Set([
+    ...current.tenants.map(tenant => tenant.tenantId),
+    ...current.accounts.map(account => account.tenantId),
+  ]);
+  if (explicitTenantId && !accessibleTenantIds.has(explicitTenantId)) {
+    throw new Error(`Tenant ${explicitTenantId} is not accessible for the current Operator. Run \`woa tenant list\` and retry.`);
+  }
+
+  const tenantId = explicitTenantId
+    || accountCandidate?.tenantId
+    || (tenantCandidateId && accessibleTenantIds.has(tenantCandidateId) ? tenantCandidateId : undefined)
+    || (current.defaultTenantId && accessibleTenantIds.has(current.defaultTenantId) ? current.defaultTenantId : undefined)
+    || current.tenants[0]?.tenantId
+    || current.accounts[0]?.tenantId;
+  if (!tenantId) {
+    throw new Error('No accessible tenant is available for the current Operator. Complete onboarding or pass an explicit tenant ID.');
+  }
+
+  const tenantAccounts = current.accounts.filter(account => account.tenantId === tenantId);
+  const account = accountCandidate?.tenantId === tenantId
+    ? accountCandidate
+    : tenantAccounts.find(item => item.accountId === current.defaultAccountId)
+      ?? tenantAccounts.find(item => item.isDefault)
+      ?? tenantAccounts[0];
+  if (!account) {
+    throw new Error(`No accessible WeChat account is available in tenant ${tenantId}. Create an account or pass an explicit accessible account ID.`);
+  }
+
+  return { tenantId, accountId: account.accountId };
+}
+
+async function resolveTenantAccountForDryRun(flags: Record<string, string | boolean>): Promise<{ tenantId: string; accountId: string }> {
+  const config = await loadConfig();
   return {
-    tenantId: stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id') || config.activeTenantId || DEFAULT_TENANT_ID,
-    accountId: stringFlag(flags, 'account') || stringFlag(flags, 'account-id') || config.activeAccountId || DEFAULT_ACCOUNT_ID,
+    tenantId: stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id') || config.activeTenantId || '<server-default-tenant>',
+    accountId: stringFlag(flags, 'account') || stringFlag(flags, 'account-id') || config.activeAccountId || '<server-default-account>',
   };
 }
 
 async function resolveTenantId(flags: Record<string, string | boolean>): Promise<string> {
   const config = await loadConfig();
-  return stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id') || config.activeTenantId || DEFAULT_TENANT_ID;
+  const explicitTenantId = stringFlag(flags, 'tenant') || stringFlag(flags, 'tenant-id');
+  if (explicitTenantId) return explicitTenantId;
+
+  const current = await getCliRemoteContext(flags);
+  const accessibleTenantIds = new Set([
+    ...current.tenants.map(tenant => tenant.tenantId),
+    ...current.accounts.map(account => account.tenantId),
+  ]);
+  const tenantId = config.activeTenantId && accessibleTenantIds.has(config.activeTenantId)
+    ? config.activeTenantId
+    : current.defaultTenantId && accessibleTenantIds.has(current.defaultTenantId)
+      ? current.defaultTenantId
+      : current.tenants[0]?.tenantId ?? current.accounts[0]?.tenantId;
+  if (!tenantId) {
+    throw new Error('No accessible tenant is available for the current Operator. Complete onboarding or pass --tenant <tenantId>.');
+  }
+  return tenantId;
+}
+
+async function getCliRemoteContext(flags: Record<string, string | boolean>): Promise<CliRemoteContext> {
+  const response = await apiGet('/api/v1/me', flags);
+  const root = asRecord(response);
+  const data = asRecord(root?.data) ?? root;
+  if (!data) {
+    throw new Error('Remote /api/v1/me returned an invalid context response.');
+  }
+  const tenants = Array.isArray(data.tenants)
+    ? data.tenants.flatMap(value => {
+      const tenant = asRecord(value);
+      const tenantId = stringValue(tenant?.tenantId);
+      return tenantId ? [{ tenantId }] : [];
+    })
+    : [];
+  const accounts = Array.isArray(data.accounts)
+    ? data.accounts.flatMap(value => {
+      const account = asRecord(value);
+      const tenantId = stringValue(account?.tenantId);
+      const accountId = stringValue(account?.accountId);
+      return tenantId && accountId
+        ? [{ tenantId, accountId, isDefault: account?.isDefault === true }]
+        : [];
+    })
+    : [];
+  return {
+    defaultTenantId: stringValue(data.defaultTenantId),
+    defaultAccountId: stringValue(data.defaultAccountId),
+    tenants,
+    accounts,
+  };
 }
 
 async function loadConfig(): Promise<CliConfig> {
@@ -838,6 +961,16 @@ function safeJson(text: string): unknown {
   } catch {
     return text;
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function checkoutUrl(response: unknown): string | null {
