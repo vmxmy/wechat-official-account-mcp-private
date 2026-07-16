@@ -17,7 +17,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: npm-publish-woa
@@ -31,8 +30,6 @@ jobs:
     environment:
       name: npm-release
       url: https://www.npmjs.com/package/@ziikoo/woa
-    env:
-      NPM_CONFIG_PROVENANCE: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -191,6 +188,8 @@ jobs:
         if: steps.registry.outputs.should_publish == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # npm provenance requires a public source repository; this repository is private.
+          NPM_CONFIG_PROVENANCE: 'false'
         run: npm publish --access public --tag "${{ steps.release.outputs.dist_tag }}"
 
       - name: Verify registry publication

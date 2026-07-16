@@ -1069,9 +1069,11 @@ check(
     npmPublishWorkflowSource.includes('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}') &&
     npmPublishWorkflowSource.includes('npm whoami --registry=https://registry.npmjs.org/') &&
     npmPublishWorkflowSource.includes('Publish with npm automation token') &&
+    npmPublishWorkflowSource.includes("NPM_CONFIG_PROVENANCE: 'false'") &&
+    !npmPublishWorkflowSource.includes("NPM_CONFIG_PROVENANCE: 'true'") &&
     npmPublishWorkflowSource.includes(pinnedCheckoutSha) &&
     npmPublishWorkflowSource.includes(pinnedSetupNodeSha),
-  'npm 发布校验 tag/version/main 可达性与包内容，验证自动化 Token，并支持带 provenance 的跨环境幂等发布',
+  'npm 发布校验 tag/version/main 可达性与包内容，验证自动化 Token，并支持私有源码仓库的跨环境幂等发布',
 );
 check(
   turnstileWorkflowSource.includes('group: turnstile-production') &&
