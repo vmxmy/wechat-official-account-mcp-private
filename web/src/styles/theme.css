@@ -350,13 +350,6 @@ select {
 }
 
 /* Onboarding */
-.onboarding-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--spacing-4);
-  min-width: 0;
-}
-
 .onboarding-config-drawer {
   height: 100dvh;
   max-height: 100dvh;
@@ -374,6 +367,10 @@ select {
 .onboarding-list-action {
   display: flex;
   margin-top: var(--spacing-4);
+}
+
+.responsive-list-mobile {
+  display: none;
 }
 
 .onboarding-create-dialog {
@@ -717,9 +714,6 @@ select {
     padding: 36px 28px 44px;
   }
 
-  .onboarding-summary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 720px) {
@@ -775,8 +769,12 @@ select {
     padding: var(--spacing-4);
   }
 
-  .onboarding-summary {
-    grid-template-columns: minmax(0, 1fr);
+  .responsive-table-desktop {
+    display: none;
+  }
+
+  .responsive-list-mobile {
+    display: block;
   }
 
   .onboarding-config-drawer {
@@ -787,10 +785,6 @@ select {
   .onboarding-config-drawer-content {
     gap: var(--spacing-4);
     padding: var(--spacing-4);
-  }
-
-  .onboarding-summary .astryx-card {
-    padding: var(--spacing-3);
   }
 
   .onboarding-config-drawer .astryx-button {

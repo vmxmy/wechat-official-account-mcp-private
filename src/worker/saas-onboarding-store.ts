@@ -53,6 +53,13 @@ export interface SecuritySessionRecord {
   canRevoke: boolean;
 }
 
+export interface OperatorDeletionRequestRecord {
+  requestId: string;
+  operatorId: string;
+  requestedAt: number;
+  supportNote?: string | null;
+}
+
 export interface OAuthClientInput {
   clientId: string;
   clientName: string;
@@ -237,6 +244,9 @@ CREATE TABLE IF NOT EXISTS tenant_entitlements (
   stripe_subscription_id TEXT,
   current_period_start INTEGER,
   current_period_end INTEGER,
+  period_anchor_at INTEGER,
+  pending_plan TEXT,
+  pending_plan_effective_at INTEGER,
   limits_json TEXT NOT NULL DEFAULT '{}',
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
@@ -927,6 +937,28 @@ export class D1SaasOnboardingStore {
     };
   }
 
+  async renameTenant(input: { tenantId: string; name: string; now?: number }): Promise<TenantSummary> {
+    await this.ensureSchema();
+    const now = input.now ?? Date.now();
+    await this.db.prepare(
+      `UPDATE tenants
+       SET name = ?, updated_at = ?
+       WHERE id = ? AND status != 'disabled'`,
+    ).bind(input.name, now, input.tenantId).run();
+    const row = await this.db.prepare(
+      `SELECT id AS tenant_id,
+              slug AS tenant_slug,
+              name AS tenant_name,
+              status AS tenant_status,
+              'owner' AS role
+       FROM tenants
+       WHERE id = ? AND status != 'disabled'
+       LIMIT 1`,
+    ).bind(input.tenantId).first<Record<string, unknown>>();
+    if (!row) throw new Error('Tenant not found.');
+    return rowToTenantSummary(row);
+  }
+
   async createWechatResource(input: CreateWechatResourceInput): Promise<WechatResourceRecord> {
     await this.ensureSchema();
     const now = input.now ?? Date.now();
@@ -1124,17 +1156,24 @@ export class D1SaasOnboardingStore {
     };
   }
 
-  async upsertTenantEntitlement(input: { tenantId: string; plan: SubscriptionPlan; status?: string; now?: number }): Promise<void> {
+  async upsertTenantEntitlement(input: {
+    tenantId: string;
+    plan: SubscriptionPlan;
+    status?: string;
+    periodAnchorAt?: number | null;
+    now?: number;
+  }): Promise<void> {
     await this.ensureSchema();
     const now = input.now ?? Date.now();
     await this.db.prepare(
-      `INSERT INTO tenant_entitlements (tenant_id, plan, status, limits_json, created_at, updated_at)
-       VALUES (?, ?, ?, '{}', ?, ?)
+      `INSERT INTO tenant_entitlements (tenant_id, plan, status, period_anchor_at, limits_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, '{}', ?, ?)
        ON CONFLICT(tenant_id) DO UPDATE SET
          plan = excluded.plan,
          status = excluded.status,
+         period_anchor_at = COALESCE(tenant_entitlements.period_anchor_at, excluded.period_anchor_at),
          updated_at = excluded.updated_at`,
-    ).bind(input.tenantId, input.plan, input.status ?? 'active', now, now).run();
+    ).bind(input.tenantId, input.plan, input.status ?? 'active', input.periodAnchorAt ?? now, now, now).run();
   }
 
   async getAccountAllowance(tenantId: string): Promise<{ tenantId: string; plan: SubscriptionPlan; limit: number; used: number; remaining: number }> {
@@ -1149,6 +1188,53 @@ export class D1SaasOnboardingStore {
       used,
       remaining: Math.max(0, limit - used),
     };
+  }
+
+  async reconcileAccountAllowanceLocks(input: {
+    tenantId: string;
+    plan: SubscriptionPlan;
+    now?: number;
+  }): Promise<{ locked: string[]; unlocked: string[] }> {
+    await this.ensureSchema();
+    const now = input.now ?? Date.now();
+    const limit = ACCOUNT_ALLOWANCES[input.plan];
+    const rows = await this.db.prepare(
+      `SELECT id, app_secret, status, is_default
+       FROM wechat_accounts
+       WHERE tenant_id = ? AND status != 'disabled'
+       ORDER BY is_default DESC, created_at ASC`,
+    ).bind(input.tenantId).all<Record<string, unknown>>();
+    const locked: string[] = [];
+    const unlocked: string[] = [];
+
+    for (const [index, row] of (rows.results ?? []).entries()) {
+      const accountId = stringValue(row.id);
+      if (!accountId) continue;
+      const status = stringValue(row.status);
+      if (index < limit && status === 'locked') {
+        await this.db.prepare(
+          `UPDATE wechat_accounts
+           SET status = CASE WHEN app_secret IS NULL THEN 'unconfigured' ELSE 'active' END,
+               plan_locked_at = NULL,
+               plan_lock_reason = NULL,
+               updated_at = ?
+           WHERE tenant_id = ? AND id = ? AND status = 'locked'`,
+        ).bind(now, input.tenantId, accountId).run();
+        unlocked.push(accountId);
+      } else if (index >= limit && status !== 'locked') {
+        await this.db.prepare(
+          `UPDATE wechat_accounts
+           SET status = 'locked',
+               plan_locked_at = ?,
+               plan_lock_reason = ?,
+               updated_at = ?
+           WHERE tenant_id = ? AND id = ? AND status != 'disabled'`,
+        ).bind(now, `plan:${input.plan}:account_allowance:${limit}`, now, input.tenantId, accountId).run();
+        locked.push(accountId);
+      }
+    }
+
+    return { locked, unlocked };
   }
 
   async recordMonitoringEvent(input: {
@@ -1175,6 +1261,29 @@ export class D1SaasOnboardingStore {
     ).run();
   }
 
+  async recordMediaRetention(input: {
+    objectKey: string;
+    tenantId: string;
+    accountId: string;
+    createdAt?: number;
+    expiresAt?: number;
+  }): Promise<void> {
+    await this.ensureSchema();
+    const createdAt = input.createdAt ?? Date.now();
+    const expiresAt = input.expiresAt ?? createdAt + 30 * 24 * 60 * 60 * 1000;
+    await this.db.prepare(
+      `INSERT INTO r2_media_retention_metadata (
+         object_key, tenant_id, account_id, created_at, expires_at, deleted_at
+       ) VALUES (?, ?, ?, ?, ?, NULL)
+       ON CONFLICT(object_key) DO UPDATE SET
+         tenant_id = excluded.tenant_id,
+         account_id = excluded.account_id,
+         created_at = excluded.created_at,
+         expires_at = excluded.expires_at,
+         deleted_at = NULL`,
+    ).bind(input.objectKey, input.tenantId, input.accountId, createdAt, expiresAt).run();
+  }
+
   async requestOperatorDeletion(input: { operatorId: string; supportNote?: string | null; requestId?: string | null; now?: number }): Promise<string> {
     await this.ensureSchema();
     const id = input.requestId || opaqueId('del');
@@ -1183,6 +1292,118 @@ export class D1SaasOnboardingStore {
        VALUES (?, ?, 'requested', ?, NULL, ?)`,
     ).bind(id, input.operatorId, input.now ?? Date.now(), input.supportNote ?? null).run();
     return id;
+  }
+
+  async listPendingOperatorDeletionRequests(limit: number = 20): Promise<OperatorDeletionRequestRecord[]> {
+    await this.ensureSchema();
+    const rows = await this.db.prepare(
+      `SELECT id, operator_id, requested_at, support_note
+       FROM operator_deletion_requests
+       WHERE status = 'requested'
+       ORDER BY requested_at ASC
+       LIMIT ?`,
+    ).bind(Math.min(100, Math.max(1, limit))).all<Record<string, unknown>>();
+    return (rows.results ?? []).map(row => ({
+      requestId: stringValue(row.id) || '',
+      operatorId: stringValue(row.operator_id) || '',
+      requestedAt: numberValue(row.requested_at) ?? 0,
+      supportNote: stringValue(row.support_note),
+    })).filter(row => row.requestId && row.operatorId);
+  }
+
+  async executeOperatorDeletion(input: {
+    requestId: string;
+    operatorId: string;
+    cancelStripeSubscription?: (subscriptionId: string) => Promise<void>;
+    now?: number;
+  }): Promise<{ tenantIds: string[]; subscriptionsCancelled: number }> {
+    await this.ensureSchema();
+    const now = input.now ?? Date.now();
+    const ownedRows = await this.db.prepare(
+      `SELECT owner.tenant_id, ent.stripe_subscription_id
+       FROM tenant_owners owner
+       LEFT JOIN tenant_entitlements ent ON ent.tenant_id = owner.tenant_id
+       WHERE owner.operator_id = ?`,
+    ).bind(input.operatorId).all<Record<string, unknown>>();
+    const tenantIds = (ownedRows.results ?? [])
+      .map(row => stringValue(row.tenant_id))
+      .filter((tenantId): tenantId is string => !!tenantId);
+    let subscriptionsCancelled = 0;
+    for (const row of ownedRows.results ?? []) {
+      const subscriptionId = stringValue(row.stripe_subscription_id);
+      if (!subscriptionId) continue;
+      if (!input.cancelStripeSubscription) {
+        throw new Error('Stripe cancellation is required before deleting an operator with an active subscription.');
+      }
+      await input.cancelStripeSubscription(subscriptionId);
+      subscriptionsCancelled += 1;
+    }
+
+    for (const tenantId of tenantIds) {
+      await this.db.prepare(
+        `UPDATE wechat_accounts
+         SET app_id = NULL,
+             app_secret = NULL,
+             webhook_token = NULL,
+             encoding_aes_key = NULL,
+             status = 'disabled',
+             is_default = 0,
+             updated_at = ?
+         WHERE tenant_id = ?`,
+      ).bind(now, tenantId).run();
+      await this.db.prepare('DELETE FROM wechat_access_tokens WHERE tenant_id = ?').bind(tenantId).run();
+      await this.db.prepare(
+        `UPDATE tenant_entitlements
+         SET plan = 'free',
+             status = 'cancelled',
+             stripe_customer_id = NULL,
+             stripe_subscription_id = NULL,
+             current_period_start = NULL,
+             current_period_end = NULL,
+             pending_plan = NULL,
+             pending_plan_effective_at = NULL,
+             updated_at = ?
+         WHERE tenant_id = ?`,
+      ).bind(now, tenantId).run();
+      await this.db.prepare(
+        `UPDATE tenant_memberships
+         SET status = 'disabled', updated_at = ?
+         WHERE tenant_id = ?`,
+      ).bind(now, tenantId).run();
+      await this.db.prepare(
+        `UPDATE tenants
+         SET status = 'disabled', default_account_id = NULL, updated_at = ?
+         WHERE id = ?`,
+      ).bind(now, tenantId).run();
+    }
+
+    await this.db.prepare(
+      `UPDATE web_sessions
+       SET revoked_at = COALESCE(revoked_at, ?), updated_at = ?
+       WHERE operator_id = ?`,
+    ).bind(now, now, input.operatorId).run();
+    await this.db.prepare(
+      `UPDATE oauth_token_sessions
+       SET revoked_at = COALESCE(revoked_at, ?), updated_at = ?
+       WHERE operator_id = ?`,
+    ).bind(now, now, input.operatorId).run();
+    await this.db.prepare(
+      `UPDATE operators
+       SET status = 'disabled', updated_at = ?
+       WHERE id = ?`,
+    ).bind(now, input.operatorId).run();
+    await this.db.prepare(
+      `UPDATE users
+       SET status = 'disabled', updated_at = ?
+       WHERE id = ?`,
+    ).bind(now, input.operatorId).run();
+    await this.db.prepare(
+      `UPDATE operator_deletion_requests
+       SET status = 'completed', completed_at = ?, support_note = COALESCE(support_note, ?)
+       WHERE id = ? AND operator_id = ? AND status = 'requested'`,
+    ).bind(now, 'Deletion completed by scheduled maintenance.', input.requestId, input.operatorId).run();
+
+    return { tenantIds, subscriptionsCancelled };
   }
 
   private async consumeEmailCode(codeId: string, now: number): Promise<void> {
@@ -1229,6 +1450,23 @@ export class D1SaasOnboardingStore {
        WHERE id = ? AND status != 'disabled'
        LIMIT 1`,
     ).bind(operatorId).first<Record<string, unknown>>();
+    return row ? rowToOperator(row) : null;
+  }
+
+  async findTenantOwner(tenantId: string): Promise<OperatorRecord | null> {
+    await this.ensureSchema();
+    const row = await this.db.prepare(
+      `SELECT op.id,
+              op.verified_email,
+              op.display_name,
+              op.status,
+              op.created_at,
+              op.updated_at
+       FROM tenant_owners owner
+       INNER JOIN operators op ON op.id = owner.operator_id
+       WHERE owner.tenant_id = ? AND op.status != 'disabled'
+       LIMIT 1`,
+    ).bind(tenantId).first<Record<string, unknown>>();
     return row ? rowToOperator(row) : null;
   }
 
@@ -1332,7 +1570,22 @@ export class D1SaasOnboardingStore {
         now: input.now,
       });
     }
-    await this.upsertTenantEntitlement({ tenantId: input.tenantId, plan: 'free', now: input.now });
+    await this.ensureFreeTenantEntitlement(input.tenantId, input.now);
+  }
+
+  private async ensureFreeTenantEntitlement(tenantId: string, now: number): Promise<void> {
+    await this.db.prepare(
+      `INSERT INTO tenant_entitlements (
+         tenant_id,
+         plan,
+         status,
+         period_anchor_at,
+         limits_json,
+         created_at,
+         updated_at
+       ) VALUES (?, 'free', 'active', ?, '{}', ?, ?)
+       ON CONFLICT(tenant_id) DO NOTHING`,
+    ).bind(tenantId, now, now, now).run();
   }
 
   private async insertWechatResource(input: {

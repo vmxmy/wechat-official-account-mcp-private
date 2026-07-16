@@ -3,7 +3,6 @@ import {
   AlertDialog,
   Banner,
   Button,
-  Card,
   Dialog,
   DialogHeader,
   EmptyState,
@@ -135,26 +134,13 @@ function OnboardingPage() {
           />
         ) : null}
         {!isResourceLoading && !resourceError && !hasNoTenant ? (
-          <section className="onboarding-summary" aria-label="公众号连接概览">
-            <Card padding={4}>
-              <VStack gap={1}>
-                <Text type="supporting">已连接公众号</Text>
-                <Text type="large" weight="semibold">{rows.length}</Text>
-              </VStack>
-            </Card>
-            <Card padding={4}>
-              <VStack gap={1}>
-                <Text type="supporting">授权有效</Text>
-                <Text type="large" weight="semibold">{configuredAccountCount}</Text>
-              </VStack>
-            </Card>
-            <Card padding={4}>
-              <VStack gap={1}>
-                <Text type="supporting">等待配置</Text>
-                <Text type="large" weight="semibold">{rows.length - configuredAccountCount}</Text>
-              </VStack>
-            </Card>
-          </section>
+          <SurfaceSection title="连接概览" tone="quiet">
+            <DefinitionList columns="multi" items={[
+              { label: '公众号资源', value: rows.length },
+              { label: '授权有效', value: configuredAccountCount },
+              { label: '等待配置', value: rows.length - configuredAccountCount },
+            ]} />
+          </SurfaceSection>
         ) : null}
 
         <SurfaceSection title="公众号列表">

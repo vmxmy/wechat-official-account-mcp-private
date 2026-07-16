@@ -6,8 +6,7 @@ import {
   getPlanQuotaPolicy,
   createQuotaConsumptions,
   mergePlanLimits,
-  quotaPeriod,
-  quotaResetAt,
+  quotaPeriodForContext,
   normalizeSubscriptionPlan,
   type QuotaConsumption,
   type QuotaMetric,
@@ -24,6 +23,9 @@ export interface TenantEntitlement {
   stripeSubscriptionId?: string | null;
   currentPeriodStart?: number | null;
   currentPeriodEnd?: number | null;
+  periodAnchorAt?: number | null;
+  pendingPlan?: SubscriptionPlan | null;
+  pendingPlanEffectiveAt?: number | null;
 }
 
 export interface UsageCounterSnapshot {
@@ -61,7 +63,7 @@ export interface McpQuotaReservation {
   counters: ReservedUsageCounter[];
   metadata(): QuotaMetadata;
   commit(): Promise<void>;
-  refund(reason?: string): Promise<void>;
+  refund(reason?: string, preserveMetrics?: QuotaMetric[]): Promise<void>;
 }
 
 export interface QuotaMetadata {
@@ -151,6 +153,9 @@ CREATE TABLE IF NOT EXISTS tenant_entitlements (
   stripe_subscription_id TEXT,
   current_period_start INTEGER,
   current_period_end INTEGER,
+  period_anchor_at INTEGER,
+  pending_plan TEXT,
+  pending_plan_effective_at INTEGER,
   limits_json TEXT NOT NULL DEFAULT '{}',
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
@@ -212,7 +217,8 @@ export class D1UsageQuotaStore {
   async getEntitlement(tenantId: string): Promise<TenantEntitlement> {
     await this.ensureSchema();
     const row = await this.db.prepare(
-      `SELECT plan, status, limits_json, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end
+      `SELECT plan, status, limits_json, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end,
+              period_anchor_at, pending_plan, pending_plan_effective_at
        FROM tenant_entitlements
        WHERE tenant_id = ?
        LIMIT 1`,
@@ -224,7 +230,8 @@ export class D1UsageQuotaStore {
   async findEntitlementByStripeSubscriptionId(subscriptionId: string): Promise<TenantEntitlement | null> {
     await this.ensureSchema();
     const row = await this.db.prepare(
-      `SELECT tenant_id, plan, status, limits_json, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end
+      `SELECT tenant_id, plan, status, limits_json, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end,
+              period_anchor_at, pending_plan, pending_plan_effective_at
        FROM tenant_entitlements
        WHERE stripe_subscription_id = ?
        LIMIT 1`,
@@ -243,6 +250,9 @@ export class D1UsageQuotaStore {
     stripeSubscriptionId?: string | null;
     currentPeriodStart?: number | null;
     currentPeriodEnd?: number | null;
+    periodAnchorAt?: number | null;
+    pendingPlan?: SubscriptionPlan | null;
+    pendingPlanEffectiveAt?: number | null;
     now?: number;
   }): Promise<void> {
     await this.ensureSchema();
@@ -256,10 +266,13 @@ export class D1UsageQuotaStore {
          stripe_subscription_id,
          current_period_start,
          current_period_end,
+         period_anchor_at,
+         pending_plan,
+         pending_plan_effective_at,
          limits_json,
          created_at,
          updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(tenant_id) DO UPDATE SET
          plan = excluded.plan,
          status = excluded.status,
@@ -267,6 +280,9 @@ export class D1UsageQuotaStore {
          stripe_subscription_id = excluded.stripe_subscription_id,
          current_period_start = excluded.current_period_start,
          current_period_end = excluded.current_period_end,
+         period_anchor_at = COALESCE(tenant_entitlements.period_anchor_at, excluded.period_anchor_at),
+         pending_plan = excluded.pending_plan,
+         pending_plan_effective_at = excluded.pending_plan_effective_at,
          limits_json = excluded.limits_json,
          updated_at = excluded.updated_at`,
     ).bind(
@@ -277,6 +293,9 @@ export class D1UsageQuotaStore {
       input.stripeSubscriptionId ?? null,
       input.currentPeriodStart ?? null,
       input.currentPeriodEnd ?? null,
+      input.periodAnchorAt ?? now,
+      input.pendingPlan ?? null,
+      input.pendingPlanEffectiveAt ?? null,
       JSON.stringify(input.limitOverrides ?? {}),
       now,
       now,
@@ -355,8 +374,9 @@ export class D1UsageQuotaStore {
 
     for (const metric of Object.keys(limits) as QuotaMetric[]) {
       const window = QUOTA_METRIC_WINDOWS[metric];
-      const period = quotaPeriod(window, now);
-      const resetAt = quotaResetAt(window, now);
+      const resolvedPeriod = quotaPeriodForContext(window, now, entitlement);
+      const period = resolvedPeriod.period;
+      const resetAt = resolvedPeriod.resetAt;
       const counter = await this.getCounter(tenantId, metric, period);
       const used = counter?.used ?? 0;
       const limit = limits[metric];
@@ -441,7 +461,7 @@ export class D1UsageQuotaStore {
     action?: string | null;
     plan: SubscriptionPlan;
     counters: ReservedUsageCounter[];
-    outcome: 'success' | 'refunded';
+    outcome: 'success' | 'refunded' | 'partial_refund';
     now?: number;
   }): Promise<void> {
     await this.ensureSchema();
@@ -620,6 +640,7 @@ export async function reserveMcpToolQuota(options: {
     params: options.params,
     plan: entitlement.plan,
     limitOverrides: entitlement.limitOverrides,
+    periodContext: entitlement,
     now,
   });
   let counters: ReservedUsageCounter[];
@@ -669,10 +690,12 @@ export async function reserveMcpToolQuota(options: {
         now,
       });
     },
-    refund: async reason => {
+    refund: async (reason, preserveMetrics = []) => {
       if (finalized) return;
       finalized = true;
-      await options.store.refundCounters(options.tenantId, counters, reason);
+      const preserved = new Set(preserveMetrics);
+      const refundableCounters = counters.filter(counter => !preserved.has(counter.metric));
+      await options.store.refundCounters(options.tenantId, refundableCounters, reason);
       await options.store.recordUsageEvent({
         tenantId: options.tenantId,
         accountId: options.accountId,
@@ -683,7 +706,7 @@ export async function reserveMcpToolQuota(options: {
         action: options.action,
         plan: entitlement.plan,
         counters,
-        outcome: 'refunded',
+        outcome: refundableCounters.length === counters.length ? 'refunded' : 'partial_refund',
         now: Date.now(),
       });
     },
@@ -750,6 +773,9 @@ function rowToTenantEntitlement(tenantId: string, row: Record<string, unknown> |
     stripeSubscriptionId: stringValue(row.stripe_subscription_id),
     currentPeriodStart: numberValue(row.current_period_start),
     currentPeriodEnd: numberValue(row.current_period_end),
+    periodAnchorAt: numberValue(row.period_anchor_at),
+    pendingPlan: row.pending_plan ? normalizeSubscriptionPlan(row.pending_plan) : null,
+    pendingPlanEffectiveAt: numberValue(row.pending_plan_effective_at),
   };
 }
 

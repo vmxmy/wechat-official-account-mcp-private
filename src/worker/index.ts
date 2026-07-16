@@ -10,6 +10,7 @@ import { logger } from '../utils/logger.js';
 import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
 import type { McpTool } from '../mcp-tool/types.js';
 import { workerSharedMcpTools, withOptionalAccountId } from '../mcp-tool/tools/index.js';
+import { createTenantManagementMcpTools } from '../mcp-tool/tools/tenant-management-tools.js';
 import { D1StorageManager, type D1DatabaseLike } from '../storage/d1-storage-manager.js';
 import {
   DEFAULT_ACCOUNT_ID,
@@ -41,6 +42,7 @@ import {
   type TenantRequestContext,
 } from './tenant-context.js';
 import { D1UsageQuotaStore } from './usage-store.js';
+import { getAction, isSuccessfulPublishAttempt } from './quota-policy.js';
 import { D1SaasOnboardingStore } from './saas-onboarding-store.js';
 import { removedMcpTransportResponseForRequest } from './transport-guards.js';
 import {
@@ -49,6 +51,7 @@ import {
   fetchGitHubOAuthProfile,
 } from './github-oauth.js';
 import { renderAuthorizationConsentForm } from './oauth-consent.js';
+import { runRetentionMaintenance } from './maintenance.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -102,6 +105,12 @@ type TokenOwnerStub = {
 
 type WechatMcpAgentStub = {
   runEventStoreSelfTest(): Promise<Record<string, unknown>>;
+};
+
+type McpAuthorizationProps = {
+  userId?: string;
+  oauthClientId?: string;
+  scopes?: string[] | string;
 };
 
 const WORKER_SHARED_MCP_TOOLS = workerSharedMcpTools;
@@ -432,6 +441,7 @@ async function resolveStripePriceIds(env: WorkerEnv): Promise<StripePriceIds> {
 async function createStripeBillingServiceForEnv(
   env: WorkerEnv,
   usageStore: D1UsageQuotaStore,
+  onboardingStore: D1SaasOnboardingStore,
 ): Promise<StripeBillingService | undefined> {
   const secretKey = await resolveSecret(env.STRIPE_SECRET_KEY);
   const webhookSecret = await resolveSecret(env.STRIPE_WEBHOOK_SECRET);
@@ -446,6 +456,7 @@ async function createStripeBillingServiceForEnv(
     secretKey,
     priceIds,
     usageStore,
+    resolveOwnerEmail: async tenantId => (await onboardingStore.findTenantOwner(tenantId))?.verifiedEmail,
     defaultSuccessUrl,
     defaultCancelUrl,
   });
@@ -469,6 +480,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
     const turnstileToken = String(data.turnstileToken ?? data['cf-turnstile-response'] ?? '');
     const turnstile = await verifyTurnstileIfConfigured(env, request, turnstileToken);
     if (!turnstile.ok) {
+      await recordLoginFailure(store, 'login.turnstile_failed', { email });
       return jsonOrRedirect(request, {
         success: false,
         error: { code: 'turnstile_failed', message: turnstile.message },
@@ -489,6 +501,10 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
       limit: IP_RATE_LIMIT_PER_WINDOW,
     });
     if (!emailLimit.allowed || !ipLimit.allowed) {
+      await recordLoginFailure(store, 'login.rate_limited', {
+        email,
+        resetAt: Math.max(emailLimit.resetAt, ipLimit.resetAt),
+      });
       return jsonOrRedirect(request, {
         success: false,
         error: {
@@ -503,6 +519,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
     const issued = await store.issueEmailCode({ email, code, ip });
     const delivery = await sendEmailCode(env, email, code);
     if (!delivery.ok && isProductionEnv(env)) {
+      await recordLoginFailure(store, 'login.email_delivery_failed', { email, message: delivery.message });
       return jsonOrRedirect(request, {
         success: false,
         error: { code: 'email_delivery_failed', message: delivery.message },
@@ -532,6 +549,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
       displayName: String(data.displayName ?? '').trim() || undefined,
     });
     if (!verified.ok) {
+      await recordLoginFailure(store, 'login.email_code_failed', { email, reason: verified.reason });
       return jsonOrRedirect(request, {
         success: false,
         error: {
@@ -548,6 +566,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
       operatorId: verified.operator.operatorId,
       sessionToken,
     });
+    await recordLoginSuccess(env, store, verified.operator.operatorId, 'email');
     const response = jsonOrRedirect(request, {
       success: true,
       data: {
@@ -583,6 +602,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
     const clientSecret = await resolveSecret(env.GITHUB_CLIENT_SECRET);
     const returnTo = safeReturnTo(url.searchParams.get('returnTo'));
     if (!clientId || !clientSecret) {
+      await recordLoginFailure(store, 'login.github_unconfigured', {});
       return jsonOrRedirect(request, {
         success: false,
         error: {
@@ -594,6 +614,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
 
     const oauthError = url.searchParams.get('error');
     if (oauthError) {
+      await recordLoginFailure(store, 'login.github_denied', { error: oauthError });
       const response = jsonOrRedirect(request, {
         success: false,
         error: {
@@ -621,6 +642,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
     const stateCookie = getGitHubOAuthStateCookie(request);
     const state = url.searchParams.get('state') ?? '';
     if (!stateCookie || !state || stateCookie.state !== state) {
+      await recordLoginFailure(store, 'login.github_state_mismatch', {});
       const response = jsonOrRedirect(request, {
         success: false,
         error: {
@@ -642,6 +664,9 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
       });
       const profile = await fetchGitHubOAuthProfile({ accessToken });
       if (!profile.verifiedEmail) {
+        await recordLoginFailure(store, 'login.github_verified_email_required', {
+          providerSubject: profile.providerSubject,
+        });
         const emailHint = profile.fallbackEmail ? `&email=${encodeURIComponent(profile.fallbackEmail)}` : '';
         const response = jsonOrRedirect(request, {
           success: false,
@@ -671,6 +696,7 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
         operatorId: operator.operatorId,
         sessionToken,
       });
+      await recordLoginSuccess(env, store, operator.operatorId, 'github');
       const response = jsonOrRedirect(request, {
         success: true,
         data: {
@@ -694,6 +720,9 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
       response.headers.append('set-cookie', clearGitHubOAuthStateCookie(request));
       return response;
     } catch (error) {
+      await recordLoginFailure(store, 'login.github_failed', {
+        message: error instanceof Error ? error.message : String(error),
+      });
       logger.error('GitHub OAuth login failed', {
         message: error instanceof Error ? error.message : String(error),
         returnTo: stateCookie.returnTo,
@@ -711,6 +740,44 @@ async function handlePublicAuthRequest(request: Request, env: WorkerEnv): Promis
   }
 
   return new Response('Not Found', { status: 404 });
+}
+
+async function recordLoginSuccess(
+  env: WorkerEnv,
+  store: D1SaasOnboardingStore,
+  operatorId: string,
+  provider: 'email' | 'github',
+): Promise<void> {
+  try {
+    const context = await store.getTenantContextForOperator(operatorId, { source: 'rest' });
+    await safeWriteAudit(env, {
+      userId: operatorId,
+      tenantId: context.defaultTenantId,
+      accountId: context.defaultAccountId,
+      action: 'login.success',
+      targetType: 'operator',
+      targetId: operatorId,
+      metadata: { provider },
+    });
+  } catch {
+    // 登录成功不应因 best-effort audit 写入失败而回滚。
+  }
+}
+
+async function recordLoginFailure(
+  store: D1SaasOnboardingStore,
+  eventType: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await store.recordMonitoringEvent({
+      eventType,
+      severity: 'warning',
+      metadata,
+    });
+  } catch {
+    // 登录错误响应不应被 monitoring 写入失败覆盖。
+  }
 }
 
 async function handleWebSessionManagementApiRequest(request: Request, env: WorkerEnv): Promise<Response | null> {
@@ -732,9 +799,10 @@ async function handleWebSessionManagementApiRequest(request: Request, env: Worke
     defaultUserId: session.operatorId,
     defaultClientId: 'web-session',
     usageStore,
-    billing: await createStripeBillingServiceForEnv(env, usageStore),
+    billing: await createStripeBillingServiceForEnv(env, usageStore, onboardingStore),
     mediaBucket: env.MEDIA,
     onboardingStore,
+    auditLog: new D1AuditLogWriter(env.DB),
     validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
     trustedContext,
     createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
@@ -870,8 +938,10 @@ function registerWorkerMcpTool(
   server: McpServer,
   tool: McpTool,
   apiClient: WechatApiClient,
-  tenantContext: TenantRequestContext,
+  resolveTenantContext: () => Promise<TenantRequestContext>,
   usageStore: D1UsageQuotaStore,
+  auditLog: D1AuditLogWriter,
+  onboardingStore: D1SaasOnboardingStore,
 ): void {
   server.tool(
     tool.name,
@@ -879,14 +949,74 @@ function registerWorkerMcpTool(
     tool.inputSchema as any,
     async (params: unknown) => {
       try {
-        return await executeMcpToolWithQuota({
+        const tenantContext = await resolveTenantContext();
+        const result = await executeMcpToolWithQuota({
           tool,
           apiClient,
           params,
           tenantContext,
           usageStore,
-        }) as any;
+        });
+        const action = getAction(params);
+        const accountId = mcpParamAccountId(params) ?? tenantContext.defaultAccountId;
+        const resultMeta = result._meta && typeof result._meta === 'object'
+          ? result._meta as Record<string, unknown>
+          : {};
+        const resultError = resultMeta.error;
+        const quotaRejected = resultError &&
+          typeof resultError === 'object' &&
+          (resultError as Record<string, unknown>).code === 'quota_exceeded';
+        if (quotaRejected) {
+          await auditLog.write({
+            userId: tenantContext.userId,
+            oauthClientId: tenantContext.oauthClientId,
+            tenantId: tenantContext.defaultTenantId,
+            accountId,
+            action: 'quota.rejected',
+            targetType: 'mcp_tool',
+            targetId: tool.name,
+            requestId: tenantContext.requestId,
+            metadata: { toolName: tool.name, action, error: resultError },
+          });
+          await onboardingStore.recordMonitoringEvent({
+            eventType: 'quota.rejected',
+            tenantId: tenantContext.defaultTenantId,
+            accountId,
+            severity: 'warning',
+            metadata: { toolName: tool.name, action, requestId: tenantContext.requestId },
+          });
+        } else if (!result.isError && isSuccessfulPublishAttempt(tool.name, action)) {
+          await auditLog.write({
+            userId: tenantContext.userId,
+            oauthClientId: tenantContext.oauthClientId,
+            tenantId: tenantContext.defaultTenantId,
+            accountId,
+            action: 'publish.success',
+            targetType: 'mcp_tool',
+            targetId: tool.name,
+            requestId: tenantContext.requestId,
+            metadata: { toolName: tool.name, action },
+          });
+        }
+        return result as any;
       } catch (error) {
+        try {
+          const tenantContext = await resolveTenantContext();
+          await onboardingStore.recordMonitoringEvent({
+            eventType: 'mcp.tool_failed',
+            tenantId: tenantContext.defaultTenantId,
+            accountId: mcpParamAccountId(params) ?? tenantContext.defaultAccountId,
+            severity: 'warning',
+            metadata: {
+              toolName: tool.name,
+              action: getAction(params),
+              requestId: tenantContext.requestId,
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        } catch {
+          // MCP 原始错误优先于 best-effort monitoring。
+        }
         return {
           content: [{
             type: 'text' as const,
@@ -897,6 +1027,12 @@ function registerWorkerMcpTool(
       }
     },
   );
+}
+
+function mcpParamAccountId(params: unknown): string | null {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) return null;
+  const accountId = (params as Record<string, unknown>).accountId;
+  return typeof accountId === 'string' && accountId.trim() ? accountId.trim() : null;
 }
 
 async function handleWechatCallbackRequest(request: Request, env: WorkerEnv): Promise<Response> {
@@ -1142,7 +1278,7 @@ async function safeWriteAudit(env: WorkerEnv, event: Parameters<D1AuditLogWriter
   }
 }
 
-export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number }, { userId?: string }> {
+export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number }, McpAuthorizationProps> {
   server = new McpServer({
     name: 'wechat-official-account-mcp',
     version: '2.0.0',
@@ -1159,33 +1295,54 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
     await usageStore.ensureSchema();
     const onboardingStore = await createSaasOnboardingStore(env);
     const currentConfig = await apiClient.getAuthManager().getConfig();
-    let tenantContext = await resolveTrustedTenantContext(env, new Request('https://worker.internal/mcp'), {
-      userId: this.props?.userId ?? await resolveSecret(env.OAUTH_CLIENT_ID) ?? undefined,
-      oauthClientId: await resolveSecret(env.OAUTH_CLIENT_ID) ?? undefined,
-      scopes: ['wechat.mcp', 'woa:context:read', 'woa:tenant:read', 'woa:account:read', 'woa:account:write', 'woa:content:read', 'woa:content:write', 'woa:content:publish', 'woa:inbox:read', 'woa:usage:read', 'woa:audit:read'],
-    }, onboardingStore, 'mcp');
-    if (tenantContext.tenants.length === 0) {
-      tenantContext = createDefaultTenantContext({
-        source: 'mcp',
-        userId: this.props?.userId ?? await resolveSecret(env.OAUTH_CLIENT_ID),
-        oauthClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
-        scopes: ['wechat.mcp', 'woa:context:read', 'woa:tenant:read', 'woa:account:read', 'woa:account:write', 'woa:content:read', 'woa:content:write', 'woa:content:publish', 'woa:inbox:read', 'woa:usage:read', 'woa:audit:read'],
-        appId: currentConfig?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
-        tenantId: accountContext.tenantId,
-        tenantSlug: accountContext.tenantSlug,
-        tenantName: accountContext.tenantName,
-        accountId: accountContext.accountId,
-        accountSlug: accountContext.accountSlug,
-        accountName: accountContext.accountName,
-      });
-    }
+    const fallbackClientId = await resolveSecret(env.OAUTH_CLIENT_ID) ?? undefined;
+    const authorizedScopes = normalizeOAuthScopes(this.props?.scopes);
+    const resolveMcpTenantContext = async (): Promise<TenantRequestContext> => {
+      let tenantContext = await resolveTrustedTenantContext(env, new Request('https://worker.internal/mcp'), {
+        userId: this.props?.userId ?? fallbackClientId,
+        oauthClientId: this.props?.oauthClientId ?? fallbackClientId,
+        scopes: authorizedScopes,
+      }, onboardingStore, 'mcp');
+      if (tenantContext.tenants.length === 0) {
+        tenantContext = createDefaultTenantContext({
+          source: 'mcp',
+          userId: this.props?.userId ?? fallbackClientId,
+          oauthClientId: this.props?.oauthClientId ?? fallbackClientId,
+          scopes: authorizedScopes,
+          appId: currentConfig?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
+          tenantId: accountContext.tenantId,
+          tenantSlug: accountContext.tenantSlug,
+          tenantName: accountContext.tenantName,
+          accountId: accountContext.accountId,
+          accountSlug: accountContext.accountSlug,
+          accountName: accountContext.accountName,
+        });
+      }
+      return tenantContext;
+    };
+    const auditLog = new D1AuditLogWriter(env.DB);
+    const managementTools = createTenantManagementMcpTools({
+      onboardingStore,
+      usageStore,
+      auditLog,
+      validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
+    });
     const mediaTools = createWorkerMediaTools({
       mediaBucket: env.MEDIA,
       saveMedia: media => storage.saveMedia(media),
     }).map(withOptionalAccountId);
 
-    for (const tool of [...WORKER_SHARED_MCP_TOOLS, ...mediaTools]) {
-      registerWorkerMcpTool(this.server, tool, apiClient, tenantContext, usageStore);
+    const sharedTools = WORKER_SHARED_MCP_TOOLS.filter(tool => !tool.name.startsWith('woa_'));
+    for (const tool of [...sharedTools, ...managementTools, ...mediaTools]) {
+      registerWorkerMcpTool(
+        this.server,
+        tool,
+        apiClient,
+        resolveMcpTenantContext,
+        usageStore,
+        auditLog,
+        onboardingStore,
+      );
     }
   }
 
@@ -1581,9 +1738,10 @@ const managementApiHandler = {
       defaultUserId: await resolveSecret(env.OAUTH_CLIENT_ID),
       defaultClientId: await resolveSecret(env.OAUTH_CLIENT_ID),
       usageStore,
-      billing: await createStripeBillingServiceForEnv(env, usageStore),
+      billing: await createStripeBillingServiceForEnv(env, usageStore, onboardingStore),
       mediaBucket: env.MEDIA,
       onboardingStore,
+      auditLog: new D1AuditLogWriter(env.DB),
       validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
       trustedContext,
       createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
@@ -1645,6 +1803,14 @@ function oauthPropsFromContext(ctx: unknown): { userId?: string; oauthClientId?:
     oauthClientId: typeof props.oauthClientId === 'string' ? props.oauthClientId : undefined,
     scopes,
   };
+}
+
+function normalizeOAuthScopes(scopes: string[] | string | null | undefined): string[] {
+  if (Array.isArray(scopes)) {
+    return scopes.map(scope => scope.trim()).filter(Boolean);
+  }
+  if (typeof scopes !== 'string') return [];
+  return scopes.split(/[\s,]+/).map(scope => scope.trim()).filter(Boolean);
 }
 
 async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Response> {
@@ -1778,11 +1944,47 @@ export default {
     }
 
     if (isStripeWebhookPath(url.pathname)) {
-      return await handleStripeWebhookRequest(request, {
-        webhookSecret: await resolveSecret(env.STRIPE_WEBHOOK_SECRET),
-        usageStore: new D1UsageQuotaStore(env.DB),
-        priceIds: await resolveStripePriceIds(env),
-      });
+      const onboardingStore = await createSaasOnboardingStore(env);
+      try {
+        const response = await handleStripeWebhookRequest(request, {
+          webhookSecret: await resolveSecret(env.STRIPE_WEBHOOK_SECRET),
+          usageStore: new D1UsageQuotaStore(env.DB),
+          priceIds: await resolveStripePriceIds(env),
+          reconcileAccountLocks: async (tenantId, plan) => {
+            await onboardingStore.reconcileAccountAllowanceLocks({ tenantId, plan });
+          },
+        });
+        const result = await response.clone().json().catch(() => ({})) as Record<string, unknown>;
+        if (!response.ok) {
+          await onboardingStore.recordMonitoringEvent({
+            eventType: 'stripe.webhook_failed',
+            severity: 'error',
+            metadata: { status: response.status, result },
+          });
+        } else if (result.handled === true && typeof result.tenantId === 'string') {
+          await safeWriteAudit(env, {
+            tenantId: result.tenantId,
+            action: 'billing.subscription_updated',
+            targetType: 'stripe_subscription',
+            targetId: typeof result.stripeSubscriptionId === 'string' ? result.stripeSubscriptionId : null,
+            metadata: {
+              eventType: result.type,
+              plan: result.plan,
+              status: result.status,
+              pendingPlan: result.pendingPlan,
+              pendingPlanEffectiveAt: result.pendingPlanEffectiveAt,
+            },
+          });
+        }
+        return response;
+      } catch (error) {
+        await onboardingStore.recordMonitoringEvent({
+          eventType: 'stripe.webhook_failed',
+          severity: 'error',
+          metadata: { message: error instanceof Error ? error.message : String(error) },
+        });
+        throw error;
+      }
     }
 
     if (url.pathname === '/api/v1' || url.pathname.startsWith('/api/v1/')) {
@@ -1816,6 +2018,35 @@ export default {
     }
 
     return await createOAuthProvider().fetch(request, env, ctx as any);
+  },
+  async scheduled(_controller: unknown, env: WorkerEnv, ctx: { waitUntil(promise: Promise<unknown>): void }): Promise<void> {
+    ctx.waitUntil((async () => {
+      try {
+        const result = await runRetentionMaintenance({
+          db: env.DB,
+          mediaBucket: env.MEDIA,
+          stripeSecretKey: await resolveSecret(env.STRIPE_SECRET_KEY),
+        });
+        logger.info('SaaS retention maintenance completed', result);
+        if (result.r2ObjectsFailed > 0) {
+          const store = await createSaasOnboardingStore(env);
+          await store.recordMonitoringEvent({
+            eventType: 'maintenance.r2_cleanup_partial_failure',
+            severity: 'warning',
+            metadata: { ...result },
+          });
+        }
+      } catch (error) {
+        logger.error('SaaS retention maintenance failed', error);
+        const store = await createSaasOnboardingStore(env);
+        await store.recordMonitoringEvent({
+          eventType: 'maintenance.failed',
+          severity: 'error',
+          metadata: { message: error instanceof Error ? error.message : String(error) },
+        });
+        throw error;
+      }
+    })());
   },
 };
 

@@ -10,12 +10,12 @@
 本项目是一个 **微信公众号 MCP (Model Context Protocol) 服务器**，为 Claude Desktop、Cursor、Trae AI 等 AI 应用提供微信公众号常用运营 API 工具集。
 
 - **名称**: `wechat-official-account-mcp`
-- **版本**: `v2.0.0`
+- **版本**: `v2.2.0`
 - **作者**: xwang152-jack <xwang152@163.com>
 - **许可证**: MIT
 - **仓库**: https://github.com/xwang152-jack/wechat-official-account-mcp
 
-**当前能力**: 16 个 MCP 工具，覆盖认证、素材、草稿、发布、用户、标签、菜单、模板消息、客服消息、数据统计、自动回复、群发、订阅通知、入站消息收件箱等常用能力。API endpoint、字段名、签名算法和限制以 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md) 及微信官方开发文档为唯一真源；不要使用“95%/100% 覆盖”等未经逐项核验的表述。
+**当前能力**: 27 个 MCP 工具（23 个微信公众号运营工具 + 4 个多租户管理工具），并提供 hosted Web 入口与 remote-only `@ziikoo/woa` CLI。API endpoint、字段名、签名算法和限制以 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md) 及微信官方开发文档为唯一真源；不要使用“95%/100% 覆盖”等未经逐项核验的表述。
 
 ---
 
@@ -27,8 +27,8 @@
 | 语言 | TypeScript 5.8 | 严格模式关闭（开发配置） |
 | 模块系统 | ES Modules (`"type": "module"`) | 所有导入必须使用 `.js` 扩展名 |
 | 协议 | MCP SDK 1.29 | Model Context Protocol；仅保留 Streamable HTTP `/mcp` |
-| 前端框架 | React 19 + React Router 7 | 最小化脚手架，当前几乎无实际页面 |
-| 样式 | Tailwind CSS 3.4 + PostCSS | 工具类优先 CSS |
+| 前端框架 | React 19 + TanStack Router/Query | hosted SaaS 登录、引导、计费、MCP 与安全页面 |
+| 样式 | Astryx + 语义主题 CSS | Tailwind 仅保留为历史依赖，不用于新增 SaaS 页面 |
 | 构建工具 | Vite 6 + `tsc` | 前端/Vite 与后端 TS 编译 |
 | HTTP 客户端 | Workers `fetch` / Web FormData | `WorkersHttpExecutor`，支持 HTTPS relay 代理 |
 | HTTP 服务器 | Cloudflare Workers Agents SDK | OAuth 保护的 Streamable HTTP `/mcp`、`/wx/callback` |
@@ -37,7 +37,7 @@
 | 加密 | crypto-js | D1 敏感字段 AES-256 加密（`enc:` 前缀） |
 | 代码检查 | ESLint 9 + typescript-eslint | 含 React Hooks 规则 |
 
-> 本地桌面端 `stdio`/CLI、MCP-over-SSE、SQLite、Node/Axios executor、`filePath` 媒体上传实现均已移除。
+> 本地桌面端 `stdio` MCP transport、MCP-over-SSE、SQLite、Node/Axios executor、`filePath` 媒体上传实现均已移除。`@ziikoo/woa` 是只调用远程 Worker REST/OAuth/MCP 的 remote-only CLI，不恢复本地 MCP server。
 
 
 ## 官方 API Contract 真源
@@ -63,7 +63,8 @@ wechat-official-account-mcp/
 │   ├── mcp-tool/                 # MCP 工具定义与共享 handler
 │   │   ├── types.ts
 │   │   ├── inbox-store.ts
-│   │   └── tools/                # 16 个工具；媒体工具使用 Worker-safe wrapper
+│   │   └── tools/                # 27 个工具；媒体工具使用 Worker-safe wrapper
+│   ├── cli/                      # remote-only woa CLI（OAuth/REST/MCP 配置）
 │   ├── storage/
 │   │   ├── types.ts              # StorageManager interface
 │   │   └── d1-storage-manager.ts # Cloudflare D1 + enc: 加密兼容
@@ -113,7 +114,7 @@ npm run check
 # 代码检查
 npm run lint
 
-# 测试（生产构建后运行 test-tools.js 验证 16 个工具和关键 fixtures）
+# 测试（生产构建后验证 27 个工具、关键 fixtures 与 Web SSR smoke）
 npm test
 
 # Workers 验证/部署
@@ -129,7 +130,7 @@ npm run pack:dry
 
 - 生产/远程 MCP：`https://<your-worker-domain>/mcp`（Streamable HTTP + OAuth）
 - 微信回调：`https://<your-worker-domain>/wx/callback`
-- 本地桌面端 `wechat-mcp mcp ...` / `stdio` CLI 已移除；客户端应使用原生 Streamable HTTP，或用 `npx mcp-remote https://<your-worker-domain>/mcp` 作为桥接。
+- 本地桌面端 `wechat-mcp mcp ...` / `stdio` transport 已移除；客户端应使用原生 Streamable HTTP。remote-only `woa` CLI 只负责 OAuth、REST 操作与生成远程 `/mcp` 配置。
 - 微信 API 出站固定 IP 使用 `WECHAT_PROXY_URL` HTTPS relay；HTTP CONNECT forward proxy 已不支持。
 
 
@@ -179,7 +180,7 @@ npm run pack:dry
 2. `WechatMcpAgent.init()` 创建 `D1StorageManager`、`D1InboxStore`、`WorkersAuthManager`、`TokenOwner`、`WechatApiClient`。
 3. `WechatApiClient` 必须注入 `AccessTokenHttpExecutor(WorkersHttpExecutor)`；不要恢复默认 Node executor。
 4. `createWorkerMediaTools()` 注册 HTTP-safe 媒体工具：MCP schema 仅公开 `fileUrl` / `r2Key`；本地文件通过 `woa media upload <path>` 调用受保护的 REST 接口暂存到 R2，`fileData` 仅保留 handler 级兼容。
-5. `registerWorkerMcpTool()` 将 16 个工具注册到 Workers `/mcp` Streamable HTTP MCP server。
+5. `registerWorkerMcpTool()` 将 27 个工具注册到 Workers `/mcp` Streamable HTTP MCP server。
 
 ### 工具调用数据流
 
@@ -267,7 +268,7 @@ AI 客户端 → Workers /mcp (OAuth + McpAgent) → tool handler
 
 - **无单元测试文件**。项目目前没有 `.test.ts` 或 `.spec.ts` 文件。
 - `npm test` 的实际行为：`npm run build:prod && node test-tools.js`
-- `test-tools.js` 导入编译后的产物，检查 `mcpTools` 数组长度是否为 16，并验证 Workers HTTP executor、D1 storage、webhook/inbox fixtures，且确认本地 stdio/CLI 构建产物不存在。
+- `test-tools.js` 导入编译后的产物，检查 `mcpTools` 数组长度是否为 27，并验证 Workers HTTP executor、D1 storage、OAuth/CLI、quota/billing、webhook/inbox fixtures，且确认本地 stdio MCP server 构建产物不存在；`scripts/web-render-smoke.mjs` 验证关键 Web 路由 SSR。
 
 ### 测试建议
 
@@ -322,7 +323,7 @@ AI 客户端 → Workers /mcp (OAuth + McpAgent) → tool handler
   - `/health` / `/api/health`：健康检查
 - `wrangler.jsonc` 配置 Durable Objects（`WECHAT_MCP_AGENT`, `TOKEN_OWNER`）、D1（`DB`）、R2（`MEDIA`）、KV（`OAUTH_KV`）和 Secrets Store bindings。
 - 不要在 `wrangler.jsonc` 或仓库文件中提交真实密钥；使用 Cloudflare Secrets Store / `wrangler secret`。
-- 本地桌面端 stdio/CLI 与 MCP-over-SSE (`/sse` / `/messages`) 已移除；远程客户端应迁移到 OAuth 后的 Workers `/mcp` Streamable HTTP `tools/list` / `tools/call`。
+- 本地桌面端 stdio MCP transport 与 MCP-over-SSE (`/sse` / `/messages`) 已移除；远程客户端应迁移到 OAuth 后的 Workers `/mcp` Streamable HTTP `tools/list` / `tools/call`，或使用 remote-only `woa` CLI。
 
 ### Vercel 部署
 
@@ -355,7 +356,7 @@ Vite 开发服务器配置了代理：`/api` → `http://localhost:3001`。
 | `src/worker/media-upload.ts` | OAuth 保护的本地文件二进制暂存与 R2 key 生成 |
 | `src/worker/wechat-webhook.ts` | 微信回调验签、AES 解密、入库 |
 | `src/worker/inbox-store.ts` | `inbound_messages` D1 查询 |
-| `src/mcp-tool/tools/index.ts` | 16 个工具的导出与注册列表 |
+| `src/mcp-tool/tools/index.ts` | 27 个工具的导出与注册列表 |
 | `src/mcp-tool/tools/inbox-tool.ts` | 入站消息 MCP 工具 |
 | `src/wechat/api-client.ts` | 微信 HTTP API 封装（endpoint/字段 contract 以官方核验文档为准） |
 | `src/wechat/workers-http-executor.ts` | Workers fetch/Web FormData HTTP executor |
@@ -371,5 +372,5 @@ Vite 开发服务器配置了代理：`/api` → `http://localhost:3001`。
 - `WECHAT_OFFICIAL_API_CONTRACT.md` — 微信官方 API contract 本地核验记录（endpoint、字段、签名、偏差）
 - `README.md` — 中文用户指南（安装、配置、AI 应用集成）
 - `CLAUDE.md` — 面向 Claude Code 的开发者指南（架构、工具模式、安全）
-- `FEATURES_OVERVIEW.md` — v2.0.0 功能总览与对比
-- `CHANGELOG.md` — 版本历史（v1.0.3 → v1.1.0 → v2.0.0）
+- `FEATURES_OVERVIEW.md` — 功能总览与对比
+- `CHANGELOG.md` — 版本历史

@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   target_id TEXT,
   outcome TEXT NOT NULL DEFAULT 'success',
   metadata_json TEXT NOT NULL DEFAULT '{}',
-  created_at INTEGER NOT NULL
+  occurred_at INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS operation_jobs (
@@ -191,8 +191,8 @@ CREATE INDEX IF NOT EXISTS idx_oauth_clients_tenant ON oauth_clients(tenant_id, 
 CREATE INDEX IF NOT EXISTS idx_wechat_accounts_tenant ON wechat_accounts(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_wechat_accounts_default ON wechat_accounts(tenant_id, is_default, status);
 CREATE INDEX IF NOT EXISTS idx_wechat_access_tokens_expires_at ON wechat_access_tokens(expires_at);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_account_time ON audit_logs(tenant_id, account_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_time ON audit_logs(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_account_time ON audit_logs(tenant_id, account_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_time ON audit_logs(user_id, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_operation_jobs_account_status ON operation_jobs(tenant_id, account_id, status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_account_media_type_created ON account_media(tenant_id, account_id, type, created_at);
 CREATE INDEX IF NOT EXISTS idx_account_permanent_media_type_created ON account_permanent_media(tenant_id, account_id, type, created_at);
@@ -321,4 +321,3 @@ SELECT
   processing_note
 FROM inbound_messages
 WHERE EXISTS (SELECT 1 FROM wechat_accounts WHERE id = 'acct_default');
-

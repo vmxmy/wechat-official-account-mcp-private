@@ -11,7 +11,7 @@ import {
   reserveMcpToolQuota,
   type QuotaMetadata,
 } from './usage-store.js';
-import { getAction } from './quota-policy.js';
+import { getAction, isSuccessfulPublishAttempt } from './quota-policy.js';
 
 export interface ExecuteMcpToolWithQuotaOptions {
   tool: McpTool;
@@ -45,7 +45,7 @@ export async function executeMcpToolWithQuota(
     try {
       const result = await options.tool.handler(scoped.params, options.apiClient);
       if (result.isError) {
-        await reservation.refund('tool_result_error');
+        await refundFailedOperation(reservation, options.tool.name, action, 'tool_result_error');
         return attachQuotaMetadata(
           attachTenantMetadata(result, options.tenantContext, scoped.account),
           reservation.metadata(),
@@ -59,7 +59,7 @@ export async function executeMcpToolWithQuota(
         reservation.metadata(),
       );
     } catch (error) {
-      await reservation.refund('tool_exception');
+      await refundFailedOperation(reservation, options.tool.name, action, 'tool_exception');
       throw error;
     }
   } catch (error) {
@@ -68,6 +68,18 @@ export async function executeMcpToolWithQuota(
     }
     throw error;
   }
+}
+
+async function refundFailedOperation(
+  reservation: Awaited<ReturnType<typeof reserveMcpToolQuota>>,
+  toolName: string,
+  action: string,
+  reason: string,
+): Promise<void> {
+  const preserveMetrics = isSuccessfulPublishAttempt(toolName, action)
+    ? ['tool_calls_day', 'tool_calls_month'] as const
+    : [];
+  await reservation.refund(reason, [...preserveMetrics]);
 }
 
 export function attachQuotaMetadata(

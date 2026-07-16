@@ -22,7 +22,7 @@ import {
   StripeBillingError,
   type StripeBillingService,
 } from './stripe-billing.js';
-import { normalizeSubscriptionPlan } from './quota-policy.js';
+import { isSuccessfulPublishAttempt, normalizeSubscriptionPlan } from './quota-policy.js';
 import {
   AccountAllowanceError,
   D1SaasOnboardingStore,
@@ -30,6 +30,7 @@ import {
   type WechatResourceRecord,
 } from './saas-onboarding-store.js';
 import { stageMediaUpload, type R2MediaUploadBucket } from './media-upload.js';
+import type { D1AuditLogWriter } from './audit-log.js';
 
 export interface ManagementApiDeps {
   createApiClient(): Promise<WechatApiClient>;
@@ -40,6 +41,7 @@ export interface ManagementApiDeps {
   billing?: StripeBillingService;
   mediaBucket?: R2MediaUploadBucket;
   onboardingStore?: D1SaasOnboardingStore;
+  auditLog?: D1AuditLogWriter;
   validateWechatCredentials?(config: WechatConfig, account: AccountContext): Promise<{ accessToken: string; expiresIn: number; expiresAt: number } | null | undefined>;
   trustedContext?: TenantRequestContext;
   allowUnsafeHeaderContextForTests?: boolean;
@@ -79,6 +81,7 @@ export async function handleManagementApiRequest(
         requestId: context.requestId,
         routes: [
           '/api/v1/me',
+          '/api/v1/me/deletion',
           '/api/v1/tenants',
           '/api/v1/tenants/:tenantId/usage',
           '/api/v1/tenants/:tenantId/billing/checkout',
@@ -108,19 +111,76 @@ export async function handleManagementApiRequest(
       return jsonResponse({ success: true, data, requestId: context.requestId });
     }
 
+    if (request.method === 'POST' && segments[0] === 'me' && segments[1] === 'deletion' && segments.length === 2) {
+      requireScope(context, 'woa:tenant:write');
+      if (!deps.onboardingStore) {
+        throw new ApiError('runtime_unavailable', 'Operator deletion store is not configured in this runtime.', 503);
+      }
+      const body = await readJsonBody(request) as Record<string, unknown>;
+      const confirmation = stringValue(body.confirmation);
+      const expected = `DELETE ${context.userId}`;
+      if (confirmation !== expected) {
+        throw new ApiError('confirmation_required', `Operator deletion requires confirmation: ${expected}`, 409, {
+          expected,
+        });
+      }
+      const requestId = await deps.onboardingStore.requestOperatorDeletion({
+        operatorId: context.userId,
+        supportNote: stringValue(body.supportNote),
+      });
+      await writeManagementAudit(deps, context, {
+        tenantId: context.defaultTenantId,
+        action: 'operator.deletion_requested',
+        targetType: 'operator',
+        targetId: context.userId,
+        metadata: { deletionRequestId: requestId },
+      });
+      return jsonResponse({
+        success: true,
+        data: {
+          requestId,
+          status: 'requested',
+          message: '删除请求已受理。系统将取消订阅、清除微信凭据并停用全部会话。',
+        },
+        requestId: context.requestId,
+      }, { status: 202 });
+    }
+
     if (segments[0] === 'tenants') {
       return await handleTenantRoutes(request, segments, context, deps);
     }
 
     if (segments[0] === 'audit') {
       requireScope(context, 'woa:audit:read');
+      const url = new URL(request.url);
+      const tenantId = url.searchParams.get('tenantId') ?? context.defaultTenantId;
+      const accountId = url.searchParams.get('accountId');
+      if (!tenantId) {
+        throw new ApiError('tenant_required', 'Audit query requires an accessible tenant.', 400);
+      }
+      const tenant = context.tenants.find(item => item.tenantId === tenantId);
+      if (!tenant) {
+        throw new ApiError('tenant_forbidden', `Tenant ${tenantId} is not accessible.`, 403);
+      }
+      if (accountId) {
+        resolveAccountContext({ tenantId, accountId }, context, { requireAccount: true });
+      }
+      if (!deps.auditLog) {
+        throw new ApiError('runtime_unavailable', 'Audit log store is not configured in this runtime.', 503);
+      }
+      const action = url.searchParams.get('action');
+      const limit = clampIntQuery(url, 'limit', 20, 1, 100);
+      const offset = clampIntQuery(url, 'offset', 0, 0, 100_000);
+      const items = await deps.auditLog.list({ tenantId, accountId, action, limit, offset });
       return jsonResponse({
         success: true,
         data: {
-          tenantId: new URL(request.url).searchParams.get('tenantId') ?? context.defaultTenantId,
-          accountId: new URL(request.url).searchParams.get('accountId') ?? context.defaultAccountId,
-          items: [],
-          note: 'Audit persistence is provided by the audit lane; this route is protected and returns the stable response shape.',
+          tenantId,
+          accountId,
+          action,
+          limit,
+          offset,
+          items,
         },
         requestId: context.requestId,
       });
@@ -133,6 +193,7 @@ export async function handleManagementApiRequest(
     throw new ApiError('not_found', 'API route not found.', 404);
   } catch (error) {
     if (error instanceof QuotaExceededError) {
+      await recordOperationalFailure(deps, context, 'quota.rejected', { ...error.details });
       return jsonResponse({
         success: false,
         error: {
@@ -166,6 +227,10 @@ export async function handleManagementApiRequest(
       }, { status: 409 });
     }
     if (error instanceof StripeBillingError) {
+      await recordOperationalFailure(deps, context, 'stripe.operation_failed', {
+        code: error.code,
+        status: error.status,
+      });
       return jsonResponse({
         success: false,
         error: {
@@ -174,6 +239,18 @@ export async function handleManagementApiRequest(
           requestId: context?.requestId,
         },
       }, { status: error.status });
+    }
+    const pathname = new URL(request.url).pathname;
+    if (request.method === 'POST' && pathname.endsWith('/configure')) {
+      await recordOperationalFailure(deps, context, 'credential.validation_failed', {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } else if (!(error instanceof ApiError)) {
+      await recordOperationalFailure(deps, context, 'worker.operation_failed', {
+        path: pathname,
+        method: request.method,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
     return apiErrorToResponse(error, context?.requestId);
   }
@@ -202,6 +279,12 @@ async function handleSessionRoutes(
     if (!result.revoked) {
       throw new ApiError('session_not_found', 'Session was not found or is already revoked.', 404);
     }
+    await writeManagementAudit(deps, context, {
+      action: 'session.revoke',
+      targetType: 'authorization_session',
+      targetId: decodePathSegment(segments[1], 'sessionId'),
+      metadata: { kind: result.kind },
+    });
     return jsonResponse({ success: true, data: result, requestId: context.requestId });
   }
 
@@ -222,15 +305,11 @@ async function handleTenantRoutes(
 
   if (request.method === 'POST' && segments.length === 1) {
     requireScope(context, 'woa:tenant:write');
-    const body = await readJsonBody(request);
-    return jsonResponse({
-      success: true,
-      data: {
-        requested: body,
-        note: 'Tenant creation persistence is provided by the tenant-aware storage lane; this route enforces auth/scope and response shape.',
-      },
-      requestId: context.requestId,
-    }, { status: 202 });
+    throw new ApiError(
+      'tenant_creation_unavailable',
+      '首版租户在 Operator 首次登录时自动创建，不支持通过管理 API 创建额外租户。',
+      405,
+    );
   }
 
   const tenantId = segments[1];
@@ -245,16 +324,27 @@ async function handleTenantRoutes(
 
   if (request.method === 'PATCH' && segments.length === 2) {
     requireScope(context, 'woa:tenant:write');
-    const body = await readJsonBody(request);
+    if (!deps.onboardingStore) {
+      throw new ApiError('runtime_unavailable', 'Tenant store is not configured in this runtime.', 503);
+    }
+    const body = await readJsonBody(request) as Record<string, unknown>;
+    const name = stringValue(body.name) ?? stringValue(body.displayName);
+    if (!name) {
+      throw new ApiError('validation_error', 'name or displayName is required.', 400, { field: 'name' });
+    }
+    const updated = await deps.onboardingStore.renameTenant({ tenantId, name });
+    await writeManagementAudit(deps, context, {
+      tenantId,
+      action: 'tenant.rename',
+      targetType: 'tenant',
+      targetId: tenantId,
+      metadata: { name },
+    });
     return jsonResponse({
       success: true,
-      data: {
-        tenant,
-        requested: body,
-        note: 'Tenant update persistence is provided by the tenant-aware storage lane.',
-      },
+      data: { tenant: updated },
       requestId: context.requestId,
-    }, { status: 202 });
+    });
   }
 
   if (request.method === 'GET' && segments.length === 3 && segments[2] === 'usage') {
@@ -288,6 +378,13 @@ async function handleTenantRoutes(
       plan,
       successUrl: stringValue(body.successUrl),
       cancelUrl: stringValue(body.cancelUrl),
+    });
+    await writeManagementAudit(deps, context, {
+      tenantId,
+      action: 'billing.checkout_created',
+      targetType: 'subscription',
+      targetId: session.id,
+      metadata: { plan, stripeCustomerId: session.stripeCustomerId, stripeSubscriptionId: session.stripeSubscriptionId },
     });
     return jsonResponse({
       success: true,
@@ -330,20 +427,21 @@ async function handleAccountRoutes(
         name: stringValue(body.name) ?? stringValue(body.displayName),
         slug: stringValue(body.slug),
       });
+      await writeManagementAudit(deps, context, {
+        tenantId,
+        accountId: account.accountId,
+        action: 'account.create',
+        targetType: 'wechat_account',
+        targetId: account.accountId,
+        metadata: { name: account.name },
+      });
       return jsonResponse({
         success: true,
         data: { account: publicWechatResource(account) },
         requestId: context.requestId,
       }, { status: 201 });
     }
-    return jsonResponse({
-      success: true,
-      data: {
-        requested: maskAccountBody(body),
-        note: 'Account creation persistence is provided by the tenant-aware storage lane; raw secrets are not echoed.',
-      },
-      requestId: context.requestId,
-    }, { status: 202 });
+    throw new ApiError('runtime_unavailable', 'Account store is not configured in this runtime.', 503);
   }
 
   const accountId = segments[3];
@@ -375,21 +473,21 @@ async function handleAccountRoutes(
       if (body.isDefault === true || body.default === true) {
         resource = await deps.onboardingStore.setDefaultWechatResource({ tenantId, resourceId: accountId });
       }
+      await writeManagementAudit(deps, context, {
+        tenantId,
+        accountId,
+        action: body.isDefault === true || body.default === true ? 'account.set_default' : 'account.rename',
+        targetType: 'wechat_account',
+        targetId: accountId,
+        metadata: { name, isDefault: body.isDefault === true || body.default === true },
+      });
       return jsonResponse({
         success: true,
         data: { account: publicWechatResource(resource) },
         requestId: context.requestId,
       });
     }
-    return jsonResponse({
-      success: true,
-      data: {
-        account: account?.account,
-        requested: maskAccountBody(body),
-        note: 'Account update persistence is provided by the tenant-aware storage lane; raw secrets are not echoed.',
-      },
-      requestId: context.requestId,
-    }, { status: 202 });
+    throw new ApiError('runtime_unavailable', 'Account store is not configured in this runtime.', 503);
   }
 
   if (request.method === 'POST' && segments.length === 5 && segments[4] === 'disable') {
@@ -401,20 +499,21 @@ async function handleAccountRoutes(
         resourceId: accountId,
         confirmation: stringValue(body.confirmation) ?? '',
       });
+      await writeManagementAudit(deps, context, {
+        tenantId,
+        accountId,
+        action: 'account.delete',
+        targetType: 'wechat_account',
+        targetId: accountId,
+        metadata: { secretsPurged: true },
+      });
       return jsonResponse({
         success: true,
         data: { accountId, deleted: true, secretsPurged: true },
         requestId: context.requestId,
       });
     }
-    return jsonResponse({
-      success: true,
-      data: {
-        account: account?.account,
-        note: 'Account disable persistence is provided by the tenant-aware storage lane.',
-      },
-      requestId: context.requestId,
-    }, { status: 202 });
+    throw new ApiError('runtime_unavailable', 'Account store is not configured in this runtime.', 503);
   }
 
   if (request.method === 'POST' && segments.length === 5 && segments[4] === 'configure') {
@@ -460,6 +559,18 @@ async function handleAccountRoutes(
         hasEncodingAESKey: !!body.encodingAESKey,
       };
     });
+    await writeManagementAudit(deps, context, {
+      tenantId,
+      accountId,
+      action: 'account.credentials_configured',
+      targetType: 'wechat_account',
+      targetId: accountId,
+      metadata: {
+        appId,
+        hasWebhookToken: typeof body.token === 'string' && body.token.length > 0,
+        hasEncodingAESKey: typeof body.encodingAESKey === 'string' && body.encodingAESKey.length > 0,
+      },
+    });
     return apiSuccess(data, context, quota);
   }
 
@@ -490,6 +601,14 @@ async function handleAccountRoutes(
         config: maskConfig(config),
       };
     });
+    await writeManagementAudit(deps, context, {
+      tenantId,
+      accountId,
+      action: 'account.token_refreshed',
+      targetType: 'wechat_account',
+      targetId: accountId,
+      metadata: { expiresAt: (data as { expiresAt?: number }).expiresAt },
+    });
     return apiSuccess(data, context, quota);
   }
 
@@ -519,6 +638,11 @@ async function handleAccountRoutes(
       accountId,
       userId: context.userId,
       requestId: context.requestId,
+    });
+    await deps.onboardingStore?.recordMediaRetention({
+      objectKey: upload.r2Key,
+      tenantId,
+      accountId,
     });
     return jsonResponse({
       success: true,
@@ -726,7 +850,10 @@ async function runWithOptionalQuota<T>(
     await reservation.commit();
     return { data, quota: reservation.metadata() };
   } catch (error) {
-    await reservation.refund('rest_operation_error');
+    const preserveMetrics = isSuccessfulPublishAttempt(quotaRequest.toolName, quotaRequest.action)
+      ? ['tool_calls_day', 'tool_calls_month'] as const
+      : [];
+    await reservation.refund('rest_operation_error', [...preserveMetrics]);
     throw error;
   }
 }
@@ -803,21 +930,6 @@ function maskConfig(config: WechatConfig | null): Record<string, unknown> | null
   };
 }
 
-function maskAccountBody(body: unknown): unknown {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    return body;
-  }
-
-  const copy = { ...(body as Record<string, unknown>) };
-  for (const key of ['appSecret', 'token', 'encodingAESKey', 'accessToken']) {
-    if (key in copy) {
-      copy[key] = '***';
-    }
-  }
-  return copy;
-}
-
-
 function publicWechatResource(resource: WechatResourceRecord): Record<string, unknown> {
   return {
     tenantId: resource.tenantId,
@@ -833,6 +945,54 @@ function publicWechatResource(resource: WechatResourceRecord): Record<string, un
     createdAt: resource.createdAt,
     updatedAt: resource.updatedAt,
   };
+}
+
+async function writeManagementAudit(
+  deps: ManagementApiDeps,
+  context: TenantRequestContext,
+  event: {
+    tenantId?: string | null;
+    accountId?: string | null;
+    action: string;
+    targetType?: string | null;
+    targetId?: string | null;
+    metadata?: unknown;
+  },
+): Promise<void> {
+  await deps.auditLog?.write({
+    ...event,
+    userId: context.userId,
+    oauthClientId: context.oauthClientId,
+    requestId: context.requestId,
+  });
+}
+
+async function recordOperationalFailure(
+  deps: ManagementApiDeps,
+  context: TenantRequestContext | undefined,
+  action: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  if (!context) return;
+  try {
+    await writeManagementAudit(deps, context, {
+      tenantId: context.defaultTenantId,
+      accountId: context.defaultAccountId,
+      action,
+      targetType: 'request',
+      targetId: context.requestId,
+      metadata,
+    });
+    await deps.onboardingStore?.recordMonitoringEvent({
+      eventType: action,
+      tenantId: context.defaultTenantId,
+      accountId: context.defaultAccountId,
+      severity: 'warning',
+      metadata: { requestId: context.requestId, ...metadata },
+    });
+  } catch {
+    // 失败信号不得覆盖原始业务错误响应。
+  }
 }
 
 function stringValue(value: unknown): string | null {

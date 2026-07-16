@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import CryptoJS from 'crypto-js';
 import { mcpTools, wechatTools } from './dist/src/mcp-tool/tools/index.js';
+import { createTenantManagementMcpTools } from './dist/src/mcp-tool/tools/tenant-management-tools.js';
 import { inboxMcpTool } from './dist/src/mcp-tool/tools/inbox-tool.js';
 import { logger } from './dist/src/utils/logger.js';
 import { WechatApiClient } from './dist/src/wechat/api-client.js';
@@ -34,6 +35,7 @@ import {
   PLAN_QUOTA_POLICIES,
   createQuotaConsumptions,
   quotaPeriod,
+  quotaPeriodForContext,
 } from './dist/src/worker/quota-policy.js';
 import {
   D1UsageQuotaStore,
@@ -51,6 +53,7 @@ import {
   DuplicateAppIdError,
 } from './dist/src/worker/saas-onboarding-store.js';
 import { removedMcpTransportResponseForRequest } from './dist/src/worker/transport-guards.js';
+import { runRetentionMaintenance } from './dist/src/worker/maintenance.js';
 import {
   createGitHubAuthorizeUrl,
   exchangeGitHubOAuthCode,
@@ -801,7 +804,8 @@ check(
     onboardingRouteSource.includes('deleteAccount') &&
     onboardingRouteSource.includes('configureAccount') &&
     onboardingRouteSource.includes('validateSearch') &&
-    onboardingRouteSource.includes('<Card') &&
+    onboardingRouteSource.includes('title="连接概览"') &&
+    onboardingRouteSource.includes('<DefinitionList') &&
     onboardingRouteSource.includes('<List') &&
     onboardingRouteSource.includes('<Dialog') &&
     onboardingRouteSource.includes('onboarding-config-drawer') &&
@@ -1054,6 +1058,9 @@ class MemoryUsageD1Statement {
         stripeSubscriptionId,
         currentPeriodStart,
         currentPeriodEnd,
+        periodAnchorAt,
+        pendingPlan,
+        pendingPlanEffectiveAt,
         limitsJson,
         createdAt,
         updatedAt,
@@ -1067,6 +1074,9 @@ class MemoryUsageD1Statement {
         stripe_subscription_id: stripeSubscriptionId,
         current_period_start: currentPeriodStart,
         current_period_end: currentPeriodEnd,
+        period_anchor_at: existing?.period_anchor_at ?? periodAnchorAt,
+        pending_plan: pendingPlan,
+        pending_plan_effective_at: pendingPlanEffectiveAt,
         limits_json: limitsJson,
         created_at: existing?.created_at ?? createdAt,
         updated_at: updatedAt,
@@ -1196,6 +1206,26 @@ class MemoryUsageD1Statement {
 }
 
 const quotaNow = Date.UTC(2026, 6, 4, 8, 0, 0);
+const freeAnchor = Date.UTC(2026, 0, 31, 10, 0, 0);
+const freeAnchorPeriod = quotaPeriodForContext(
+  'month',
+  Date.UTC(2026, 1, 28, 11, 0, 0),
+  { plan: 'free', periodAnchorAt: freeAnchor },
+);
+const paidPeriodStart = Date.UTC(2026, 5, 12, 9, 30, 0);
+const paidPeriodEnd = Date.UTC(2026, 6, 12, 9, 30, 0);
+const paidBillingPeriod = quotaPeriodForContext(
+  'month',
+  Date.UTC(2026, 6, 4, 8, 0, 0),
+  { plan: 'plus', currentPeriodStart: paidPeriodStart, currentPeriodEnd: paidPeriodEnd },
+);
+check(
+  freeAnchorPeriod.period === `anniversary:${Date.UTC(2026, 1, 28, 10, 0, 0)}` &&
+    freeAnchorPeriod.resetAt === Date.UTC(2026, 2, 31, 10, 0, 0) &&
+    paidBillingPeriod.period === `billing:${paidPeriodStart}:${paidPeriodEnd}` &&
+    paidBillingPeriod.resetAt === paidPeriodEnd,
+  'Free 月配额按租户周年锚点滚动（含月末夹取），付费配额使用 Stripe 当前账期',
+);
 const freePublishConsumptions = createQuotaConsumptions({
   toolName: 'wechat_publish',
   params: { action: 'submit' },
@@ -1290,6 +1320,21 @@ check(
 );
 await plusReservation.refund('fixture_cleanup');
 
+const contentPublishConsumptions = createQuotaConsumptions({
+  toolName: 'wechat_content_publish',
+  params: {
+    action: 'create_and_publish',
+    contentType: 'article',
+    articles: [{ title: 'A' }, { title: 'B' }],
+  },
+  plan: 'free',
+  now: quotaNow,
+});
+check(
+  contentPublishConsumptions.some(item => item.metric === 'published_articles_month' && item.amount === 2),
+  '统一图文/图片发布工具纳入成功发布配额，并按已知文章数计量',
+);
+
 let quotaExceededThrown = false;
 try {
   await reserveMcpToolQuota({
@@ -1326,6 +1371,28 @@ const refundedStatsCounter = await refundStore.getCounter('tenant_quota', 'stats
 check(
   (refundedStatsCounter?.used ?? 0) === 0,
   'handler 失败时业务配额会退款，不计入成功用量',
+);
+
+const failedPublishStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+const failedPublishResult = await executeMcpToolWithQuota({
+  tool: {
+    name: 'wechat_content_publish',
+    description: 'failed publish partial refund fixture',
+    inputSchema: {},
+    handler: async () => ({ content: [{ type: 'text', text: 'publish failed' }], isError: true }),
+  },
+  apiClient: {},
+  params: { action: 'create_and_publish', contentType: 'image' },
+  tenantContext: quotaContext,
+  usageStore: failedPublishStore,
+});
+const failedPublishToolCounter = await failedPublishStore.getCounter('tenant_quota', 'tool_calls_month', quotaPeriod('month'));
+const failedPublishSuccessCounter = await failedPublishStore.getCounter('tenant_quota', 'published_articles_month', quotaPeriod('month'));
+check(
+  failedPublishResult.isError === true &&
+    failedPublishToolCounter?.used === 1 &&
+    (failedPublishSuccessCounter?.used ?? 0) === 0,
+  '失败发布保留 tool-call 用量，但退还成功发布用量',
 );
 
 console.log('\n=== REST quota fixture 验证 ===');
@@ -1599,6 +1666,7 @@ const stripeBilling = createStripeCheckoutService({
     pro: 'price_pro_fixture',
   },
   usageStore: stripeCheckoutStore,
+  resolveOwnerEmail: async tenantId => tenantId === DEFAULT_TENANT_ID ? 'owner@example.com' : null,
   defaultSuccessUrl: 'https://app.example.test/billing/success',
   defaultCancelUrl: 'https://app.example.test/billing/cancel',
   fetch: async (input, init = {}) => {
@@ -1650,6 +1718,7 @@ check(
     stripeCheckoutCalls[0]?.authorization === 'Bearer sk_test_fixture' &&
     stripeCheckoutCalls[0]?.bodyText.includes('mode=subscription') &&
     stripeCheckoutCalls[0]?.bodyText.includes('line_items%5B0%5D%5Bprice%5D=price_plus_fixture') &&
+    stripeCheckoutCalls[0]?.bodyText.includes('customer_email=owner%40example.com') &&
     stripeCheckoutCalls[0]?.bodyText.includes(`metadata%5Btenant_id%5D=${DEFAULT_TENANT_ID}`) &&
     !JSON.stringify(stripeCheckoutBody).includes('sk_test_fixture'),
   'Stripe Checkout API 创建订阅 session，写入 tenant/plan metadata 且不回显 secret',
@@ -1778,6 +1847,93 @@ check(
     duplicateStripeCheckoutWebhookBody.duplicate === true &&
     duplicateStripeCheckoutWebhookBody.reason === 'duplicate_stripe_event',
   'Stripe webhook 重复 event.id 幂等忽略',
+);
+
+const scheduledDowngradeStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+const scheduledDowngradeLocks = [];
+const scheduledPeriodStartSeconds = Math.floor(Date.UTC(2026, 6, 1) / 1000);
+const scheduledPeriodEndSeconds = Math.floor(Date.UTC(2026, 7, 1) / 1000);
+await scheduledDowngradeStore.upsertEntitlement({
+  tenantId: 'tenant_scheduled_downgrade',
+  plan: 'plus',
+  status: 'active',
+  stripeCustomerId: 'cus_scheduled_fixture',
+  stripeSubscriptionId: 'sub_scheduled_fixture',
+});
+const scheduledDowngradePayload = JSON.stringify({
+  id: 'evt_scheduled_downgrade_fixture',
+  type: 'customer.subscription.updated',
+  data: {
+    object: {
+      id: 'sub_scheduled_fixture',
+      customer: 'cus_scheduled_fixture',
+      status: 'active',
+      cancel_at_period_end: true,
+      current_period_start: scheduledPeriodStartSeconds,
+      current_period_end: scheduledPeriodEndSeconds,
+      metadata: {
+        tenant_id: 'tenant_scheduled_downgrade',
+        plan: 'plus',
+      },
+    },
+  },
+});
+const scheduledDowngradeResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(scheduledDowngradePayload, stripeWebhookSecret),
+    },
+    body: scheduledDowngradePayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: scheduledDowngradeStore,
+    reconcileAccountLocks: async (tenantId, plan) => scheduledDowngradeLocks.push({ tenantId, plan }),
+  },
+);
+const scheduledDowngradeEntitlement = await scheduledDowngradeStore.getEntitlement('tenant_scheduled_downgrade');
+const scheduledDeletionPayload = JSON.stringify({
+  id: 'evt_scheduled_deletion_fixture',
+  type: 'customer.subscription.deleted',
+  data: {
+    object: {
+      id: 'sub_scheduled_fixture',
+      customer: 'cus_scheduled_fixture',
+      status: 'canceled',
+      metadata: {
+        tenant_id: 'tenant_scheduled_downgrade',
+        plan: 'plus',
+      },
+    },
+  },
+});
+const scheduledDeletionResponse = await handleStripeWebhookRequest(
+  new Request('https://worker.example.test/api/stripe/webhook', {
+    method: 'POST',
+    headers: {
+      'stripe-signature': stripeSignatureHeader(scheduledDeletionPayload, stripeWebhookSecret),
+    },
+    body: scheduledDeletionPayload,
+  }),
+  {
+    webhookSecret: stripeWebhookSecret,
+    usageStore: scheduledDowngradeStore,
+    reconcileAccountLocks: async (tenantId, plan) => scheduledDowngradeLocks.push({ tenantId, plan }),
+  },
+);
+const scheduledDeletionEntitlement = await scheduledDowngradeStore.getEntitlement('tenant_scheduled_downgrade');
+check(
+  scheduledDowngradeResponse.status === 200 &&
+    scheduledDowngradeEntitlement.plan === 'plus' &&
+    scheduledDowngradeEntitlement.pendingPlan === 'free' &&
+    scheduledDowngradeEntitlement.pendingPlanEffectiveAt === scheduledPeriodEndSeconds * 1000 &&
+    scheduledDeletionResponse.status === 200 &&
+    scheduledDeletionEntitlement.plan === 'free' &&
+    scheduledDowngradeLocks.length === 1 &&
+    scheduledDowngradeLocks[0].tenantId === 'tenant_scheduled_downgrade' &&
+    scheduledDowngradeLocks[0].plan === 'free',
+  'Stripe period-end 取消在账期结束前保留付费权益，删除事件生效后降级并触发账号锁定协调',
 );
 
 await stripeWebhookStore.upsertEntitlement({
@@ -2620,6 +2776,7 @@ class MemorySaasD1Database {
   accountTokens = new Map();
   monitoringEvents = new Map();
   deletionRequests = new Map();
+  mediaRetention = new Map();
 
   prepare(query) {
     return new MemorySaasD1Statement(this, query);
@@ -2726,7 +2883,7 @@ class MemorySaasD1Statement {
       return { success: true, meta: { changes: 0 } };
     }
 
-    if (q.startsWith('UPDATE web_sessions SET revoked_at')) {
+    if (q.startsWith('UPDATE web_sessions SET revoked_at') && !q.includes('COALESCE')) {
       const [revokedAt, updatedAt, id, operatorId] = this.values;
       const row = this.db.webSessions.get(id);
       if (row && (!operatorId || row.operator_id === operatorId) && row.revoked_at === null) {
@@ -2758,7 +2915,7 @@ class MemorySaasD1Statement {
       return { success: true, meta: { changes: 1 } };
     }
 
-    if (q.startsWith('UPDATE oauth_token_sessions SET revoked_at')) {
+    if (q.startsWith('UPDATE oauth_token_sessions SET revoked_at') && !q.includes('COALESCE')) {
       const [revokedAt, updatedAt, id, operatorId] = this.values;
       const row = this.db.oauthTokenSessions.get(id);
       if (row && (!operatorId || row.operator_id === operatorId) && row.revoked_at === null) {
@@ -2793,9 +2950,33 @@ class MemorySaasD1Statement {
     }
 
     if (q.startsWith('INSERT INTO tenant_entitlements')) {
-      const [tenantId, plan, status, createdAt, updatedAt] = this.values;
+      if (q.includes("VALUES (?, 'free', 'active'")) {
+        const [tenantId, periodAnchorAt, createdAt, updatedAt] = this.values;
+        const existed = this.db.entitlements.has(tenantId);
+        if (!existed) {
+          this.db.entitlements.set(tenantId, {
+            tenant_id: tenantId,
+            plan: 'free',
+            status: 'active',
+            period_anchor_at: periodAnchorAt,
+            limits_json: '{}',
+            created_at: createdAt,
+            updated_at: updatedAt,
+          });
+        }
+        return { success: true, meta: { changes: existed ? 0 : 1 } };
+      }
+      const [tenantId, plan, status, periodAnchorAt, createdAt, updatedAt] = this.values;
       const existing = this.db.entitlements.get(tenantId);
-      this.db.entitlements.set(tenantId, { tenant_id: tenantId, plan, status, limits_json: existing?.limits_json ?? '{}', created_at: existing?.created_at ?? createdAt, updated_at: updatedAt });
+      this.db.entitlements.set(tenantId, {
+        tenant_id: tenantId,
+        plan,
+        status,
+        period_anchor_at: existing?.period_anchor_at ?? periodAnchorAt,
+        limits_json: existing?.limits_json ?? '{}',
+        created_at: existing?.created_at ?? createdAt,
+        updated_at: updatedAt,
+      });
       return { success: true, meta: { changes: 1 } };
     }
 
@@ -2849,7 +3030,36 @@ class MemorySaasD1Statement {
       return { success: true, meta: { changes: 0 } };
     }
 
+    if (q.startsWith('UPDATE tenants SET name')) {
+      const [name, updatedAt, tenantId] = this.values;
+      const row = this.db.tenants.get(tenantId);
+      if (row && row.status !== 'disabled') {
+        row.name = name;
+        row.updated_at = updatedAt;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
     if (q.startsWith('UPDATE wechat_accounts SET app_id = NULL')) {
+      if (!q.includes('AND id = ?')) {
+        const [updatedAt, tenantId] = this.values;
+        let changes = 0;
+        for (const row of this.db.accounts.values()) {
+          if (row.tenant_id !== tenantId) continue;
+          Object.assign(row, {
+            app_id: null,
+            app_secret: null,
+            webhook_token: null,
+            encoding_aes_key: null,
+            status: 'disabled',
+            is_default: 0,
+            updated_at: updatedAt,
+          });
+          changes += 1;
+        }
+        return { success: true, meta: { changes } };
+      }
       const [updatedAt, tenantId, resourceId] = this.values;
       const row = this.db.accounts.get(resourceId);
       if (row && row.tenant_id === tenantId) {
@@ -2859,7 +3069,48 @@ class MemorySaasD1Statement {
       return { success: true, meta: { changes: 0 } };
     }
 
+    if (q.startsWith("UPDATE wechat_accounts SET status = 'locked'")) {
+      const [planLockedAt, planLockReason, updatedAt, tenantId, resourceId] = this.values;
+      const row = this.db.accounts.get(resourceId);
+      if (row && row.tenant_id === tenantId && row.status !== 'disabled') {
+        Object.assign(row, {
+          status: 'locked',
+          plan_locked_at: planLockedAt,
+          plan_lock_reason: planLockReason,
+          updated_at: updatedAt,
+        });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
+    if (q.startsWith('UPDATE wechat_accounts SET status = CASE')) {
+      const [updatedAt, tenantId, resourceId] = this.values;
+      const row = this.db.accounts.get(resourceId);
+      if (row && row.tenant_id === tenantId && row.status === 'locked') {
+        Object.assign(row, {
+          status: row.app_secret === null ? 'unconfigured' : 'active',
+          plan_locked_at: null,
+          plan_lock_reason: null,
+          updated_at: updatedAt,
+        });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+
     if (q.startsWith('DELETE FROM wechat_access_tokens')) {
+      if (!q.includes('account_id = ?')) {
+        const [tenantId] = this.values;
+        let changes = 0;
+        for (const key of [...this.db.accountTokens.keys()]) {
+          if (key.startsWith(`${tenantId}:`)) {
+            this.db.accountTokens.delete(key);
+            changes += 1;
+          }
+        }
+        return { success: true, meta: { changes } };
+      }
       const [tenantId, accountId] = this.values;
       const changed = this.db.accountTokens.delete(`${tenantId}:${accountId}`) ? 1 : 0;
       return { success: true, meta: { changes: changed } };
@@ -2896,10 +3147,115 @@ class MemorySaasD1Statement {
       return { success: true, meta: { changes: 1 } };
     }
 
+    if (q.startsWith('INSERT INTO r2_media_retention_metadata')) {
+      const [objectKey, tenantId, accountId, createdAt, expiresAt] = this.values;
+      this.db.mediaRetention.set(objectKey, {
+        object_key: objectKey,
+        tenant_id: tenantId,
+        account_id: accountId,
+        created_at: createdAt,
+        expires_at: expiresAt,
+        deleted_at: null,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
     if (q.startsWith('INSERT INTO operator_deletion_requests')) {
       const [id, operatorId, requestedAt, supportNote] = this.values;
       this.db.deletionRequests.set(id, { id, operator_id: operatorId, status: 'requested', requested_at: requestedAt, completed_at: null, support_note: supportNote });
       return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE tenant_entitlements SET plan')) {
+      const [updatedAt, tenantId] = this.values;
+      const row = this.db.entitlements.get(tenantId);
+      if (!row) return { success: true, meta: { changes: 0 } };
+      Object.assign(row, {
+        plan: 'free',
+        status: 'cancelled',
+        stripe_customer_id: null,
+        stripe_subscription_id: null,
+        current_period_start: null,
+        current_period_end: null,
+        pending_plan: null,
+        pending_plan_effective_at: null,
+        updated_at: updatedAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('UPDATE tenant_memberships SET status')) {
+      const [updatedAt, tenantId] = this.values;
+      let changes = 0;
+      for (const row of this.db.memberships) {
+        if (row.tenant_id === tenantId) {
+          row.status = 'disabled';
+          row.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+      return { success: true, meta: { changes } };
+    }
+
+    if (q.startsWith('UPDATE tenants SET status')) {
+      const [updatedAt, tenantId] = this.values;
+      const row = this.db.tenants.get(tenantId);
+      if (row) Object.assign(row, { status: 'disabled', default_account_id: null, updated_at: updatedAt });
+      return { success: true, meta: { changes: row ? 1 : 0 } };
+    }
+
+    if (q.startsWith('UPDATE web_sessions SET revoked_at = COALESCE')) {
+      const [revokedAt, updatedAt, operatorId] = this.values;
+      let changes = 0;
+      for (const row of this.db.webSessions.values()) {
+        if (row.operator_id === operatorId) {
+          row.revoked_at ??= revokedAt;
+          row.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+      return { success: true, meta: { changes } };
+    }
+
+    if (q.startsWith('UPDATE oauth_token_sessions SET revoked_at = COALESCE')) {
+      const [revokedAt, updatedAt, operatorId] = this.values;
+      let changes = 0;
+      for (const row of this.db.oauthTokenSessions.values()) {
+        if (row.operator_id === operatorId) {
+          row.revoked_at ??= revokedAt;
+          row.updated_at = updatedAt;
+          changes += 1;
+        }
+      }
+      return { success: true, meta: { changes } };
+    }
+
+    if (q.startsWith("UPDATE operators SET status = 'disabled'")) {
+      const [updatedAt, operatorId] = this.values;
+      const row = this.db.operators.get(operatorId);
+      if (row) Object.assign(row, { status: 'disabled', updated_at: updatedAt });
+      return { success: true, meta: { changes: row ? 1 : 0 } };
+    }
+
+    if (q.startsWith("UPDATE users SET status = 'disabled'")) {
+      const [updatedAt, operatorId] = this.values;
+      const row = this.db.users.get(operatorId);
+      if (row) Object.assign(row, { status: 'disabled', updated_at: updatedAt });
+      return { success: true, meta: { changes: row ? 1 : 0 } };
+    }
+
+    if (q.startsWith("UPDATE operator_deletion_requests SET status = 'completed'")) {
+      const [completedAt, supportNote, requestId, operatorId] = this.values;
+      const row = this.db.deletionRequests.get(requestId);
+      if (row && row.operator_id === operatorId && row.status === 'requested') {
+        Object.assign(row, {
+          status: 'completed',
+          completed_at: completedAt,
+          support_note: row.support_note ?? supportNote,
+        });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
     }
 
     throw new Error(`Unsupported SaaS D1 run query: ${q}`);
@@ -2915,6 +3271,26 @@ class MemorySaasD1Statement {
         return row && row.status !== 'disabled' ? row : null;
       }
       return [...this.db.operators.values()].find(row => row.verified_email === value && row.status !== 'disabled') ?? null;
+    }
+
+    if (q.startsWith('SELECT op.id')) {
+      const [tenantId] = this.values;
+      const owner = this.db.tenantOwners.get(tenantId);
+      const operator = owner ? this.db.operators.get(owner.operator_id) : null;
+      return operator && operator.status !== 'disabled' ? operator : null;
+    }
+
+    if (q.startsWith('SELECT id AS tenant_id')) {
+      const row = this.db.tenants.get(this.values[0]);
+      return row && row.status !== 'disabled'
+        ? {
+          tenant_id: row.id,
+          tenant_slug: row.slug,
+          tenant_name: row.name,
+          tenant_status: row.status,
+          role: 'owner',
+        }
+        : null;
     }
 
     if (q.startsWith('SELECT id FROM users')) {
@@ -3024,6 +3400,16 @@ class MemorySaasD1Statement {
       };
     }
 
+    if (q.startsWith('SELECT id, app_secret, status, is_default')) {
+      const [tenantId] = this.values;
+      return {
+        success: true,
+        results: [...this.db.accounts.values()]
+          .filter(row => row.tenant_id === tenantId && row.status !== 'disabled')
+          .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.created_at - b.created_at),
+      };
+    }
+
     if (q.startsWith('SELECT id, operator_id, created_at, last_seen_at')) {
       const [operatorId, limit] = this.values;
       return {
@@ -3048,6 +3434,28 @@ class MemorySaasD1Statement {
             client_name: this.db.oauthClients.get(row.client_id)?.client_name,
           })),
       };
+    }
+
+    if (q.startsWith('SELECT id, operator_id, requested_at')) {
+      const [limit] = this.values;
+      return {
+        success: true,
+        results: [...this.db.deletionRequests.values()]
+          .filter(row => row.status === 'requested')
+          .sort((a, b) => a.requested_at - b.requested_at)
+          .slice(0, limit),
+      };
+    }
+
+    if (q.startsWith('SELECT owner.tenant_id')) {
+      const [operatorId] = this.values;
+      const results = [...this.db.tenantOwners.values()]
+        .filter(row => row.operator_id === operatorId)
+        .map(row => ({
+          tenant_id: row.tenant_id,
+          stripe_subscription_id: this.db.entitlements.get(row.tenant_id)?.stripe_subscription_id ?? null,
+        }));
+      return { success: true, results };
     }
 
     throw new Error(`Unsupported SaaS D1 all query: ${q}`);
@@ -3394,6 +3802,158 @@ check(
   'D1SaasOnboardingStore 首登 bootstrap、Free 账号上限、Plus 创建、重命名/默认切换、凭据验证非持久化、AppID 唯一与删除释放正确',
 );
 
+const mcpUsageStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+await mcpUsageStore.upsertEntitlement({ tenantId: 'ten_owner', plan: 'plus', now: 63_000 });
+const managementAuditEvents = [];
+const managementAuditLog = {
+  async write(event) {
+    managementAuditEvents.push(event);
+  },
+  async list(query) {
+    return managementAuditEvents
+      .filter(event => event.tenantId === query.tenantId)
+      .filter(event => !query.accountId || event.accountId === query.accountId)
+      .filter(event => !query.action || event.action === query.action)
+      .slice(query.offset ?? 0, (query.offset ?? 0) + (query.limit ?? 20));
+  },
+};
+const managementTools = createTenantManagementMcpTools({
+  onboardingStore: saasStore,
+  usageStore: mcpUsageStore,
+  auditLog: managementAuditLog,
+  validateWechatCredentials: async () => ({ accessToken: 'MCP_ACCESS_TOKEN', expiresIn: 7200, expiresAt: 99_999 }),
+});
+const managementTool = name => managementTools.find(tool => tool.name === name);
+const mcpApiClientStub = {
+  getAuthManager() {
+    return {
+      async getConfig() { return null; },
+      async setConfig() {},
+    };
+  },
+};
+const mcpScopes = [
+  'wechat.mcp',
+  'woa:context:read',
+  'woa:tenant:read',
+  'woa:tenant:write',
+  'woa:account:read',
+  'woa:account:write',
+  'woa:usage:read',
+  'woa:audit:read',
+];
+let mcpManagementContext = await saasStore.getTenantContextForOperator({
+  operatorId: verifiedCode.operator.operatorId,
+  scopes: mcpScopes,
+  requestId: 'req_mcp_management',
+}, { source: 'mcp' });
+const tenantRenameResult = await managementTool('woa_tenant').handler({
+  action: 'update',
+  tenantId: 'ten_owner',
+  displayName: 'MCP 管理租户',
+  __woaContext: mcpManagementContext,
+}, mcpApiClientStub);
+const mcpCreatedResult = await managementTool('woa_account').handler({
+  action: 'create',
+  tenantId: 'ten_owner',
+  name: 'MCP 新资源',
+  __woaContext: mcpManagementContext,
+}, mcpApiClientStub);
+const mcpCreatedPayload = JSON.parse(mcpCreatedResult.content[0].text.split('\n').slice(1).join('\n'));
+const mcpCreatedAccountId = mcpCreatedPayload.account.accountId;
+const mcpAllowanceResult = await managementTool('woa_account').handler({
+  action: 'create',
+  tenantId: 'ten_owner',
+  name: '超额资源',
+  __woaContext: mcpManagementContext,
+}, mcpApiClientStub);
+mcpManagementContext = await saasStore.getTenantContextForOperator({
+  operatorId: verifiedCode.operator.operatorId,
+  scopes: mcpScopes,
+  requestId: 'req_mcp_management_refresh',
+}, { source: 'mcp' });
+const mcpConfiguredResult = await managementTool('woa_account').handler({
+  action: 'configure',
+  tenantId: 'ten_owner',
+  accountId: mcpCreatedAccountId,
+  appId: 'wx1234567890abcdef',
+  appSecret: 'abcdef0123456789abcdef0123456789',
+  __woaContext: mcpManagementContext,
+}, mcpApiClientStub);
+const mcpDefaultResult = await managementTool('woa_account').handler({
+  action: 'set_default',
+  tenantId: 'ten_owner',
+  accountId: mcpCreatedAccountId,
+  __woaContext: mcpManagementContext,
+}, mcpApiClientStub);
+const mcpDeleteDenied = await managementTool('woa_account').handler({
+  action: 'delete',
+  tenantId: 'ten_owner',
+  accountId: mcpCreatedAccountId,
+  __woaContext: mcpManagementContext,
+}, mcpApiClientStub);
+const mcpDeleteAccepted = await managementTool('woa_account').handler({
+  action: 'delete',
+  tenantId: 'ten_owner',
+  accountId: mcpCreatedAccountId,
+  confirmation: `DELETE ${mcpCreatedAccountId}`,
+  __woaContext: mcpManagementContext,
+}, mcpApiClientStub);
+const refreshedAfterMcpDelete = await saasStore.getTenantContextForOperator({
+  operatorId: verifiedCode.operator.operatorId,
+  scopes: mcpScopes,
+  requestId: 'req_mcp_after_delete',
+}, { source: 'mcp' });
+const mcpContextResult = await managementTool('woa_context').handler({
+  __woaContext: refreshedAfterMcpDelete,
+}, mcpApiClientStub);
+const mcpAuditResult = await managementTool('woa_audit').handler({
+  tenantId: 'ten_owner',
+  limit: 20,
+  offset: 0,
+  __woaContext: refreshedAfterMcpDelete,
+}, mcpApiClientStub);
+check(
+  tenantRenameResult.isError !== true && saasDb.tenants.get('ten_owner').name === 'MCP 管理租户' &&
+    mcpCreatedResult.isError !== true && mcpCreatedAccountId.startsWith('acct_') &&
+    mcpAllowanceResult.isError === true && mcpAllowanceResult._meta?.error?.code === 'account_allowance_exceeded' &&
+    mcpAllowanceResult._meta?.error?.details?.upgrade?.webUrl?.includes('/billing') &&
+    mcpConfiguredResult.isError !== true && !mcpConfiguredResult.content[0].text.includes('abcdef0123456789abcdef0123456789') &&
+    mcpDefaultResult.isError !== true &&
+    mcpDeleteDenied.isError === true && mcpDeleteDenied._meta?.error?.code === 'confirmation_required' &&
+    mcpDeleteAccepted.isError !== true && !refreshedAfterMcpDelete.accounts.some(account => account.accountId === mcpCreatedAccountId) &&
+    mcpContextResult.content[0].text.includes('"plan"') && mcpContextResult.content[0].text.includes('"quota"') &&
+    mcpAuditResult.content[0].text.includes('account.credentials_configured') &&
+    !managementTools.some(tool => tool.name.includes('billing')) &&
+    managementTool('woa_account').inputSchema.action.safeParse('checkout').success === false,
+  'MCP 管理工具使用真实 D1 use case：租户更新、账号创建/配置/默认/删除、配额升级提示、审计查询且不创建 Stripe Checkout',
+);
+
+const tenantOwner = await saasStore.findTenantOwner('ten_owner');
+await saasStore.upsertTenantEntitlement({ tenantId: 'ten_owner', plan: 'pro', now: 64_000 });
+await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '降级锁定资源 A', resourceId: 'acct_lock_a', now: 64_100 });
+await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '降级锁定资源 B', resourceId: 'acct_lock_b', now: 64_200 });
+const configuredSecretBeforeLock = saasDb.accounts.get('acct_third').app_secret;
+const downgradeLockResult = await saasStore.reconcileAccountAllowanceLocks({ tenantId: 'ten_owner', plan: 'free', now: 64_300 });
+const lockedAccounts = [...saasDb.accounts.values()]
+  .filter(row => row.tenant_id === 'ten_owner' && row.status === 'locked')
+  .map(row => ({ ...row }));
+const upgradeUnlockResult = await saasStore.reconcileAccountAllowanceLocks({ tenantId: 'ten_owner', plan: 'pro', now: 64_400 });
+const allowanceReconciliationOk =
+  tenantOwner?.verifiedEmail === 'owner@example.com' &&
+  downgradeLockResult.locked.length === 3 &&
+  lockedAccounts.length === 3 &&
+  lockedAccounts.every(row => row.plan_lock_reason === 'plan:free:account_allowance:1') &&
+  saasDb.accounts.get('acct_third').app_secret === configuredSecretBeforeLock &&
+  upgradeUnlockResult.unlocked.length === 3 &&
+  [...saasDb.accounts.values()].filter(row => row.tenant_id === 'ten_owner' && row.status === 'locked').length === 0;
+check(
+  allowanceReconciliationOk,
+  allowanceReconciliationOk
+    ? 'Tenant owner verified email 可用于 Stripe Customer；Free/Plus/Pro 账号上限降级锁定且升级可恢复，锁定过程不清除凭据'
+    : `账号锁定 fixture 偏差：${JSON.stringify({ tenantOwner, downgradeLockResult, lockedAccounts, upgradeUnlockResult })}`,
+);
+
 const otherOperator = await saasStore.createOrResolveOperatorByEmail({ email: 'other@example.com', operatorId: 'op_other', now: 70_000 });
 const otherBootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: otherOperator.operator.operatorId, tenantId: 'ten_other', resourceId: 'acct_other', now: 71_000 });
 const forbiddenResponse = await handleManagementApiRequest(
@@ -3410,6 +3970,190 @@ check(
     JSON.parse(saasDb.monitoringEvents.get('mon_test').metadata_json).appSecret === '***' &&
     deletionRequestId === 'del_test' && saasDb.deletionRequests.get('del_test').status === 'requested',
   'SaaS repository 跨租户 REST 访问拒绝，监控事件脱敏，Operator 删除请求可审计记录',
+);
+
+const deletionOperator = await saasStore.createOrResolveOperatorByEmail({
+  email: 'delete-me@example.com',
+  operatorId: 'op_delete_fixture',
+  now: 82_000,
+});
+const deletionBootstrap = await saasStore.bootstrapDefaultTenantForOperator({
+  operatorId: deletionOperator.operator.operatorId,
+  tenantId: 'ten_delete_fixture',
+  resourceId: 'acct_delete_fixture',
+  now: 82_100,
+});
+await saasStore.configureValidatedWechatCredentials({
+  tenantId: deletionBootstrap.tenant.tenantId,
+  resourceId: deletionBootstrap.resource.accountId,
+  config: { appId: 'wx_delete_fixture', appSecret: 'DELETE_SECRET' },
+  tokenInfo: { accessToken: 'DELETE_ACCESS_TOKEN', expiresIn: 7200, expiresAt: 999_999 },
+  now: 82_200,
+});
+const deletionEntitlementRow = saasDb.entitlements.get(deletionBootstrap.tenant.tenantId);
+Object.assign(deletionEntitlementRow, {
+  plan: 'plus',
+  status: 'active',
+  stripe_customer_id: 'cus_delete_fixture',
+  stripe_subscription_id: 'sub_delete_fixture',
+});
+await saasStore.createWebSession({
+  operatorId: deletionOperator.operator.operatorId,
+  sessionToken: 'DELETE_WEB_SESSION',
+  sessionId: 'sess_delete_fixture',
+  now: 82_300,
+});
+const deletionContext = await saasStore.getTenantContextForOperator(
+  deletionOperator.operator.operatorId,
+  { source: 'rest' },
+);
+const deletionDeniedResponse = await handleManagementApiRequest(
+  new Request('https://worker.example.test/api/v1/me/deletion', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ confirmation: 'DELETE WRONG' }),
+  }),
+  {
+    trustedContext: deletionContext,
+    onboardingStore: saasStore,
+    auditLog: managementAuditLog,
+    createApiClient: async () => { throw new Error('Deletion request must not construct WeChat API client'); },
+  },
+);
+const deletionAcceptedResponse = await handleManagementApiRequest(
+  new Request('https://worker.example.test/api/v1/me/deletion', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ confirmation: `DELETE ${deletionOperator.operator.operatorId}` }),
+  }),
+  {
+    trustedContext: deletionContext,
+    onboardingStore: saasStore,
+    auditLog: managementAuditLog,
+    createApiClient: async () => { throw new Error('Deletion request must not construct WeChat API client'); },
+  },
+);
+const deletionAcceptedBody = await deletionAcceptedResponse.json();
+const pendingDeletionRequests = await saasStore.listPendingOperatorDeletionRequests();
+const cancelledSubscriptions = [];
+const executedDeletion = await saasStore.executeOperatorDeletion({
+  requestId: deletionAcceptedBody.data.requestId,
+  operatorId: deletionOperator.operator.operatorId,
+  cancelStripeSubscription: async subscriptionId => cancelledSubscriptions.push(subscriptionId),
+  now: 82_400,
+});
+const deletedAccountRow = saasDb.accounts.get(deletionBootstrap.resource.accountId);
+check(
+  deletionDeniedResponse.status === 409 &&
+    deletionAcceptedResponse.status === 202 &&
+    pendingDeletionRequests.some(item => item.requestId === deletionAcceptedBody.data.requestId) &&
+    cancelledSubscriptions[0] === 'sub_delete_fixture' &&
+    executedDeletion.subscriptionsCancelled === 1 &&
+    deletedAccountRow.status === 'disabled' &&
+    deletedAccountRow.app_secret === null &&
+    saasDb.entitlements.get(deletionBootstrap.tenant.tenantId).plan === 'free' &&
+    saasDb.webSessions.get('sess_delete_fixture').revoked_at === 82_400 &&
+    saasDb.operators.get(deletionOperator.operator.operatorId).status === 'disabled' &&
+    saasDb.deletionRequests.get(deletionAcceptedBody.data.requestId).status === 'completed',
+  'Operator 删除请求强制确认；执行时取消 Stripe 订阅、清除微信凭据、撤销会话并停用租户访问',
+);
+
+class MemoryMaintenanceD1Database {
+  auditRows = [{ id: 1, occurred_at: 1 }, { id: 2, occurred_at: Date.UTC(2026, 6, 1) }];
+  inboundRows = [{ received_at: 1 }, { received_at: Date.UTC(2026, 6, 1) }];
+  accountInboundRows = [{ received_at: 1 }, { received_at: Date.UTC(2026, 6, 1) }];
+  mediaRows = new Map([
+    ['staging/expired-ok.png', { object_key: 'staging/expired-ok.png', expires_at: 1, deleted_at: null }],
+    ['staging/expired-fail.png', { object_key: 'staging/expired-fail.png', expires_at: 2, deleted_at: null }],
+    ['staging/fresh.png', { object_key: 'staging/fresh.png', expires_at: Date.UTC(2026, 7, 30), deleted_at: null }],
+  ]);
+
+  prepare(query) {
+    const db = this;
+    const normalized = query.replace(/\s+/g, ' ').trim();
+    return {
+      values: [],
+      bind(...values) { this.values = values; return this; },
+      async first() { return null; },
+      async all() {
+        if (normalized.startsWith('SELECT object_key')) {
+          const [now, limit] = this.values;
+          return {
+            success: true,
+            results: [...db.mediaRows.values()]
+              .filter(row => row.expires_at <= now && row.deleted_at === null)
+              .sort((a, b) => a.expires_at - b.expires_at)
+              .slice(0, limit),
+          };
+        }
+        if (normalized.startsWith('SELECT id, operator_id, requested_at')) {
+          return { success: true, results: [] };
+        }
+        return { success: true, results: [] };
+      },
+      async run() {
+        if (normalized.startsWith('CREATE TABLE') || normalized.startsWith('CREATE INDEX')) {
+          return { success: true, meta: { changes: 0 } };
+        }
+        if (normalized.startsWith('DELETE FROM audit_logs')) {
+          const [cutoff] = this.values;
+          const before = db.auditRows.length;
+          db.auditRows = db.auditRows.filter(row => row.occurred_at >= cutoff);
+          return { success: true, meta: { changes: before - db.auditRows.length } };
+        }
+        if (normalized.startsWith('DELETE FROM inbound_messages')) {
+          const [cutoff] = this.values;
+          const before = db.inboundRows.length;
+          db.inboundRows = db.inboundRows.filter(row => row.received_at >= cutoff);
+          return { success: true, meta: { changes: before - db.inboundRows.length } };
+        }
+        if (normalized.startsWith('DELETE FROM account_inbound_messages')) {
+          const [cutoff] = this.values;
+          const before = db.accountInboundRows.length;
+          db.accountInboundRows = db.accountInboundRows.filter(row => row.received_at >= cutoff);
+          return { success: true, meta: { changes: before - db.accountInboundRows.length } };
+        }
+        if (normalized.startsWith('UPDATE r2_media_retention_metadata')) {
+          const [deletedAt, objectKey] = this.values;
+          const row = db.mediaRows.get(objectKey);
+          if (row && row.deleted_at === null) row.deleted_at = deletedAt;
+          return { success: true, meta: { changes: row ? 1 : 0 } };
+        }
+        throw new Error(`Unsupported maintenance D1 query: ${normalized}`);
+      },
+    };
+  }
+
+  async exec() { return {}; }
+}
+
+const maintenanceNow = Date.UTC(2026, 6, 16);
+const maintenanceDb = new MemoryMaintenanceD1Database();
+const maintenanceDeletedKeys = [];
+const maintenanceResult = await runRetentionMaintenance({
+  db: maintenanceDb,
+  now: maintenanceNow,
+  mediaBucket: {
+    async put() { return null; },
+    async delete(key) {
+      if (key.endsWith('fail.png')) throw new Error('fixture delete failure');
+      maintenanceDeletedKeys.push(key);
+    },
+  },
+});
+const releaseMigrationSql = readFileSync('./migrations/d1/0006_saas_release_completion.sql', 'utf8');
+const wranglerSource = readFileSync('./wrangler.jsonc', 'utf8');
+check(
+  maintenanceResult.auditLogsDeleted === 1 &&
+    maintenanceResult.inboundMessagesDeleted === 1 &&
+    maintenanceResult.accountInboundMessagesDeleted === 1 &&
+    maintenanceResult.r2ObjectsDeleted === 1 &&
+    maintenanceResult.r2ObjectsFailed === 1 &&
+    maintenanceDeletedKeys[0] === 'staging/expired-ok.png' &&
+    releaseMigrationSql.includes('DELETE FROM access_tokens') &&
+    releaseMigrationSql.includes("tenant_id = 'tenant_default' AND id = 'acct_default'") &&
+    wranglerSource.includes('"17 3 * * *"'),
+  '每日 retention 任务清理 180 天审计、90 天入站消息、30 天 R2 ledger 并可重试失败项；迁移会清除 legacy 微信 secret/token',
 );
 
 console.log('\n=== WeChat webhook / inbox fixture 验证 ===');

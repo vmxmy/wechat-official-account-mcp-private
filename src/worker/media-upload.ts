@@ -12,6 +12,7 @@ export interface R2MediaUploadBucket {
       customMetadata?: Record<string, string>;
     },
   ): Promise<{ key?: string; size?: number; etag?: string } | null>;
+  delete?(key: string): Promise<void>;
 }
 
 export interface StagedMediaUpload {

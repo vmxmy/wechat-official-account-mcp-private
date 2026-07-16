@@ -27,6 +27,13 @@ export interface QuotaConsumption {
   label: string;
 }
 
+export interface QuotaPeriodContext {
+  plan: SubscriptionPlan;
+  periodAnchorAt?: number | null;
+  currentPeriodStart?: number | null;
+  currentPeriodEnd?: number | null;
+}
+
 export interface ToolQuotaSignal {
   metric: QuotaMetric;
   amount?: number;
@@ -167,6 +174,7 @@ export function createQuotaConsumptions(options: {
   params: unknown;
   plan: SubscriptionPlan;
   limitOverrides?: Record<string, unknown> | null;
+  periodContext?: QuotaPeriodContext | null;
   now?: number;
 }): QuotaConsumption[] {
   const now = options.now ?? Date.now();
@@ -181,12 +189,13 @@ export function createQuotaConsumptions(options: {
 
   return [...merged.entries()].map(([metric, amount]) => {
     const window = QUOTA_METRIC_WINDOWS[metric];
+    const resolvedPeriod = quotaPeriodForContext(window, now, options.periodContext);
     return {
       metric,
       amount,
       window,
-      period: quotaPeriod(window, now),
-      resetAt: quotaResetAt(window, now),
+      period: resolvedPeriod.period,
+      resetAt: resolvedPeriod.resetAt,
       limit: limits[metric],
       label: QUOTA_METRIC_LABELS[metric],
     };
@@ -200,7 +209,7 @@ export function resolveToolQuotaSignals(toolName: string, params: unknown): Tool
     { metric: 'tool_calls_month' },
   ];
 
-  if (toolName === 'wechat_publish' && action === 'submit') {
+  if (isSuccessfulPublishAttempt(toolName, action)) {
     signals.push({ metric: 'published_articles_month', amount: publishArticleAmount(params) });
   }
 
@@ -227,6 +236,12 @@ export function resolveToolQuotaSignals(toolName: string, params: unknown): Tool
   return signals;
 }
 
+export function isSuccessfulPublishAttempt(toolName: string, action: string): boolean {
+  return (toolName === 'wechat_publish' && action === 'submit')
+    || (toolName === 'wechat_content_publish'
+      && (action === 'publish_draft' || action === 'create_and_publish'));
+}
+
 export function quotaPeriod(window: QuotaWindow, now: number = Date.now()): string {
   const date = new Date(now);
   const year = date.getUTCFullYear();
@@ -241,6 +256,77 @@ export function quotaResetAt(window: QuotaWindow, now: number = Date.now()): num
     return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1, 0, 0, 0, 0);
   }
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1, 0, 0, 0, 0);
+}
+
+export function quotaPeriodForContext(
+  window: QuotaWindow,
+  now: number = Date.now(),
+  context?: QuotaPeriodContext | null,
+): { period: string; resetAt: number } {
+  if (window === 'day' || !context) {
+    return { period: quotaPeriod(window, now), resetAt: quotaResetAt(window, now) };
+  }
+
+  const paidStart = finiteTimestamp(context.currentPeriodStart);
+  const paidEnd = finiteTimestamp(context.currentPeriodEnd);
+  if (context.plan !== 'free' && paidStart !== null && paidEnd !== null && paidEnd > paidStart && now < paidEnd) {
+    return {
+      period: `billing:${paidStart}:${paidEnd}`,
+      resetAt: paidEnd,
+    };
+  }
+
+  const anchor = context.plan === 'free'
+    ? finiteTimestamp(context.periodAnchorAt)
+    : paidStart;
+  if (anchor === null) {
+    return { period: quotaPeriod(window, now), resetAt: quotaResetAt(window, now) };
+  }
+  const range = anniversaryMonthRange(anchor, now);
+  return {
+    period: `${context.plan === 'free' ? 'anniversary' : 'billing'}:${range.start}`,
+    resetAt: range.end,
+  };
+}
+
+function anniversaryMonthRange(anchor: number, now: number): { start: number; end: number } {
+  if (now < anchor) {
+    return { start: anchor, end: addUtcMonthsClamped(anchor, 1) };
+  }
+  const anchorDate = new Date(anchor);
+  const nowDate = new Date(now);
+  let months = (nowDate.getUTCFullYear() - anchorDate.getUTCFullYear()) * 12
+    + nowDate.getUTCMonth() - anchorDate.getUTCMonth();
+  let start = addUtcMonthsClamped(anchor, months);
+  if (start > now) {
+    months -= 1;
+    start = addUtcMonthsClamped(anchor, months);
+  }
+  return { start, end: addUtcMonthsClamped(anchor, months + 1) };
+}
+
+function addUtcMonthsClamped(timestamp: number, months: number): number {
+  const source = new Date(timestamp);
+  const targetMonthStart = new Date(Date.UTC(
+    source.getUTCFullYear(),
+    source.getUTCMonth() + months,
+    1,
+    source.getUTCHours(),
+    source.getUTCMinutes(),
+    source.getUTCSeconds(),
+    source.getUTCMilliseconds(),
+  ));
+  const lastDay = new Date(Date.UTC(
+    targetMonthStart.getUTCFullYear(),
+    targetMonthStart.getUTCMonth() + 1,
+    0,
+  )).getUTCDate();
+  targetMonthStart.setUTCDate(Math.min(source.getUTCDate(), lastDay));
+  return targetMonthStart.getTime();
+}
+
+function finiteTimestamp(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 export function getAction(params: unknown): string {
@@ -263,6 +349,9 @@ function publishArticleAmount(params: unknown): number {
   const explicitArticleCount = record.articleCount ?? record.article_count;
   if (typeof explicitArticleCount === 'number' && Number.isFinite(explicitArticleCount) && explicitArticleCount > 0) {
     return Math.floor(explicitArticleCount);
+  }
+  if (Array.isArray(record.articles) && record.articles.length > 0) {
+    return record.articles.length;
   }
   // freepublish/submit receives a media_id only; count one publish unit unless a caller passes a known count.
   return 1;

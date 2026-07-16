@@ -544,7 +544,7 @@ src/
     └── version.ts
 ```
 
-已移除：本地桌面端 `stdio`/CLI、`src/mcp-server/`、SQLite 存储、Node/Axios executor、基于本地 `filePath` 的媒体上传实现。
+已移除：本地桌面端 `stdio` MCP transport、`src/mcp-server/`、SQLite 存储、Node/Axios executor、基于本地 `filePath` 的媒体上传实现。现有 `woa` CLI 只访问远程 OAuth/REST/MCP endpoint，不启动本地 MCP server。
 
 ## 🔗 在 AI 应用中使用
 
@@ -718,6 +718,20 @@ Workers 生产环境不要使用 `.env` 明文提交密钥；使用 `wrangler se
 - 媒体上传：远程 MCP 仅公开 `fileUrl` / `r2Key`；本地文件通过 `woa media upload <path>` 二进制暂存到 R2，不进入 LLM 上下文
 - 切勿提交密钥：不要将 AppSecret、Token 等放入代码仓库或构建产物
 - Remote MCP 安全：Workers `/mcp` 必须经 OAuth 访问；旧 `/api/wechat/tools/*` REST 工具执行面已移除
+
+### 高风险操作确认
+
+- 公众号资源与 Operator 删除由服务端强制要求精确确认标记：分别为 `DELETE <accountId>` 与 `DELETE <operatorId>`。MCP/API 缺少或写错标记时返回 `confirmation_required`，且不会执行删除。
+- `woa account delete`、`woa draft delete`、`woa publish delete` 默认只展示 dry-run；真正执行需要显式传入 `--confirm-delete`。账号删除仍会由服务端再次核验确认标记。
+- 首版对发布、群发、菜单更新等非删除写操作不增加第二个确认参数；这些操作依赖 OAuth scope、账号/租户隔离、套餐配额和审计。自动化调用前应先用 list/status 类操作核对目标账号。
+- 任何入口都不得绕过确认逻辑直接调用底层删除 use case；新增删除能力时必须同时补 MCP、REST、CLI 的拒绝与成功测试。
+
+### 密钥轮换
+
+1. **微信公众号凭据**：通过 Web、`woa account configure` 或授权后的 `woa_account.configure` 提交新 AppID/AppSecret。服务端先经平台 relay 验证，再加密写入并更新账号 token；验证失败的凭据不会持久化。轮换后检查账号 status，并执行只读 API smoke 后再恢复发布。
+2. **OAuth 客户端**：动态 CLI/MCP 客户端使用 PKCE，不在本地保存 client secret。轮换 confidential client 的 `OAUTH_CLIENT_SECRET` 时，先更新 Cloudflare secret 并部署，再撤销该客户端的现有会话/refresh token，要求客户端重新授权；不要把新旧 secret 写入配置文件或日志。
+3. **Relay token**：先让 relay 同时接受旧/新 token，再更新 Worker 的 `WECHAT_PROXY_TOKEN` 并部署、验证 token refresh 与普通微信 API 请求，最后从 relay 移除旧 token。relay 日志必须继续脱敏 `x-wechat-proxy-token` 与目标 URL header。
+4. 轮换完成后记录时间、执行人、租户/账号、验证结果和撤销动作；记录中只允许出现 secret ID/版本，不得出现明文值。
 
 ## 🤝 贡献指南
 

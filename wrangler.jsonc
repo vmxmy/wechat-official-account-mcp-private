@@ -54,6 +54,11 @@
   "vars": {
     "ENVIRONMENT": "production"
   },
+  "triggers": {
+    "crons": [
+      "17 3 * * *"
+    ]
+  },
   "routes": [
     {
       "pattern": "woa.ziikoo.app/*",

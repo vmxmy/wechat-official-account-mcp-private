@@ -15,6 +15,7 @@ export interface StripeCheckoutServiceOptions {
   usageStore: D1UsageQuotaStore;
   defaultSuccessUrl?: string | null;
   defaultCancelUrl?: string | null;
+  resolveOwnerEmail?: (tenantId: string) => Promise<string | null | undefined>;
   fetch?: typeof fetch;
 }
 
@@ -42,6 +43,7 @@ export interface StripeWebhookOptions {
   webhookSecret: string | null;
   usageStore: D1UsageQuotaStore;
   priceIds?: StripePriceIds;
+  reconcileAccountLocks?: (tenantId: string, plan: SubscriptionPlan) => Promise<unknown>;
   now?: number;
 }
 
@@ -86,6 +88,16 @@ export function createStripeCheckoutService(options: StripeCheckoutServiceOption
       body.set('allow_promotion_codes', 'true');
       if (entitlement.stripeCustomerId) {
         body.set('customer', entitlement.stripeCustomerId);
+      } else {
+        const ownerEmail = await options.resolveOwnerEmail?.(input.tenantId);
+        if (!ownerEmail) {
+          throw new StripeBillingError(
+            'stripe_customer_email_required',
+            'Tenant owner verified email is required before creating Stripe Checkout.',
+            409,
+          );
+        }
+        body.set('customer_email', ownerEmail);
       }
 
       const response = await (options.fetch ?? fetch)(STRIPE_CHECKOUT_SESSIONS_URL, {
@@ -223,6 +235,7 @@ async function syncStripeEventToEntitlement(
       stripeCustomerId: customerId,
       stripeSubscriptionId: subscriptionId,
     });
+    await options.reconcileAccountLocks?.(tenantId, plan);
     await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
     return { handled: true, type, tenantId, plan, status: 'active' };
   }
@@ -247,14 +260,24 @@ async function syncStripeEventToEntitlement(
     }
 
     const subscriptionStatus = stringField(object.status) || (type === 'customer.subscription.deleted' ? 'canceled' : 'active');
+    const currentEntitlement = await options.usageStore.getEntitlement(tenantId);
+    const periodEnd = stripeTimestampMs(object.current_period_end);
+    const cancelAtPeriodEnd = booleanField(object.cancel_at_period_end);
     const planFromEvent = paidPlan(nestedMetadata(object).plan)
       || planFromSubscriptionPrice(object, options.priceIds);
-    const plan = type === 'customer.subscription.deleted'
+    const computedPlan = type === 'customer.subscription.deleted'
       ? 'free'
       : entitlementPlanForSubscriptionStatus(subscriptionStatus, planFromEvent);
-    const status = type === 'customer.subscription.deleted'
+    const plan = cancelAtPeriodEnd && type !== 'customer.subscription.deleted'
+      ? currentEntitlement.plan
+      : computedPlan;
+    const status = cancelAtPeriodEnd && type !== 'customer.subscription.deleted'
+      ? 'active'
+      : type === 'customer.subscription.deleted'
       ? 'cancelled'
       : entitlementStatusForSubscriptionStatus(subscriptionStatus);
+    const pendingPlan = cancelAtPeriodEnd && type !== 'customer.subscription.deleted' ? 'free' : null;
+    const pendingPlanEffectiveAt = pendingPlan ? periodEnd : null;
 
     await options.usageStore.upsertEntitlement({
       tenantId,
@@ -263,10 +286,24 @@ async function syncStripeEventToEntitlement(
       stripeCustomerId: stripeId(object.customer),
       stripeSubscriptionId: subscriptionId,
       currentPeriodStart: stripeTimestampMs(object.current_period_start),
-      currentPeriodEnd: stripeTimestampMs(object.current_period_end),
+      currentPeriodEnd: periodEnd,
+      pendingPlan,
+      pendingPlanEffectiveAt,
     });
+    if (!pendingPlan) {
+      await options.reconcileAccountLocks?.(tenantId, plan);
+    }
     await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
-    return { handled: true, type, tenantId, plan, status, stripeSubscriptionId: subscriptionId };
+    return {
+      handled: true,
+      type,
+      tenantId,
+      plan,
+      status,
+      pendingPlan,
+      pendingPlanEffectiveAt,
+      stripeSubscriptionId: subscriptionId,
+    };
   }
 
   return { handled: false, type, reason: 'event_type_ignored' };
@@ -390,6 +427,10 @@ function stripeId(value: unknown): string | null {
 
 function stringField(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function booleanField(value: unknown): boolean {
+  return value === true || value === 'true' || value === 1 || value === '1';
 }
 
 function safeJsonObject(text: string): Record<string, unknown> {

@@ -20,7 +20,7 @@ export interface AccountSummary {
   slug: string;
   name: string;
   appId?: string;
-  status: 'active' | 'disabled' | 'unconfigured';
+  status: 'active' | 'disabled' | 'unconfigured' | 'locked';
   isDefault?: boolean;
 }
 
@@ -235,8 +235,18 @@ export function enrichMcpToolParams(
   toolName: string,
 ): { params: TenantAwareParams; account?: AccountContext } {
   const base = isRecord(params) ? { ...params } : {};
-  const requireAccount = !MANAGEMENT_CONTEXT_ONLY_TOOLS.has(toolName);
+  const managementAccountAction = toolName === 'woa_account' ? stringParam(base.action) : undefined;
+  const requireAccount = !MANAGEMENT_CONTEXT_ONLY_TOOLS.has(toolName)
+    && !(toolName === 'woa_account' && (managementAccountAction === 'list' || managementAccountAction === 'create'));
   const account = resolveAccountContext(base, context, { requireAccount });
+  if (account?.account.status === 'locked' && !toolName.startsWith('woa_')) {
+    throw new AccountResolutionError(
+      'account_plan_locked',
+      `Account ${account.accountId} is locked by the current subscription allowance. Upgrade the plan or remove another account first.`,
+      423,
+      { tenantId: account.tenantId, accountId: account.accountId },
+    );
+  }
 
   return {
     account,

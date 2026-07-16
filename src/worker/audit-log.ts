@@ -19,6 +19,28 @@ export interface AuditLogWriter {
   write(event: AuditLogEvent): Promise<void>;
 }
 
+export interface AuditLogQuery {
+  tenantId: string;
+  accountId?: string | null;
+  action?: string | null;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AuditLogRecord {
+  id: number;
+  userId?: string | null;
+  oauthClientId?: string | null;
+  tenantId?: string | null;
+  accountId?: string | null;
+  action: string;
+  targetType?: string | null;
+  targetId?: string | null;
+  requestId?: string | null;
+  metadata: unknown;
+  occurredAt: number;
+}
+
 export class D1AuditLogWriter implements AuditLogWriter {
   private schemaReady = false;
 
@@ -59,6 +81,62 @@ export class D1AuditLogWriter implements AuditLogWriter {
       JSON.stringify(sanitizeAuditMetadata(event.metadata ?? {})),
       event.occurredAt ?? Date.now(),
     ).run();
+  }
+
+  async list(query: AuditLogQuery): Promise<AuditLogRecord[]> {
+    await this.ensureSchema();
+    const conditions = ['tenant_id = ?'];
+    const values: D1Value[] = [query.tenantId];
+    if (query.accountId) {
+      conditions.push('account_id = ?');
+      values.push(query.accountId);
+    }
+    if (query.action) {
+      conditions.push('action = ?');
+      values.push(query.action);
+    }
+    const limit = Math.min(100, Math.max(1, query.limit ?? 20));
+    const offset = Math.max(0, query.offset ?? 0);
+    values.push(limit, offset);
+    const rows = await this.db.prepare(
+      `SELECT id,
+              user_id,
+              oauth_client_id,
+              tenant_id,
+              account_id,
+              action,
+              target_type,
+              target_id,
+              request_id,
+              metadata_json,
+              occurred_at
+       FROM audit_logs
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY occurred_at DESC, id DESC
+       LIMIT ? OFFSET ?`,
+    ).bind(...values).all<Record<string, unknown>>();
+    return (rows.results ?? []).map(row => ({
+      id: numberValue(row.id),
+      userId: stringValue(row.user_id),
+      oauthClientId: stringValue(row.oauth_client_id),
+      tenantId: stringValue(row.tenant_id),
+      accountId: stringValue(row.account_id),
+      action: stringValue(row.action) ?? 'unknown',
+      targetType: stringValue(row.target_type),
+      targetId: stringValue(row.target_id),
+      requestId: stringValue(row.request_id),
+      metadata: parseMetadata(row.metadata_json),
+      occurredAt: numberValue(row.occurred_at),
+    }));
+  }
+
+  async purgeOlderThan(cutoff: number): Promise<number> {
+    await this.ensureSchema();
+    const result = await this.db.prepare(
+      `DELETE FROM audit_logs
+       WHERE occurred_at < ?`,
+    ).bind(cutoff).run();
+    return result.meta?.changes ?? 0;
   }
 }
 
@@ -120,3 +198,25 @@ export function requireConfirmationMarker(
 }
 
 export type AuditD1Value = D1Value;
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function numberValue(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function parseMetadata(value: unknown): unknown {
+  if (typeof value !== 'string') return {};
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}

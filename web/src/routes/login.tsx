@@ -10,7 +10,7 @@ const loginSearchSchema = z.object({
 }).catch({});
 
 const emailSchema = z.string().email('请输入可接收验证码的邮箱。');
-const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+const turnstileSiteKey = import.meta.env?.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
 export const Route = createFileRoute('/login')({
   validateSearch: search => loginSearchSchema.parse(search),
