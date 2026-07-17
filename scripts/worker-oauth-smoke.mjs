@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,7 +11,10 @@ const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 const wranglerEntry = path.join(projectRoot, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
 const port = await reservePort();
 const origin = `http://127.0.0.1:${port}`;
+const persistDir = mkdtempSync(path.join(tmpdir(), 'woa-worker-oauth-smoke-'));
 const logs = [];
+
+applyLocalMigrations(persistDir);
 
 const child = spawn(process.execPath, [
   wranglerEntry,
@@ -19,6 +24,8 @@ const child = spawn(process.execPath, [
   String(port),
   '--log-level',
   'error',
+  '--persist-to',
+  persistDir,
   '--var',
   'ENVIRONMENT:development',
 ], {
@@ -100,7 +107,7 @@ try {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email }),
   });
-  assert.equal(codeRequest.status, 200);
+  await assertResponseStatus(codeRequest, 200, 'email-code request', logs);
   const codeRequestBody = await codeRequest.json();
   assert.equal(codeRequestBody.data.delivery, 'not_configured');
   assert.match(codeRequestBody.data.debugCode, /^\d{6}$/);
@@ -110,7 +117,7 @@ try {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, code: codeRequestBody.data.debugCode }),
   });
-  assert.equal(codeVerify.status, 200);
+  await assertResponseStatus(codeVerify, 200, 'email-code verify', logs);
   const codeVerifyBody = await codeVerify.json();
   const webSessionId = codeVerifyBody.data.session.sessionId;
   const sessionCookie = cookieFromResponse(codeVerify);
@@ -280,6 +287,38 @@ try {
   })}\n`);
 } finally {
   await stopChild(child);
+  rmSync(persistDir, { recursive: true, force: true });
+}
+
+function applyLocalMigrations(persistenceDirectory) {
+  const result = spawnSync(process.execPath, [
+    wranglerEntry,
+    'd1',
+    'migrations',
+    'apply',
+    'DB',
+    '--local',
+    '--persist-to',
+    persistenceDirectory,
+  ], {
+    cwd: projectRoot,
+    env: { ...process.env, NO_COLOR: '1' },
+    encoding: 'utf8',
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`Failed to apply local D1 migrations.\n${result.stderr || result.stdout}`);
+  }
+}
+
+async function assertResponseStatus(response, expected, label, output) {
+  if (response.status === expected) return;
+  const body = await response.clone().text().catch(() => '<unreadable>');
+  assert.equal(
+    response.status,
+    expected,
+    `${label} failed. body=${body}\nwrangler=${output.join('')}`,
+  );
 }
 
 function reservePort() {
