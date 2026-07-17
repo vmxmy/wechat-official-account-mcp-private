@@ -3,6 +3,7 @@ import {
   DEFAULT_ACCOUNT_ID,
   DEFAULT_TENANT_ID,
 } from '../storage/types.js';
+import { OAUTH_SUPPORTED_SCOPES } from './oauth-policy.js';
 
 export type TenantRole = 'owner' | 'admin' | 'operator' | 'viewer';
 
@@ -12,6 +13,8 @@ export interface TenantSummary {
   name: string;
   role: TenantRole;
   status: 'active' | 'disabled';
+  /** 服务端授权判定使用；任何响应都必须通过 publicTenants() 移除此字段。 */
+  membershipScopes?: string[];
 }
 
 export interface AccountSummary {
@@ -61,7 +64,39 @@ const DEFAULT_SCOPES = [
   'woa:inbox:read',
   'woa:usage:read',
   'woa:audit:read',
+  'woa:security:read',
+  'woa:security:write',
 ];
+
+const ROLE_SCOPE_POLICY: Record<TenantRole, ReadonlySet<string>> = {
+  owner: new Set(OAUTH_SUPPORTED_SCOPES),
+  admin: new Set(OAUTH_SUPPORTED_SCOPES.filter(scope => scope !== 'woa:billing:write')),
+  operator: new Set([
+    'wechat.mcp',
+    'woa:context:read',
+    'woa:tenant:read',
+    'woa:account:read',
+    'woa:content:read',
+    'woa:content:write',
+    'woa:content:publish',
+    'woa:inbox:read',
+    'woa:usage:read',
+    'woa:security:read',
+    'woa:security:write',
+  ]),
+  viewer: new Set([
+    'wechat.mcp',
+    'woa:context:read',
+    'woa:tenant:read',
+    'woa:account:read',
+    'woa:content:read',
+    'woa:inbox:read',
+    'woa:usage:read',
+    'woa:audit:read',
+    'woa:security:read',
+    'woa:security:write',
+  ]),
+};
 
 const MANAGEMENT_CONTEXT_ONLY_TOOLS = new Set([
   'woa_context',
@@ -115,6 +150,7 @@ export function createDefaultTenantContext(options: {
       name: options.tenantName || 'Default Tenant',
       role: 'owner',
       status: 'active',
+      membershipScopes: membershipScopesForRole('owner'),
     }],
     accounts: [{
       tenantId,
@@ -239,14 +275,7 @@ export function enrichMcpToolParams(
   const requireAccount = !MANAGEMENT_CONTEXT_ONLY_TOOLS.has(toolName)
     && !(toolName === 'woa_account' && (managementAccountAction === 'list' || managementAccountAction === 'create'));
   const account = resolveAccountContext(base, context, { requireAccount });
-  if (account?.account.status === 'locked' && !toolName.startsWith('woa_')) {
-    throw new AccountResolutionError(
-      'account_plan_locked',
-      `Account ${account.accountId} is locked by the current subscription allowance. Upgrade the plan or remove another account first.`,
-      423,
-      { tenantId: account.tenantId, accountId: account.accountId },
-    );
-  }
+  if (account && !toolName.startsWith('woa_')) requireOperationalAccount(account);
 
   return {
     account,
@@ -258,6 +287,29 @@ export function enrichMcpToolParams(
       __woaAccountContext: account,
     },
   };
+}
+
+export function requireConfigurableAccount(account: AccountContext): void {
+  if (account.account.status === 'locked') {
+    throw new AccountResolutionError(
+      'account_plan_locked',
+      `Account ${account.accountId} is locked by the current subscription allowance. Upgrade the plan or remove another account first.`,
+      423,
+      { tenantId: account.tenantId, accountId: account.accountId },
+    );
+  }
+}
+
+export function requireOperationalAccount(account: AccountContext): void {
+  requireConfigurableAccount(account);
+  if (account.account.status === 'unconfigured') {
+    throw new AccountResolutionError(
+      'account_unconfigured',
+      `Account ${account.accountId} has no verified WeChat credentials. Complete account configuration first.`,
+      409,
+      { tenantId: account.tenantId, accountId: account.accountId },
+    );
+  }
 }
 
 export function attachTenantMetadata(
@@ -305,12 +357,22 @@ export function publicContext(context: TenantRequestContext): Record<string, unk
     },
     oauthClient: context.oauthClientId ? { clientId: context.oauthClientId } : null,
     scopes: context.scopes,
-    tenants: context.tenants,
+    tenants: publicTenants(context.tenants),
     accounts: publicAccounts(context.accounts),
     defaultTenantId: context.defaultTenantId,
     defaultAccountId: context.defaultAccountId,
     requestId: context.requestId,
   };
+}
+
+export function publicTenants(tenants: TenantSummary[]): Array<Record<string, unknown>> {
+  return tenants.map(tenant => ({
+    tenantId: tenant.tenantId,
+    slug: tenant.slug,
+    name: tenant.name,
+    role: tenant.role,
+    status: tenant.status,
+  }));
 }
 
 export function publicAccounts(accounts: AccountSummary[]): Array<Record<string, unknown>> {
@@ -329,6 +391,45 @@ export function requireScope(context: TenantRequestContext, scope: string): void
   if (!context.scopes.includes(scope)) {
     throw new ApiError('missing_scope', `Missing required OAuth scope: ${scope}`, 403, { scope });
   }
+}
+
+export function membershipScopesForRole(role: TenantRole): string[] {
+  return [...ROLE_SCOPE_POLICY[role]];
+}
+
+export function effectiveMembershipScopes(tenant: TenantSummary): string[] {
+  const roleScopes = ROLE_SCOPE_POLICY[tenant.role];
+  const assigned = tenant.membershipScopes ?? [...roleScopes];
+  return [...new Set(assigned.filter(scope => roleScopes.has(scope)))];
+}
+
+/** OAuth grant 与目标租户 membership 必须同时允许；角色 policy 是最后一道上限。 */
+export function requireTenantScope(
+  context: TenantRequestContext,
+  tenantId: string,
+  scope: string,
+): void {
+  requireScope(context, scope);
+  const tenant = context.tenants.find(item => item.tenantId === tenantId && item.status === 'active');
+  if (!tenant) {
+    throw new ApiError('tenant_forbidden', `Tenant ${tenantId} is not accessible.`, 403, { tenantId });
+  }
+  if (!effectiveMembershipScopes(tenant).includes(scope)) {
+    throw new ApiError(
+      'membership_scope_denied',
+      `Tenant membership does not allow scope: ${scope}`,
+      403,
+      { tenantId, role: tenant.role, scope },
+    );
+  }
+}
+
+export function scopesAllowedByAnyMembership(context: TenantRequestContext): string[] {
+  const allowed = new Set<string>();
+  for (const tenant of context.tenants) {
+    for (const scope of effectiveMembershipScopes(tenant)) allowed.add(scope);
+  }
+  return [...allowed];
 }
 
 export function apiErrorToResponse(error: unknown, requestId?: string): Response {

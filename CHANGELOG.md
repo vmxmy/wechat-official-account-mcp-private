@@ -6,6 +6,22 @@
 
 ## Unreleased
 
+### Agent-first 初始化与 TUI
+
+- 新增 `woa help agent --format markdown|json`，将通用 Agent 执行规范随 CLI 版本发布；不再维护 Codex、Claude、Kimi 等客户端专用适配器。
+- 新增 `woa init` 渐进式 TUI、无控制字符 `--plain` 模式，以及面向 Agent/pipe/CI 的严格 JSONL 协议；支持原子 checkpoint、exact-version resume、CAS/lease、信号恢复和 EPIPE。
+- 首次接入由服务端提供受信任的固定出口 IP；用户只参与 OAuth 授权、微信 IP 白名单、AppSecret 安全输入和未发布测试草稿确认。
+- 新增同 Operator、短时、单次使用的 AppSecret HTTPS handoff；凭据只有通过固定出口 relay 的微信 access-token 实测后才会保存。
+- 公共首页改为一段可复制给通用 Agent 的任务 Prompt；原控制台迁移到 `/app`，MCP 页面只展示通用 Streamable HTTP/OAuth descriptor 与空 headers。
+- npm 发布门禁改为先发布 exact version 到 `next`，验证后只把同一版本提升到 `latest`；provenance 仍要求 GitHub 源码仓库在发布前改为 public。
+
+### OAuth 与无浏览器服务器
+
+- Workers OAuth access token 生命周期由 1 小时调整为 8 小时，refresh token 调整为 180 天，动态客户端注册调整为 365 天；继续使用可撤销、会轮换的 refresh token，不引入永不过期 Bearer。
+- remote-only `woa` CLI 会在 access token 到期前自动刷新并原子保存轮换后的 refresh token；服务端返回 401 时强制刷新一次并重试。
+- 新增 `woa login --headless` / `woa login complete` 两段式 PKCE 登录；SSH 或无 DISPLAY/Wayland 的 Linux 环境会自动采用该流程，服务器无需安装浏览器。
+- MCP 配置继续只写远程 `/mcp` URL，不嵌入 access token、refresh token 或静态 Authorization header。
+
 ## v2.2.1 (2026-07-16)
 
 ### 运行时与 CLI 修复

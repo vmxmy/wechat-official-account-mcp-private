@@ -9,7 +9,11 @@ The MCP surface SHALL expose authorized management tools for current Operator, T
 
 #### Scenario: Unauthenticated MCP challenged
 - **WHEN** an MCP client connects to `/mcp` without authorization
-- **THEN** the system returns an OAuth challenge and does not expose tools
+- **THEN** the system returns a standards-based OAuth protected-resource challenge and does not expose tools
+
+#### Scenario: Host readiness requires host evidence
+- **WHEN** onboarding reports that a target host is connected and usable
+- **THEN** evidence comes from that host's own grant, MCP initialization, `woa_context`, and read-only draft count call rather than a CLI login, generated URL, or CLI probe
 
 ### Requirement: MCP WeChat resource management
 The MCP surface SHALL allow authorized Tenant owners to create, rename, configure, status-check, default-select, and delete WeChat resources subject to plan and scope rules.
@@ -61,3 +65,14 @@ The MCP surface SHALL require explicit confirmation only for delete operations i
 #### Scenario: MCP publish does not require extra confirmation
 - **WHEN** an authorized MCP client publishes article or image content within quota
 - **THEN** the system may execute the publish without an extra confirmation marker beyond authentication, authorization, quota, and audit controls
+
+### Requirement: MCP onboarding draft idempotency
+The MCP surface SHALL support an idempotent unpublished draft write for Agent-guided end-to-end verification.
+
+#### Scenario: Same init key returns same result
+- **WHEN** a host retries the same draft creation with the same Tenant, account, tool, and init idempotency key
+- **THEN** the service returns the previously recorded media ID and does not create a second draft or permanent cover material
+
+#### Scenario: Test draft is never published implicitly
+- **WHEN** Agent-guided onboarding creates and reads back its test draft
+- **THEN** no publish action is invoked and any later deletion remains a separately confirmed destructive action

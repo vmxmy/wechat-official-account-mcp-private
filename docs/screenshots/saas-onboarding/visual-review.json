@@ -1,11 +1,11 @@
 {
-  "score": 95,
+  "score": 96,
   "verdict": "pass",
   "category_match": true,
   "differences": [],
   "suggestions": [
     "发布前继续用真实 API 数据复核长租户名、长公众号名和十个账号时的折行与滚动。",
-    "客户端命令发生版本变化时，同步复核 MCP 桌面与 390px 移动截图。"
+    "Agent Prompt 发生版本变化时，同步复核公开页桌面截图、剪贴板降级选择状态和 MCP 390px 移动截图。"
   ],
-  "reasoning": "这是基于 docs/design/anti-ai-slop-rules.md、现有公众号连接页参考图与六张关键路由截图的规则评审。MCP 桌面页延续既有 Stone 层级与间距，390px 下客户端选择器折为两列且 endpoint/代码块无横向溢出；页面没有装饰性卡片、渐变或弱层级。"
+  "reasoning": "这是基于 docs/design/anti-ai-slop-rules.md 与九张当前关键路由截图的规则评审。公开根页保持单列、无登录侧栏、无装饰性渐变，主动作与安全边界清晰；剪贴板拒绝时完整 Prompt 会被选中并显示可感知状态。/app 保留现有 Stone 管理界面；MCP 桌面与 390px 页面只展示通用 Streamable HTTP/OAuth descriptor、空 headers 和兼容性边界，没有客户端品牌 tabs、静态 Bearer 示例或横向溢出。"
 }

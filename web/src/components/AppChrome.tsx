@@ -27,7 +27,7 @@ const navSections: Array<{
 }> = [
   {
     title: '工作台',
-    items: [{ href: '/', label: '概览', icon: Gauge }],
+    items: [{ href: '/app', label: '概览', icon: Gauge }],
   },
   {
     title: '接入',
@@ -51,19 +51,21 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const isLoginRoute = location.pathname === '/login';
+  const isPublicLandingRoute = location.pathname === '/';
   const isPublicDocumentRoute = location.pathname.startsWith('/legal/');
+  const isPublicRoute = isPublicLandingRoute || isPublicDocumentRoute;
   const current = useQuery({
     queryKey: ['current-operator'],
     queryFn: getCurrentOperator,
     retry: false,
-    enabled: !isLoginRoute && !isPublicDocumentRoute,
+    enabled: !isLoginRoute && !isPublicRoute,
   });
   const health = useQuery({
     queryKey: ['service-health'],
     queryFn: getHealthStatus,
     retry: false,
     refetchInterval: 30_000,
-    enabled: !isLoginRoute && !isPublicDocumentRoute,
+    enabled: !isLoginRoute && !isPublicRoute,
   });
   const operator = current.data?.operator;
   const accountLabel = operator?.displayName || operator?.email || '账户';
@@ -98,6 +100,35 @@ export function AppChrome({ children }: { children: ReactNode }) {
     );
   }
 
+  if (isPublicLandingRoute) {
+    return (
+      <AppShell
+        topNav={
+          <TopNav
+            className="app-top-nav"
+            heading={
+              <TopNavHeading
+                logo={<span className="app-brand-mark" aria-hidden="true">W</span>}
+                heading="WOA"
+                headingHref="/"
+                subheading="微信公众号 MCP"
+              />
+            }
+            label="公开页面导航"
+          />
+        }
+        contentPadding={0}
+        height="auto"
+        mobileNav={false}
+        variant="wash"
+      >
+        <div className="app-layout-content app-layout-content--landing">
+          <div className="app-page-frame app-page-frame--landing">{children}</div>
+        </div>
+      </AppShell>
+    );
+  }
+
   if (isPublicDocumentRoute) {
     return (
       <AppShell
@@ -108,7 +139,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
               <TopNavHeading
                 logo={<span className="app-brand-mark" aria-hidden="true">W</span>}
                 heading="WOA"
-                headingHref="/login"
+                headingHref="/"
                 subheading="微信公众号 MCP"
               />
             }
@@ -145,7 +176,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
             <TopNavHeading
               logo={<span className="app-brand-mark" aria-hidden="true">W</span>}
               heading="WOA"
-              headingHref="/"
+              headingHref="/app"
               subheading="微信公众号 MCP"
             />
           }

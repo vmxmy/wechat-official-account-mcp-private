@@ -49,7 +49,7 @@ function LoginPage() {
 
             <div className="auth-story-copy">
               <span className="page-eyebrow">微信公众号远程接入</span>
-              <h1 className="auth-story-title">安全连接公众号与 AI 客户端</h1>
+              <h2 className="auth-story-title">安全连接公众号与 AI 客户端</h2>
               <p className="auth-story-description">
                 在一个入口中配置公众号凭据、连接远程 MCP，并查看授权与套餐用量。
               </p>

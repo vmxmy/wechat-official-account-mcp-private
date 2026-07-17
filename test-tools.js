@@ -43,6 +43,8 @@ import {
   reserveMcpToolQuota,
 } from './dist/src/worker/usage-store.js';
 import { executeMcpToolWithQuota } from './dist/src/worker/mcp-quota.js';
+import { requiredScopeForMcpTool } from './dist/src/worker/mcp-scope-policy.js';
+import { verifyTurnstile } from './dist/src/worker/turnstile.js';
 import {
   createStripeCheckoutService,
   handleStripeWebhookRequest,
@@ -62,6 +64,13 @@ import {
 } from './dist/src/worker/github-oauth.js';
 import { renderAuthorizationConsentForm } from './dist/src/worker/oauth-consent.js';
 import {
+  OAUTH_ACCESS_TOKEN_TTL_MS,
+  OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+  OAUTH_DYNAMIC_CLIENT_TTL_SECONDS,
+  OAUTH_REFRESH_TOKEN_TTL_MS,
+  OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+} from './dist/src/worker/oauth-policy.js';
+import {
   configureAccount as configureWebAccount,
   createAccount as createWebAccount,
   deleteAccount as deleteWebAccount,
@@ -69,7 +78,15 @@ import {
   getAccounts as getWebAccounts,
   updateAccount as updateWebAccount,
 } from './dist/web/src/lib/api.js';
-import { getMcpClientGuide } from './dist/web/src/lib/mcp-config.js';
+import {
+  getMcpDescriptor,
+  MCP_OAUTH_GUIDANCE,
+} from './dist/web/src/lib/mcp-config.js';
+import {
+  WOA_AGENT_BOOTSTRAP_COMMAND,
+  WOA_AGENT_PROMPT,
+} from './dist/web/src/lib/agent-prompt.js';
+import { ensureFreshOAuthSession } from './dist/src/cli/oauth-session.js';
 
 let failed = false;
 
@@ -116,12 +133,112 @@ function usageCliRequestsOk(requests) {
     requests[0].authorization === 'Bearer TEST_TOKEN';
 }
 
+function writeCliOAuthFixtureConfig(configPath, server, accessToken = 'TEST_TOKEN') {
+  writeFileSync(configPath, JSON.stringify({
+    server,
+    accessToken,
+    refreshToken: 'REFRESHABLE_TEST_TOKEN',
+    clientId: 'woa-cli-test-client',
+    expiresAt: Date.now() + 60 * 60 * 1000,
+  }, null, 2), { mode: 0o600 });
+}
+
 function stripeSignatureHeader(payload, secret, timestamp = Math.floor(Date.now() / 1000)) {
   const signature = createHmac('sha256', secret)
     .update(`${timestamp}.${payload}`)
     .digest('hex');
   return `t=${timestamp},v1=${signature}`;
 }
+
+const oauthRefreshRequests = [];
+const refreshedCliSession = await ensureFreshOAuthSession({
+  server: 'https://worker.example.test/',
+  accessToken: 'EXPIRED_ACCESS',
+  refreshToken: 'CURRENT_REFRESH',
+  clientId: 'woa-cli-fixture',
+  expiresAt: 50_000,
+}, {
+  now: 60_000,
+  fetch: async (input, init = {}) => {
+    oauthRefreshRequests.push({
+      url: String(input),
+      method: init.method,
+      body: String(init.body ?? ''),
+    });
+    return new Response(JSON.stringify({
+      access_token: 'FRESH_ACCESS',
+      refresh_token: 'ROTATED_REFRESH',
+      token_type: 'bearer',
+      expires_in: 3600,
+      scope: 'wechat.mcp',
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  },
+});
+check(
+  refreshedCliSession.refreshed === true &&
+    refreshedCliSession.session.accessToken === 'FRESH_ACCESS' &&
+    refreshedCliSession.session.refreshToken === 'ROTATED_REFRESH' &&
+    refreshedCliSession.session.expiresAt === 3_660_000 &&
+    oauthRefreshRequests.length === 1 &&
+    oauthRefreshRequests[0].url === 'https://worker.example.test/oauth/token' &&
+    oauthRefreshRequests[0].method === 'POST' &&
+    oauthRefreshRequests[0].body.includes('grant_type=refresh_token') &&
+    oauthRefreshRequests[0].body.includes('refresh_token=CURRENT_REFRESH') &&
+    oauthRefreshRequests[0].body.includes('client_id=woa-cli-fixture'),
+  'woa OAuth session 在 access token 过期时刷新并保存轮换后的 refresh token',
+);
+check(
+  OAUTH_ACCESS_TOKEN_TTL_SECONDS === 8 * 60 * 60 &&
+    OAUTH_REFRESH_TOKEN_TTL_SECONDS === 180 * 24 * 60 * 60 &&
+    OAUTH_DYNAMIC_CLIENT_TTL_SECONDS === 365 * 24 * 60 * 60,
+  'OAuth 服务端策略使用8小时 access token、180天 refresh token 与365天动态客户端生命周期',
+);
+
+const productionTurnstileMissingSecret = await verifyTurnstile({
+  production: true,
+  request: new Request('https://worker.example.test/api/v1/auth/email-code/request'),
+  token: 'TURNSTILE_FIXTURE',
+});
+let turnstileFetchCalls = 0;
+const rejectedTurnstile = await verifyTurnstile({
+  secretBinding: 'TURNSTILE_SECRET_FIXTURE',
+  production: true,
+  request: new Request('https://worker.example.test/api/v1/auth/email-code/request', {
+    headers: { 'cf-connecting-ip': '203.0.113.10' },
+  }),
+  token: 'TURNSTILE_RESPONSE_FIXTURE',
+  fetchImpl: async (_input, init) => {
+    turnstileFetchCalls += 1;
+    const body = init?.body;
+    assert.ok(body instanceof FormData);
+    assert.equal(body.get('secret'), 'TURNSTILE_SECRET_FIXTURE');
+    assert.equal(body.get('response'), 'TURNSTILE_RESPONSE_FIXTURE');
+    assert.equal(body.get('remoteip'), '203.0.113.10');
+    return new Response(JSON.stringify({ success: false }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  },
+});
+check(
+  productionTurnstileMissingSecret.ok === false &&
+    rejectedTurnstile.ok === false &&
+    rejectedTurnstile.message === 'Turnstile 校验未通过。' &&
+    turnstileFetchCalls === 1,
+  'Turnstile 在生产缺少配置或 provider 拒绝时 fail-closed，并绑定请求 IP 校验',
+);
+
+check(
+  requiredScopeForMcpTool('wechat_draft', 'count') === 'woa:content:read' &&
+    requiredScopeForMcpTool('wechat_draft', 'add') === 'woa:content:write' &&
+    requiredScopeForMcpTool('wechat_publish', 'submit') === 'woa:content:publish' &&
+    requiredScopeForMcpTool('wechat_content_publish', 'create_and_publish') === 'woa:content:publish' &&
+    requiredScopeForMcpTool('wechat_mass_send', 'send_by_tag') === 'woa:content:publish' &&
+    requiredScopeForMcpTool('wechat_inbox', 'list_pending') === 'woa:inbox:read' &&
+    requiredScopeForMcpTool('wechat_auth', 'configure') === 'woa:account:write' &&
+    requiredScopeForMcpTool('woa_context', '') === null,
+  'MCP tool/action scope policy 默认 fail-closed，并把读、写、发布、收件箱与账号权限分开',
+);
 
 console.log('=== MCP工具注册验证 ===');
 console.log(`总共注册的工具数量: ${mcpTools.length}`);
@@ -176,7 +293,7 @@ check(
   'GitHub OAuth 登录链接使用文档导航，/auth callback 会到达 Worker 而不是 SPA router',
 );
 const protectedWebRouteFiles = [
-  './web/src/routes/index.tsx',
+  './web/src/routes/app.tsx',
   './web/src/routes/onboarding.tsx',
   './web/src/routes/billing.tsx',
   './web/src/routes/billing/success.tsx',
@@ -185,6 +302,7 @@ const protectedWebRouteFiles = [
   './web/src/routes/security.tsx',
 ];
 const publicWebRouteFiles = [
+  './web/src/routes/index.tsx',
   './web/src/routes/login.tsx',
   './web/src/routes/legal/privacy.tsx',
   './web/src/routes/legal/terms.tsx',
@@ -704,6 +822,173 @@ check(
     !woaHelp.includes('wechat-mcp mcp -a -s'),
   'woa CLI 帮助只宣传 remote-only 工作流并包含 billing/quota/account onboarding 命令',
 );
+const refreshCliRequests = [];
+const refreshCliServer = createServer(async (req, res) => {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const body = Buffer.concat(chunks).toString('utf8');
+  refreshCliRequests.push({ url: req.url, method: req.method, authorization: req.headers.authorization, body });
+  res.setHeader('content-type', 'application/json');
+  if (req.url === '/oauth/token' && req.method === 'POST') {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      access_token: 'CLI_FRESH_ACCESS',
+      refresh_token: 'CLI_ROTATED_REFRESH',
+      token_type: 'bearer',
+      expires_in: 3600,
+      scope: 'wechat.mcp',
+    }));
+    return;
+  }
+  if (req.url === '/api/v1/me' && req.headers.authorization === 'Bearer CLI_FRESH_ACCESS') {
+    res.writeHead(200);
+    res.end(JSON.stringify({ success: true, data: { operatorId: 'op_refresh_fixture' } }));
+    return;
+  }
+  res.writeHead(401);
+  res.end(JSON.stringify({ error: 'invalid_token' }));
+});
+await new Promise(resolve => refreshCliServer.listen(0, '127.0.0.1', resolve));
+const refreshCliTempDir = mkdtempSync(path.join(tmpdir(), 'woa-refresh-'));
+try {
+  const address = refreshCliServer.address();
+  const port = typeof address === 'object' && address ? address.port : 0;
+  const configPath = path.join(refreshCliTempDir, 'cli.json');
+  writeFileSync(configPath, JSON.stringify({
+    server: `http://127.0.0.1:${port}/`,
+    accessToken: 'CLI_EXPIRED_ACCESS',
+    refreshToken: 'CLI_CURRENT_REFRESH',
+    clientId: 'woa-cli-fixture',
+    expiresAt: 1,
+  }));
+  const output = await execFileText(process.execPath, ['./dist/src/cli/woa.js', 'whoami'], {
+    env: { ...process.env, WOA_CLI_CONFIG: configPath },
+  });
+  const saved = JSON.parse(readFileSync(configPath, 'utf8'));
+  check(
+    refreshCliRequests.length === 2 &&
+      refreshCliRequests[0].url === '/oauth/token' &&
+      refreshCliRequests[0].body.includes('refresh_token=CLI_CURRENT_REFRESH') &&
+      refreshCliRequests[1].url === '/api/v1/me' &&
+      refreshCliRequests[1].authorization === 'Bearer CLI_FRESH_ACCESS' &&
+      saved.accessToken === 'CLI_FRESH_ACCESS' &&
+      saved.refreshToken === 'CLI_ROTATED_REFRESH' &&
+      output.includes('op_refresh_fixture'),
+    'woa CLI 在业务请求前自动刷新过期 OAuth 会话并原子写回轮换令牌',
+  );
+  refreshCliRequests.length = 0;
+  writeFileSync(configPath, JSON.stringify({
+    server: `http://127.0.0.1:${port}/`,
+    accessToken: 'CLI_REVOKED_ACCESS',
+    refreshToken: 'CLI_CURRENT_REFRESH',
+    clientId: 'woa-cli-fixture',
+    expiresAt: Date.now() + 60 * 60 * 1000,
+  }));
+  await execFileText(process.execPath, ['./dist/src/cli/woa.js', 'whoami'], {
+    env: { ...process.env, WOA_CLI_CONFIG: configPath },
+  });
+  check(
+    refreshCliRequests.length === 3 &&
+      refreshCliRequests[0].url === '/api/v1/me' &&
+      refreshCliRequests[0].authorization === 'Bearer CLI_REVOKED_ACCESS' &&
+      refreshCliRequests[1].url === '/oauth/token' &&
+      refreshCliRequests[2].url === '/api/v1/me' &&
+      refreshCliRequests[2].authorization === 'Bearer CLI_FRESH_ACCESS',
+    'woa CLI 收到401后强制刷新一次并重试业务请求',
+  );
+} finally {
+  rmSync(refreshCliTempDir, { recursive: true, force: true });
+  await new Promise(resolve => refreshCliServer.close(resolve));
+}
+const headlessOAuthRequests = [];
+const headlessOAuthServer = createServer(async (req, res) => {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const body = Buffer.concat(chunks).toString('utf8');
+  headlessOAuthRequests.push({ url: req.url, method: req.method, body });
+  res.setHeader('content-type', 'application/json');
+  const origin = `http://127.0.0.1:${headlessOAuthServer.address().port}`;
+  if (req.url === '/.well-known/oauth-authorization-server') {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      authorization_endpoint: `${origin}/authorize`,
+      token_endpoint: `${origin}/oauth/token`,
+      registration_endpoint: `${origin}/oauth/register`,
+    }));
+    return;
+  }
+  if (req.url === '/oauth/register' && req.method === 'POST') {
+    res.writeHead(201);
+    res.end(JSON.stringify({ client_id: 'headless-cli-fixture' }));
+    return;
+  }
+  if (req.url === '/oauth/token' && req.method === 'POST') {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      access_token: 'HEADLESS_ACCESS',
+      refresh_token: 'HEADLESS_REFRESH',
+      token_type: 'bearer',
+      expires_in: 28800,
+      scope: 'wechat.mcp',
+    }));
+    return;
+  }
+  res.writeHead(404);
+  res.end(JSON.stringify({ error: 'not_found' }));
+});
+await new Promise(resolve => headlessOAuthServer.listen(0, '127.0.0.1', resolve));
+const headlessCliTempDir = mkdtempSync(path.join(tmpdir(), 'woa-headless-'));
+try {
+  const address = headlessOAuthServer.address();
+  const port = typeof address === 'object' && address ? address.port : 0;
+  const configPath = path.join(headlessCliTempDir, 'cli.json');
+  const startOutput = await execFileText(process.execPath, [
+    './dist/src/cli/woa.js',
+    'login',
+    '--server',
+    `http://127.0.0.1:${port}`,
+    '--headless',
+    '--callback-port',
+    '8787',
+    '--timeout',
+    '1',
+  ], { env: { ...process.env, WOA_CLI_CONFIG: configPath } });
+  const authorizeUrlText = startOutput.split('\n').find(line => line.startsWith(`http://127.0.0.1:${port}/authorize?`));
+  const authorizeUrl = new URL(authorizeUrlText);
+  const callbackUrl = new URL(authorizeUrl.searchParams.get('redirect_uri'));
+  callbackUrl.searchParams.set('code', 'HEADLESS_CODE');
+  callbackUrl.searchParams.set('state', authorizeUrl.searchParams.get('state'));
+  let rejectedArgvCallback = '';
+  try {
+    execFileSync(process.execPath, [
+      './dist/src/cli/woa.js',
+      'login',
+      'complete',
+      '--callback-url',
+      callbackUrl.toString(),
+    ], {
+      encoding: 'utf8',
+      env: { ...process.env, WOA_CLI_CONFIG: configPath },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    rejectedArgvCallback = String(error?.stderr || error?.message || error);
+  }
+  const saved = JSON.parse(readFileSync(configPath, 'utf8'));
+  const tokenRequest = headlessOAuthRequests.find(request => request.url === '/oauth/token');
+  check(
+    startOutput.includes('woa login complete') &&
+      rejectedArgvCallback.includes('Do not pass the OAuth authorization response in command arguments') &&
+      tokenRequest === undefined &&
+      typeof saved.pkce?.verifier === 'string' &&
+      saved.pkce?.state === authorizeUrl.searchParams.get('state') &&
+      (statSync(configPath).mode & 0o777) === 0o600,
+    'woa headless 两段式 PKCE 保存受限权限检查点，并拒绝通过 argv 传递 OAuth 返回地址',
+  );
+} finally {
+  rmSync(headlessCliTempDir, { recursive: true, force: true });
+  await new Promise(resolve => headlessOAuthServer.close(resolve));
+}
 const webApiClientSource = readFileSync('./web/src/lib/api.ts', 'utf8');
 check(
   [
@@ -819,50 +1104,57 @@ check(
 );
 const webMcpConfigSource = readFileSync('./web/src/lib/mcp-config.ts', 'utf8');
 const webMcpRouteSource = readFileSync('./web/src/routes/mcp.tsx', 'utf8');
-const kimiMcpGuide = getMcpClientGuide('kimi', 'https://worker.example.test');
+const publicAgentRouteSource = readFileSync('./web/src/routes/index.tsx', 'utf8');
+const publicAgentPromptSource = readFileSync('./web/src/lib/agent-prompt.ts', 'utf8');
+const genericMcpDescriptor = getMcpDescriptor('https://worker.example.test');
 check(
-  kimiMcpGuide.label === 'Kimi Code' &&
-    kimiMcpGuide.steps.map(step => step.code ?? '').join('\n').includes('/mcp-config login wechat-woa') &&
-    kimiMcpGuide.steps.map(step => step.code ?? '').join('\n').includes('https://worker.example.test/mcp') &&
-    kimiMcpGuide.steps.at(-1)?.code === '/mcp',
-  'Web MCP client guide 提供 Kimi Code 添加、OAuth 登录和状态验证流程',
-);
-const oauthFirstMcpGuides = ['kimi', 'claude', 'codex', 'other']
-  .map(client => getMcpClientGuide(client, 'https://worker.example.test'));
-const oauthFirstMcpGuideCode = oauthFirstMcpGuides
-  .flatMap(guide => guide.steps.map(step => step.code ?? ''))
-  .join('\n');
-check(
-  oauthFirstMcpGuides.map(guide => guide.label).join('|') === 'Kimi Code|Claude Code|Codex|其他客户端' &&
-    oauthFirstMcpGuideCode.includes('claude mcp login wechat-woa') &&
-    oauthFirstMcpGuideCode.includes('codex mcp login wechat-woa') &&
-    !/Authorization|Bearer|access_token|refresh_token|headers|bearerTokenEnvVar/i.test(oauthFirstMcpGuideCode),
-  'Web MCP client guides 仅提供原生 OAuth，不生成静态 Bearer/header/token 配置',
+  genericMcpDescriptor.name === 'wechat-woa' &&
+    genericMcpDescriptor.transport === 'streamable-http' &&
+    genericMcpDescriptor.url === 'https://worker.example.test/mcp' &&
+    genericMcpDescriptor.authentication.type === 'oauth2' &&
+    genericMcpDescriptor.authentication.pkce === 'S256' &&
+    genericMcpDescriptor.authentication.dynamicClientRegistration === true &&
+    genericMcpDescriptor.authentication.refreshToken === true &&
+    Object.keys(genericMcpDescriptor.headers).length === 0,
+  'Web MCP descriptor 仅声明通用 Streamable HTTP、OAuth/PKCE/DCR/refresh 与空 headers',
 );
 check(
-  webMcpConfigSource.includes('[mcp_servers.wechat-woa]') &&
-    webMcpConfigSource.includes('getMcpClientGuide') &&
-    webMcpConfigSource.includes('/mcp-config login wechat-woa') &&
-    webMcpConfigSource.includes('claude mcp add') &&
-    webMcpConfigSource.includes('--transport http') &&
-    webMcpConfigSource.includes('--scope user') &&
-    webMcpConfigSource.includes('claude mcp login wechat-woa') &&
-    webMcpConfigSource.includes('codex mcp add') &&
-    webMcpConfigSource.includes('--url') &&
-    webMcpConfigSource.includes('codex mcp login wechat-woa') &&
-    webMcpRouteSource.includes('validateSearch') &&
-    webMcpRouteSource.includes('role="tablist"') &&
-    webMcpRouteSource.includes('无需复制 token') &&
-    webMcpRouteSource.includes('为什么没有 Bearer 配置') &&
-    !webMcpRouteSource.includes('Authorization: Bearer') &&
-    !webMcpRouteSource.includes('npx -y --package @ziikoo/woa'),
-  'Web MCP 页面提供 Kimi/Claude/Codex OAuth-first 向导，并为 Codex 保留原生 TOML 配置',
+  WOA_AGENT_BOOTSTRAP_COMMAND.includes('@ziikoo/woa@latest') &&
+    WOA_AGENT_BOOTSTRAP_COMMAND.endsWith('woa help agent') &&
+    WOA_AGENT_PROMPT.includes('woa init') &&
+    WOA_AGENT_PROMPT.includes('只保存、不发布') &&
+    WOA_AGENT_PROMPT.includes('出口 IP') &&
+    !/(?:Kimi|Claude|Codex|Cursor|Trae)/i.test(WOA_AGENT_PROMPT) &&
+    !/(?:Authorization\s*:|Bearer\s+|access_token|refresh_token)/i.test(WOA_AGENT_PROMPT),
+  '公开入口 Prompt 只指向最新版 CLI Agent Help/init，并保留人工授权、白名单与不发布边界',
 );
-const woaConfig = execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'mcp', 'config', 'codex', '--server', 'https://worker.example.test'], { encoding: 'utf8' });
+check(
+  webMcpConfigSource.includes("transport: 'streamable-http'") &&
+    webMcpConfigSource.includes("type: 'oauth2'") &&
+    webMcpConfigSource.includes('headers: {}') &&
+    webMcpRouteSource.includes('通用 descriptor') &&
+    webMcpConfigSource.includes('无浏览器服务器') &&
+    webMcpRouteSource.includes('headers') &&
+    publicAgentRouteSource.includes('复制给 Agent') &&
+    publicAgentRouteSource.includes('aria-live="polite"') &&
+    publicAgentRouteSource.includes('selectPromptText') &&
+    publicAgentPromptSource.includes('woa help agent') &&
+    !/(?:Kimi Code|Claude Code|Codex|Cursor|Trae)/.test(`${webMcpConfigSource}\n${webMcpRouteSource}`) &&
+    !/(?:Authorization:\s*Bearer|bearerTokenEnvVar)/i.test(`${webMcpConfigSource}\n${webMcpRouteSource}`),
+  'Web 公共页提供单一可复制 Agent Prompt，MCP 页面移除品牌 tabs/命令与静态 Bearer 示例',
+);
+check(
+  MCP_OAUTH_GUIDANCE.headless.includes('授权 URL') &&
+    MCP_OAUTH_GUIDANCE.headless.includes('callback URL') &&
+    MCP_OAUTH_GUIDANCE.unsupported.includes('不要改用静态 Bearer'),
+  '通用 MCP 指引覆盖无浏览器授权与禁止静态 Bearer 的兼容性边界',
+);
+const woaConfig = execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'mcp', 'descriptor', '--server', 'https://worker.example.test'], { encoding: 'utf8' });
 check(
   woaConfig.includes('https://worker.example.test/mcp') &&
-    !/appSecret|WECHAT_APP_SECRET|app_secret/i.test(woaConfig),
-  'woa mcp config 生成远程 /mcp 配置且不包含微信凭据',
+    woaConfig.includes('streamable-http') &&
+    !/appSecret|WECHAT_APP_SECRET|app_secret|Authorization\s*:|Bearer\s+/i.test(woaConfig),
+  'woa mcp descriptor 输出通用远程 /mcp 参数且不包含凭据或静态 Bearer',
 );
 const mediaCliRequests = [];
 const mediaCliServer = createServer((req, res) => {
@@ -895,20 +1187,26 @@ try {
   writeFileSync(mediaCliFile, stagedPngBytes);
   const address = mediaCliServer.address();
   const mediaCliPort = typeof address === 'object' && address ? address.port : 0;
+  const mediaCliServerUrl = `http://127.0.0.1:${mediaCliPort}`;
+  const mediaCliConfigPath = path.join(mediaCliTempDir, 'cli.json');
+  writeCliOAuthFixtureConfig(mediaCliConfigPath, mediaCliServerUrl);
   const mediaCliOutput = await execFileText(process.execPath, [
     './dist/src/cli/woa.js',
     'media',
     'upload',
     mediaCliFile,
     '--server',
-    `http://127.0.0.1:${mediaCliPort}`,
-    '--token',
-    'TEST_TOKEN',
+    mediaCliServerUrl,
     '--tenant',
     DEFAULT_TENANT_ID,
     '--account',
     DEFAULT_ACCOUNT_ID,
-  ]);
+  ], {
+    env: {
+      ...process.env,
+      WOA_CLI_CONFIG: mediaCliConfigPath,
+    },
+  });
   check(
     mediaCliRequests.length === 1 &&
       mediaCliRequests[0]?.method === 'POST' &&
@@ -966,18 +1264,18 @@ const dynamicAccountCliTempDir = mkdtempSync(path.join(tmpdir(), 'woa-dynamic-ac
 try {
   const address = dynamicAccountCliServer.address();
   const port = typeof address === 'object' && address ? address.port : 0;
+  const dynamicAccountConfigPath = path.join(dynamicAccountCliTempDir, 'cli.json');
+  writeCliOAuthFixtureConfig(dynamicAccountConfigPath, `http://127.0.0.1:${port}`);
   const output = await execFileText(process.execPath, [
     './dist/src/cli/woa.js',
     'account',
     'status',
     '--server',
     `http://127.0.0.1:${port}`,
-    '--token',
-    'TEST_TOKEN',
   ], {
     env: {
       ...process.env,
-      WOA_CLI_CONFIG: path.join(dynamicAccountCliTempDir, 'cli.json'),
+      WOA_CLI_CONFIG: dynamicAccountConfigPath,
     },
   });
   check(
@@ -1070,6 +1368,10 @@ check(
     deployWorkflowSource.includes('name: production') &&
     deployWorkflowSource.includes('Missing required production secrets') &&
     !deployWorkflowSource.includes('Skipping production deploy') &&
+    deployWorkflowSource.includes('Require verified CLI latest before public deployment') &&
+    deployWorkflowSource.includes('Public deployment requires @ziikoo/woa@latest=') &&
+    deployWorkflowSource.includes('woa help agent --format json') &&
+    deployWorkflowSource.indexOf('Require verified CLI latest before public deployment') < deployWorkflowSource.indexOf('Apply D1 migrations') &&
     deployWorkflowSource.indexOf('Validate Worker bundle before remote changes') < deployWorkflowSource.indexOf('Apply D1 migrations') &&
     deployWorkflowSource.includes('Verify production health and MCP auth boundary') &&
     deployWorkflowSource.includes(pinnedCheckoutSha) &&
@@ -1095,11 +1397,16 @@ check(
     npmPublishWorkflowSource.includes('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}') &&
     npmPublishWorkflowSource.includes('npm whoami --registry=https://registry.npmjs.org/') &&
     npmPublishWorkflowSource.includes('Publish with npm automation token') &&
-    npmPublishWorkflowSource.includes("NPM_CONFIG_PROVENANCE: 'false'") &&
-    !npmPublishWorkflowSource.includes("NPM_CONFIG_PROVENANCE: 'true'") &&
+    npmPublishWorkflowSource.includes('id-token: write') &&
+    npmPublishWorkflowSource.includes("NPM_CONFIG_PROVENANCE: 'true'") &&
+    npmPublishWorkflowSource.includes('npm publish --access public --provenance') &&
+    npmPublishWorkflowSource.includes('must be published and verified on dist-tag next') &&
+    npmPublishWorkflowSource.includes('is not the exact version currently verified on dist-tag next') &&
+    npmPublishWorkflowSource.includes('Promote verified exact version') &&
+    npmPublishWorkflowSource.includes('npm dist-tag add "$PACKAGE_NAME@$PACKAGE_VERSION" "$DIST_TAG"') &&
     npmPublishWorkflowSource.includes(pinnedCheckoutSha) &&
     npmPublishWorkflowSource.includes(pinnedSetupNodeSha),
-  'npm 发布校验 tag/version/main 可达性与包内容，验证自动化 Token，并支持私有源码仓库的跨环境幂等发布',
+  'npm 发布校验 tag/version/main/包内容，启用 provenance，并仅把已验证的 exact next 版本提升到 latest',
 );
 check(
   turnstileWorkflowSource.includes('group: turnstile-production') &&
@@ -1366,7 +1673,76 @@ const quotaContext = createDefaultTenantContext({
   userId: 'user_quota',
   tenantId: 'tenant_quota',
   accountId: 'acct_quota',
+  appId: 'wx1234567890abcdef',
 });
+const minimalWriteContext = {
+  ...quotaContext,
+  scopes: ['wechat.mcp', 'woa:content:read', 'woa:content:write'],
+};
+let publishWithoutScopeCode;
+let publishWithoutScopeHandlerCalls = 0;
+try {
+  await executeMcpToolWithQuota({
+    tool: {
+      name: 'wechat_publish',
+      description: 'scope denial fixture',
+      inputSchema: {},
+      handler: async () => {
+        publishWithoutScopeHandlerCalls += 1;
+        return { content: [{ type: 'text', text: 'must not execute' }] };
+      },
+    },
+    apiClient: {},
+    params: { action: 'submit', mediaId: 'MEDIA_SCOPE_DENIED' },
+    tenantContext: minimalWriteContext,
+    usageStore: quotaStore,
+  });
+} catch (error) {
+  publishWithoutScopeCode = error?.code;
+}
+check(
+  publishWithoutScopeCode === 'missing_scope' && publishWithoutScopeHandlerCalls === 0,
+  'MCP 默认 read/write grant 缺少 content:publish 时在 quota 与微信 API 前拒绝发布调用',
+);
+const accountScopedContext = {
+  ...quotaContext,
+  scopes: ['wechat.mcp', 'woa:content:read'],
+  accounts: [
+    ...quotaContext.accounts,
+    {
+      tenantId: 'tenant_quota',
+      accountId: 'acct_quota_second',
+      slug: 'second',
+      name: 'Second',
+      status: 'active',
+      isDefault: false,
+    },
+  ],
+};
+const resolvedMcpAccounts = [];
+const accountScopedResult = await executeMcpToolWithQuota({
+  tool: {
+    name: 'wechat_draft',
+    description: 'account-scoped client fixture',
+    inputSchema: {},
+    handler: async (_params, apiClient) => ({
+      content: [{ type: 'text', text: apiClient.accountId }],
+    }),
+  },
+  resolveApiClient: async account => {
+    resolvedMcpAccounts.push(account.accountId);
+    return { accountId: account.accountId };
+  },
+  params: { action: 'count', accountId: 'acct_quota_second' },
+  tenantContext: accountScopedContext,
+  usageStore: quotaStore,
+});
+check(
+  resolvedMcpAccounts.join(',') === 'acct_quota_second' &&
+    accountScopedResult.content[0]?.text === 'acct_quota_second' &&
+    accountScopedResult._meta?.accountId === 'acct_quota_second',
+  'MCP tools/call 以 trusted account context 构造 account-scoped API client，不复用 global default client',
+);
 const quotaPublishTool = {
   name: 'wechat_publish',
   description: 'quota publish fixture',
@@ -1565,7 +1941,7 @@ const restDeletePublishResponse = await handleManagementApiRequest(
     method: 'DELETE',
     headers: {
       authorization: 'Bearer TEST_TOKEN',
-      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:write',
+      'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:publish',
     },
   }),
   {
@@ -1729,19 +2105,26 @@ const usageCliServer = createServer((req, res) => {
   }));
 });
 await new Promise(resolve => usageCliServer.listen(0, '127.0.0.1', resolve));
+const usageCliTempDir = mkdtempSync(path.join(tmpdir(), 'woa-usage-cli-'));
 try {
   const address = usageCliServer.address();
   const usageCliPort = typeof address === 'object' && address ? address.port : 0;
+  const usageCliServerUrl = `http://127.0.0.1:${usageCliPort}`;
+  const usageCliConfigPath = path.join(usageCliTempDir, 'cli.json');
+  writeCliOAuthFixtureConfig(usageCliConfigPath, usageCliServerUrl);
   const usageCliOutput = await execFileText(process.execPath, [
     './dist/src/cli/woa.js',
     'usage',
     '--server',
-    `http://127.0.0.1:${usageCliPort}`,
-    '--token',
-    'TEST_TOKEN',
+    usageCliServerUrl,
     '--tenant',
     DEFAULT_TENANT_ID,
-  ]);
+  ], {
+    env: {
+      ...process.env,
+      WOA_CLI_CONFIG: usageCliConfigPath,
+    },
+  });
   check(
     usageCliRequestsOk(usageCliServerRequests) &&
       usageCliOutput.includes('"upgradePrompt"') &&
@@ -1749,6 +2132,7 @@ try {
     'woa usage CLI 调用远程 /api/v1/tenants/:tenantId/usage 并输出升级提示',
   );
 } finally {
+  rmSync(usageCliTempDir, { recursive: true, force: true });
   await new Promise(resolve => usageCliServer.close(resolve));
 }
 
@@ -2943,11 +3327,11 @@ class MemorySaasD1Statement {
     }
 
     if (q.startsWith('UPDATE operator_email_codes SET attempts')) {
-      const [nextAttempts, compareAttempts, consumedAt, updatedAt, id] = this.values;
+      const [consumedAt, updatedAt, id, now] = this.values;
       const row = this.db.emailCodes.get(id);
-      if (row) {
-        row.attempts = nextAttempts;
-        if (compareAttempts >= row.max_attempts) row.consumed_at = consumedAt;
+      if (row && row.consumed_at === null && row.expires_at > now && row.attempts < row.max_attempts) {
+        row.attempts += 1;
+        if (row.attempts >= row.max_attempts) row.consumed_at = consumedAt;
         row.updated_at = updatedAt;
         return { success: true, meta: { changes: 1 } };
       }
@@ -3408,9 +3792,33 @@ class MemorySaasD1Statement {
         .sort((a, b) => b.issued_at - a.issued_at)[0] ?? null;
     }
 
+    if (q.startsWith('SELECT attempts, max_attempts')) {
+      return this.db.emailCodes.get(this.values[0]) ?? null;
+    }
+
     if (q.startsWith('SELECT count, reset_at')) {
       const [bucket, keyHash, windowStart] = this.values;
       return this.db.rateLimits.get(`${bucket}:${keyHash}:${windowStart}`) ?? null;
+    }
+
+    if (q.startsWith('INSERT INTO public_signup_rate_limits')) {
+      const [bucket, keyHash, windowStart, resetAt, createdAt, updatedAt] = this.values;
+      const key = `${bucket}:${keyHash}:${windowStart}`;
+      const existing = this.db.rateLimits.get(key);
+      const row = existing ?? {
+        bucket,
+        key_hash: keyHash,
+        window_start: windowStart,
+        count: 0,
+        reset_at: resetAt,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      };
+      row.count += 1;
+      row.reset_at = resetAt;
+      row.updated_at = updatedAt;
+      this.db.rateLimits.set(key, row);
+      return { count: row.count };
     }
 
     if (q.startsWith('SELECT id, operator_id, expires_at')) {
@@ -3640,8 +4048,8 @@ await saasStore.revokeWebSession('sess_test', 21_000);
 const revokedSession = await saasStore.getWebSession('WEB_SESSION', 22_000);
 check(
   invalidRedirectRejected && rememberedConsent &&
-    tokenSession.accessExpiresAt === 10_000 + 60 * 60 * 1000 &&
-    tokenSession.refreshExpiresAt === 10_000 + 30 * 24 * 60 * 60 * 1000 &&
+    tokenSession.accessExpiresAt === 10_000 + OAUTH_ACCESS_TOKEN_TTL_MS &&
+    tokenSession.refreshExpiresAt === 10_000 + OAUTH_REFRESH_TOKEN_TTL_MS &&
     webSession.expiresAt === 10_000 + 7 * 24 * 60 * 60 * 1000 &&
     slidingSession?.expiresAt === 20_000 + 7 * 24 * 60 * 60 * 1000 &&
     revokedSession === null &&
@@ -3671,7 +4079,17 @@ saasDb.tenantOwners.set('ten_orphan_partial', {
 });
 const repairedBootstrap = await saasStore.bootstrapDefaultTenantForOperator({ operatorId: orphanOperator.operator.operatorId, now: 51_200 });
 const repairedContext = await saasStore.getTenantContextForOperator(orphanOperator.operator.operatorId, { source: 'rest' });
-const ownerContext = await saasStore.getTenantContextForOperator({ operatorId: verifiedCode.operator.operatorId, scopes: ['woa:tenant:read', 'woa:account:read', 'woa:account:write'], requestId: 'req_owner' }, { source: 'rest' });
+const ownerContext = await saasStore.getTenantContextForOperator({
+  operatorId: verifiedCode.operator.operatorId,
+  scopes: [
+    'woa:tenant:read',
+    'woa:account:read',
+    'woa:account:write',
+    'woa:security:read',
+    'woa:security:write',
+  ],
+  requestId: 'req_owner',
+}, { source: 'rest' });
 const routeSession = await saasStore.createWebSession({ operatorId: verifiedCode.operator.operatorId, sessionToken: 'WEB_SESSION_ROUTE', sessionId: 'sess_route', now: 51_500 });
 const sessionListResponse = await handleManagementApiRequest(
   new Request('https://worker.example.test/api/v1/sessions'),
@@ -4035,11 +4453,16 @@ const downgradeLockResult = await saasStore.reconcileAccountAllowanceLocks({ ten
 const lockedAccounts = [...saasDb.accounts.values()]
   .filter(row => row.tenant_id === 'ten_owner' && row.status === 'locked')
   .map(row => ({ ...row }));
+const lockedTenantContext = await saasStore.getTenantContextForOperator(
+  verifiedCode.operator.operatorId,
+  { source: 'mcp' },
+);
 const upgradeUnlockResult = await saasStore.reconcileAccountAllowanceLocks({ tenantId: 'ten_owner', plan: 'pro', now: 64_400 });
 const allowanceReconciliationOk =
   tenantOwner?.verifiedEmail === 'owner@example.com' &&
   downgradeLockResult.locked.length === 3 &&
   lockedAccounts.length === 3 &&
+  lockedTenantContext.accounts.filter(account => account.status === 'locked').length === 3 &&
   lockedAccounts.every(row => row.plan_lock_reason === 'plan:free:account_allowance:1') &&
   saasDb.accounts.get('acct_third').app_secret === configuredSecretBeforeLock &&
   upgradeUnlockResult.unlocked.length === 3 &&

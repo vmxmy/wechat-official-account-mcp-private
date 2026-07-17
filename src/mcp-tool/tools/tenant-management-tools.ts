@@ -11,7 +11,10 @@ import {
   contextFromParams,
   publicAccounts,
   publicContext,
+  publicTenants,
   requireScope,
+  requireConfigurableAccount,
+  requireTenantScope,
   type AccountContext,
   type TenantRequestContext,
 } from '../../worker/tenant-context.js';
@@ -67,6 +70,11 @@ export interface TenantManagementMcpToolOptions {
     config: WechatConfig,
     account: AccountContext,
   ) => Promise<AccessTokenInfo | null | undefined>;
+  persistValidatedWechatCredentials?: (input: {
+    config: WechatConfig;
+    account: AccountContext;
+    tokenInfo: AccessTokenInfo | null | undefined;
+  }) => Promise<WechatResourceRecord>;
 }
 
 /**
@@ -99,6 +107,7 @@ function createContextTool(options: TenantManagementMcpToolOptions): McpTool {
       requireScope(context, 'woa:context:read');
       const account = accountFromParams(params);
       const tenantId = account?.tenantId ?? context.defaultTenantId;
+      if (tenantId) requireTenantScope(context, tenantId, 'woa:context:read');
       const operator = options.onboardingStore
         ? await options.onboardingStore.findOperatorById(context.userId)
         : null;
@@ -147,15 +156,16 @@ function createTenantTool(options: TenantManagementMcpToolOptions): McpTool {
       requireScope(context, 'woa:tenant:read');
 
       if (validated.action === 'list') {
-        return textResult('可访问租户', { tenants: context.tenants });
+        return textResult('可访问租户', { tenants: publicTenants(context.tenants) });
       }
 
       const tenant = requireAccessibleTenant(context, validated.tenantId);
+      requireTenantScope(context, tenant.tenantId, 'woa:tenant:read');
       if (validated.action === 'get') {
-        return textResult('租户详情', { tenant });
+        return textResult('租户详情', { tenant: publicTenants([tenant])[0] });
       }
 
-      requireScope(context, 'woa:tenant:write');
+      requireTenantScope(context, tenant.tenantId, 'woa:tenant:write');
       if (!validated.displayName) {
         return structuredError('validation_error', 'update 需要 displayName');
       }
@@ -203,6 +213,7 @@ function createAccountTool(options: TenantManagementMcpToolOptions): McpTool {
       try {
         if (validated.action === 'list') {
           const tenant = requireAccessibleTenant(context, validated.tenantId);
+          requireTenantScope(context, tenant.tenantId, 'woa:account:read');
           const accounts = options.onboardingStore
             ? (await options.onboardingStore.listWechatResources(tenant.tenantId)).map(publicResource)
             : publicAccounts(context.accounts.filter(item => item.tenantId === tenant.tenantId));
@@ -210,8 +221,9 @@ function createAccountTool(options: TenantManagementMcpToolOptions): McpTool {
         }
 
         if (validated.action === 'create') {
-          requireScope(context, 'woa:account:write');
           const tenant = requireAccessibleTenant(context, validated.tenantId);
+          requireTenantScope(context, tenant.tenantId, 'woa:account:read');
+          requireTenantScope(context, tenant.tenantId, 'woa:account:write');
           if (!options.onboardingStore) {
             return structuredError('runtime_unavailable', '公众号资源持久化存储未配置。');
           }
@@ -232,6 +244,7 @@ function createAccountTool(options: TenantManagementMcpToolOptions): McpTool {
         }
 
         const account = requireAccessibleAccount(params);
+        requireTenantScope(context, account.tenantId, 'woa:account:read');
         if (validated.action === 'get') {
           const resource = await getResource(options, account);
           return textResult('公众号账号详情', { account: publicResource(resource ?? account.account) });
@@ -254,8 +267,9 @@ function createAccountTool(options: TenantManagementMcpToolOptions): McpTool {
           return legacyAccountStatus(account, await apiClient.getAuthManager().getConfig());
         }
 
-        requireScope(context, 'woa:account:write');
+        requireTenantScope(context, account.tenantId, 'woa:account:write');
         if (validated.action === 'configure') {
+          requireConfigurableAccount(account);
           if (!validated.appId || !validated.appSecret) {
             return structuredError('validation_error', 'configure 需要 appId 和 appSecret');
           }
@@ -284,12 +298,15 @@ function createAccountTool(options: TenantManagementMcpToolOptions): McpTool {
             token: validated.token,
             encodingAESKey: validated.encodingAESKey,
           };
-          const configured = await options.onboardingStore.validateAndPersistWechatCredentials({
-            tenantId: account.tenantId,
-            resourceId: account.accountId,
-            config,
-            validate: async current => await options.validateWechatCredentials!(current, account),
-          });
+          const tokenInfo = await options.validateWechatCredentials(config, account);
+          const configured = options.persistValidatedWechatCredentials
+            ? await options.persistValidatedWechatCredentials({ config, account, tokenInfo })
+            : await options.onboardingStore.configureValidatedWechatCredentials({
+              tenantId: account.tenantId,
+              resourceId: account.accountId,
+              config,
+              tokenInfo,
+            });
           await writeAudit(options, context, {
             tenantId: account.tenantId,
             accountId: account.accountId,
@@ -404,6 +421,7 @@ function createAuditTool(options: TenantManagementMcpToolOptions): McpTool {
       const context = contextFromParams(params);
       requireScope(context, 'woa:audit:read');
       const tenant = requireAccessibleTenant(context, validated.tenantId);
+      requireTenantScope(context, tenant.tenantId, 'woa:audit:read');
       if (validated.accountId) {
         requireAccessibleAccount(params);
       }

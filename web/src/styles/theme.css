@@ -127,6 +127,101 @@ select {
   max-width: 840px;
 }
 
+.app-layout-content--landing {
+  min-height: calc(100dvh - 68px);
+  padding: clamp(44px, 7vw, 80px) 32px 32px;
+}
+
+.app-page-frame--landing {
+  max-width: 720px;
+}
+
+.agent-landing {
+  display: flex;
+  min-width: 0;
+  min-height: calc(100dvh - 68px - clamp(76px, 10vw, 112px));
+  flex-direction: column;
+  animation: ui-enter var(--duration-medium) var(--ease-standard) both;
+}
+
+.agent-landing-intro {
+  display: grid;
+  min-width: 0;
+  gap: var(--spacing-4);
+}
+
+.agent-landing h1 {
+  max-width: 680px;
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: clamp(2.25rem, 6vw, 4rem);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.055em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.agent-headline-term {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.agent-landing-intro .astryx-text {
+  max-width: 680px;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+.agent-prompt {
+  min-width: 0;
+  margin-top: var(--spacing-8);
+}
+
+.agent-prompt h2 {
+  margin: 0 0 var(--spacing-3);
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.agent-prompt .astryx-code-block {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.agent-copy-action {
+  display: flex;
+  margin-top: var(--spacing-4);
+}
+
+.agent-copy-status {
+  min-height: 1.5em;
+  margin: var(--spacing-2) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.agent-safety-note {
+  margin: var(--spacing-6) 0 0;
+  padding: var(--spacing-4) 0;
+  border-block: var(--border-width) solid var(--color-border);
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+.agent-landing-footer {
+  margin-top: auto;
+  padding-top: var(--spacing-8);
+}
+
+.agent-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3) var(--spacing-5);
+}
+
 .app-mobile-account {
   display: grid;
   gap: var(--spacing-3);
@@ -312,67 +407,6 @@ select {
 }
 
 /* MCP OAuth onboarding */
-.mcp-client-switcher {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-1);
-  padding-bottom: var(--spacing-2);
-  border-bottom: var(--border-width) solid var(--color-border);
-}
-
-.mcp-client-option {
-  min-height: 40px;
-  padding: var(--spacing-2) var(--spacing-4);
-  border: 0;
-  border-bottom: calc(var(--border-width) * 2) solid transparent;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-weight: var(--font-weight-medium);
-  transition:
-    border-color var(--duration-fast) var(--ease-standard),
-    background-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard);
-}
-
-.mcp-client-option:hover {
-  background: var(--color-background-muted);
-  color: var(--color-text-primary);
-}
-
-.mcp-client-option[data-selected="true"] {
-  border-bottom-color: var(--color-accent);
-  color: var(--color-text-primary);
-}
-
-.mcp-client-panel,
-.mcp-client-panel .astryx-code-block {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.mcp-step-list {
-  display: grid;
-  gap: var(--spacing-5);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.mcp-step-list > li {
-  min-width: 0;
-  padding-top: var(--spacing-4);
-  border-top: var(--border-width) solid var(--color-border);
-}
-
-.mcp-step-list > li:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.mcp-step-list .astryx-heading {
-  font-size: var(--font-size-base);
-}
 
 .mcp-auth-flow {
   display: flex;
@@ -396,15 +430,6 @@ select {
   color: var(--color-text-secondary);
   content: "→";
   font-weight: var(--font-weight-regular);
-}
-
-.mcp-unsupported-note {
-  margin: 0;
-  padding: var(--spacing-3) var(--spacing-4);
-  border-left: calc(var(--border-width) * 2) solid var(--color-border-emphasized);
-  background: var(--color-background-muted);
-  color: var(--color-text-primary);
-  line-height: 1.65;
 }
 
 /* Billing */
@@ -829,6 +854,28 @@ select {
     padding: 28px 18px 44px;
   }
 
+  .app-layout-content--landing {
+    padding: 32px 16px 24px;
+  }
+
+  .agent-landing {
+    min-height: calc(100dvh - 60px - 56px);
+  }
+
+  .agent-landing h1 {
+    font-size: clamp(2rem, 11vw, 2.75rem);
+  }
+
+  .agent-prompt {
+    margin-top: var(--spacing-7);
+  }
+
+  .agent-copy-action .astryx-button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
   .app-page-frame,
   .page-header,
   .page-stack,
@@ -859,10 +906,6 @@ select {
 
   .page-stack {
     gap: var(--spacing-4);
-  }
-
-  .mcp-client-option {
-    flex: 1 1 calc(50% - var(--spacing-1));
   }
 
   .mcp-auth-flow {
@@ -910,6 +953,10 @@ select {
 }
 
 @media (max-width: 520px) {
+  .agent-prompt-code {
+    --agent-prompt-max-height: none;
+  }
+
   .app-top-nav .astryx-button.ghost[aria-haspopup="menu"] > span:first-child > span:nth-child(2),
   .app-top-nav .astryx-button.ghost[aria-haspopup="menu"] > span:first-child > span:nth-child(3) {
     display: none;

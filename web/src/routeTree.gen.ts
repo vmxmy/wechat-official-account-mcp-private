@@ -14,6 +14,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding.js';
 import { Route as McpRouteImport } from './routes/mcp.js';
 import { Route as LoginRouteImport } from './routes/login.js';
 import { Route as BillingRouteImport } from './routes/billing.js';
+import { Route as AppRouteImport } from './routes/app.js';
 import { Route as IndexRouteImport } from './routes/index.js';
 import { Route as LegalTermsRouteImport } from './routes/legal/terms.js';
 import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy.js';
@@ -45,6 +46,11 @@ const BillingRoute = BillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => rootRouteImport,
 } as any);
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any);
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -73,6 +79,7 @@ const BillingCancelRoute = BillingCancelRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
+  '/app': typeof AppRoute;
   '/billing': typeof BillingRouteWithChildren;
   '/login': typeof LoginRoute;
   '/mcp': typeof McpRoute;
@@ -85,6 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
+  '/app': typeof AppRoute;
   '/billing': typeof BillingRouteWithChildren;
   '/login': typeof LoginRoute;
   '/mcp': typeof McpRoute;
@@ -98,6 +106,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/': typeof IndexRoute;
+  '/app': typeof AppRoute;
   '/billing': typeof BillingRouteWithChildren;
   '/login': typeof LoginRoute;
   '/mcp': typeof McpRoute;
@@ -112,6 +121,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | '/'
+    | '/app'
     | '/billing'
     | '/login'
     | '/mcp'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | '/'
+    | '/app'
     | '/billing'
     | '/login'
     | '/mcp'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/app'
     | '/billing'
     | '/login'
     | '/mcp'
@@ -149,6 +161,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  AppRoute: typeof AppRoute;
   BillingRoute: typeof BillingRouteWithChildren;
   LoginRoute: typeof LoginRoute;
   McpRoute: typeof McpRoute;
@@ -193,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/billing';
       fullPath: '/billing';
       preLoaderRoute: typeof BillingRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/app': {
+      id: '/app';
+      path: '/app';
+      fullPath: '/app';
+      preLoaderRoute: typeof AppRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/': {
@@ -248,6 +268,7 @@ const BillingRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRoute,
   BillingRoute: BillingRouteWithChildren,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,

@@ -1,15 +1,15 @@
 // HTTP-only library exports for the Cloudflare Workers Streamable HTTP MCP runtime.
 
 // MCP tools
-export * from './mcp-tool/tools/index';
-export * from './mcp-tool/types';
-export * from './mcp-tool/inbox-store';
+export * from './mcp-tool/tools/index.js';
+export * from './mcp-tool/types.js';
+export * from './mcp-tool/inbox-store.js';
 
-// Workers Remote MCP entry and helpers
-export * from './worker/index';
-export * from './worker/media-tools';
-export * from './worker/inbox-store';
-export * from './worker/wechat-webhook';
+// Worker-safe helpers. The runtime entry is exported separately as @ziikoo/woa/worker
+// so importing the package root in Node does not resolve cloudflare:workers.
+export * from './worker/media-tools.js';
+export * from './worker/inbox-store.js';
+export * from './worker/wechat-webhook.js';
 export {
   AccountResolutionError,
   ApiError,
@@ -30,16 +30,16 @@ export {
   type TenantAwareParams,
   type TenantRequestContext,
   type TenantSummary,
-} from './worker/tenant-context';
-export * from './worker/management-api';
-export * from './worker/saas-onboarding-store';
+} from './worker/tenant-context.js';
+export * from './worker/management-api.js';
+export * from './worker/saas-onboarding-store.js';
 
 // Storage and WeChat runtime seams
-export * from './storage/types';
-export * from './storage/d1-storage-manager';
-export * from './wechat/http-executor';
-export * from './wechat/workers-http-executor';
-export * from './wechat/proxy';
+export * from './storage/types.js';
+export * from './storage/d1-storage-manager.js';
+export * from './wechat/http-executor.js';
+export * from './wechat/workers-http-executor.js';
+export * from './wechat/proxy.js';
 
 // 工具函数
-export * from './utils/logger';
+export * from './utils/logger.js';

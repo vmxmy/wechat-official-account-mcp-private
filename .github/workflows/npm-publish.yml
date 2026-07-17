@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: npm-publish-woa
@@ -141,6 +142,7 @@ jobs:
                 shasum: versionMetadata?.dist?.shasum ?? '',
                 tarball: versionMetadata?.dist?.tarball ?? '',
                 taggedVersion: metadata['dist-tags']?.[process.env.DIST_TAG] ?? '',
+                nextVersion: metadata['dist-tags']?.next ?? '',
               }));
               process.exit(0);
             } catch (error) {
@@ -154,7 +156,12 @@ jobs:
             REGISTRY_METADATA="$registry_metadata" REGISTRY_FIELD="$1" node -e "const value=JSON.parse(require('node:fs').readFileSync(process.env.REGISTRY_METADATA, 'utf8'))[process.env.REGISTRY_FIELD]; process.stdout.write(String(value ?? ''));"
           }
           if [ "$(registry_field exists)" != "true" ]; then
+            if [ "$DIST_TAG" = "latest" ]; then
+              echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION must be published and verified on dist-tag next before it can be promoted to latest"
+              exit 1
+            fi
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "should_promote=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           remote_shasum="$(registry_field shasum)"
@@ -178,19 +185,36 @@ jobs:
             rm -rf "$compare_dir"
           fi
           if [ "$tagged_version" != "$PACKAGE_VERSION" ]; then
-            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION exists, but dist-tag $DIST_TAG points to ${tagged_version:-nothing}"
-            exit 1
+            if [ "$DIST_TAG" = "latest" ]; then
+              next_version="$(registry_field nextVersion)"
+              if [ "$next_version" != "$PACKAGE_VERSION" ]; then
+                echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is not the exact version currently verified on dist-tag next (found ${next_version:-nothing})"
+                exit 1
+              fi
+            fi
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "should_promote=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "::notice::$PACKAGE_NAME@$PACKAGE_VERSION is already published with the expected tarball and dist-tag; skipping publish"
           echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          echo "should_promote=false" >> "$GITHUB_OUTPUT"
 
       - name: Publish with npm automation token
         if: steps.registry.outputs.should_publish == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # npm provenance requires a public source repository; this repository is private.
-          NPM_CONFIG_PROVENANCE: 'false'
-        run: npm publish --access public --tag "${{ steps.release.outputs.dist_tag }}"
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: npm publish --access public --provenance --tag "${{ steps.release.outputs.dist_tag }}"
+
+      - name: Promote verified exact version
+        if: steps.registry.outputs.should_promote == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PACKAGE_NAME: ${{ steps.release.outputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+          DIST_TAG: ${{ steps.release.outputs.dist_tag }}
+        run: npm dist-tag add "$PACKAGE_NAME@$PACKAGE_VERSION" "$DIST_TAG"
 
       - name: Verify registry publication
         env:

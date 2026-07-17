@@ -55,6 +55,14 @@ The system SHALL validate WeChat AppID/AppSecret before activating a WeChat Offi
 - **WHEN** credential validation fails due to invalid secret, IP allowlist, relay, or WeChat API error
 - **THEN** the system returns the failure and does not persist the submitted AppSecret
 
+#### Scenario: Current relay egress IPs are authoritative
+- **WHEN** an authenticated onboarding client requests init context
+- **THEN** the system returns all current egress IPs from trusted `WECHAT_EGRESS_IPS` deployment configuration with a configuration version and does not infer them from user input, request headers, or frontend constants
+
+#### Scenario: Allowlist completion requires relay probe
+- **WHEN** the user reports adding the current egress IPs to the target WeChat allowlist
+- **THEN** the system marks allowlist verification complete only after the AppID/AppSecret token request succeeds through the configured relay
+
 #### Scenario: Secret-safe status response
 - **WHEN** a client requests resource status
 - **THEN** the system returns app ID, status, and secret presence flags without returning raw secrets

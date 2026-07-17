@@ -5,7 +5,7 @@
 - Public package: `@ziikoo/woa`
 - Executable: `woa`
 - Publish workflow: `.github/workflows/npm-publish.yml`
-- Required CI secret: `NPM_TOKEN` only. Cloudflare, Stripe, WeChat, Resend, Turnstile, GitHub OAuth, and encryption/runtime business secrets must remain in Cloudflare or provider consoles, not npm publish CI.
+- Required CI secret: `NPM_TOKEN` only. The workflow also grants GitHub OIDC `id-token: write` for npm provenance. Cloudflare, Stripe, WeChat, Resend, Turnstile, GitHub OAuth, and encryption/runtime business secrets must remain in Cloudflare or provider consoles, not npm publish CI.
 
 ## Publish procedure
 
@@ -19,12 +19,18 @@
    ```
 2. Confirm `package.json` has `name: "@ziikoo/woa"` and `bin.woa: "dist/src/cli/woa.js"`.
 3. Configure GitHub repository secret `NPM_TOKEN` with publish permission for the `ziikoo` npm scope.
-4. Trigger **Publish npm CLI** manually with dist-tag `latest` or push a `woa-v*` tag.
-5. Verify after publish:
+4. Confirm the GitHub source repository is public. npm does not issue provenance attestations for packages built from a private repository; release stops here while the repository remains private.
+5. Trigger **Publish npm CLI** manually from `main` with dist-tag `next`. The workflow publishes with provenance and verifies the exact package version, extracted contents, tarball integrity and `next` resolution.
+6. Exercise that exact prerelease. Do not change `package.json` or rebuild a different version between verification and promotion.
+7. Trigger the same workflow again from the same commit with dist-tag `latest`, or push the matching `woa-v<version>` tag. The workflow refuses to publish a new version directly to `latest`; it only moves `latest` when `next` already resolves to the same exact version and contents.
+8. Verify after promotion:
    ```bash
-   npm view @ziikoo/woa version
-   npx @ziikoo/woa --help
+   npm view @ziikoo/woa dist-tags versions --json
+   npx -y --registry=https://registry.npmjs.org --package @ziikoo/woa@latest woa --version
+   npx -y --registry=https://registry.npmjs.org --package @ziikoo/woa@latest woa help agent
    ```
+
+The public Agent bootstrap page may deploy only after step 8 succeeds. Moving `latest` to a version that was not the verified `next` artifact is a release failure.
 
 ## Old package removal external task
 

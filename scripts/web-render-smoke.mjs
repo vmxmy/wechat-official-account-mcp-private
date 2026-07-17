@@ -22,8 +22,10 @@ function apiResponse(data, status = 200) {
 }
 
 function installFetch(authenticated = true) {
+  const requests = [];
   globalThis.fetch = async input => {
     const url = String(input);
+    requests.push(url);
     if (url === '/api/v1/me') {
       if (!authenticated) return apiResponse(null, 401);
       return apiResponse({
@@ -62,10 +64,11 @@ function installFetch(authenticated = true) {
     }
     return apiResponse({});
   };
+  return requests;
 }
 
 async function renderPath(path, authenticated = true) {
-  installFetch(authenticated);
+  const requests = installFetch(authenticated);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -83,7 +86,7 @@ async function renderPath(path, authenticated = true) {
     { client: queryClient },
     createElement(RouterProvider, { router }),
   ));
-  return { html, location: router.state.location.href };
+  return { html, location: router.state.location.href, requests };
 }
 
 async function unauthenticatedRedirectHref() {
@@ -107,33 +110,41 @@ async function unauthenticatedRedirectHref() {
 
 try {
   const cases = {
+    landing: await renderPath('/'),
+    app: await renderPath('/app'),
     login: await renderPath('/login?returnTo=%2Fonboarding'),
     onboarding: await renderPath('/onboarding'),
     billing: await renderPath('/billing'),
-    mcp: await renderPath('/mcp?client=kimi'),
-    mcpClaude: await renderPath('/mcp?client=claude'),
-    mcpCodex: await renderPath('/mcp?client=codex'),
-    mcpOther: await renderPath('/mcp?client=other'),
-    mcpFallback: await renderPath('/mcp?client=static-bearer'),
+    mcp: await renderPath('/mcp'),
     security: await renderPath('/security'),
     unauthenticatedHref: await unauthenticatedRedirectHref(),
   };
   const result = {
-    login: cases.login.html.includes('欢迎回来'),
+    landing:
+      cases.landing.html.includes('让 Agent 配好<span class="agent-headline-term">微信公众号</span> MCP') &&
+      cases.landing.html.includes('@ziikoo/woa@latest') &&
+      cases.landing.html.includes('复制给 Agent') &&
+      !cases.landing.html.includes('astryx-side-nav') &&
+      !cases.landing.html.includes('app-mobile-account') &&
+      cases.landing.requests.length === 0,
+    app: cases.app.html.includes('WOA 概览'),
+    login:
+      cases.login.html.includes('<h1') &&
+      cases.login.html.includes('欢迎回来</h1>') &&
+      cases.login.html.includes('<h2 class="auth-story-title">安全连接公众号与 AI 客户端</h2>') &&
+      (cases.login.html.match(/<h1\b/g) ?? []).length === 1,
     onboarding: cases.onboarding.html.includes('公众号连接'),
     billing: cases.billing.html.includes('订阅与用量'),
     mcp:
-      cases.mcp.html.includes('连接远程 MCP') &&
-      cases.mcp.html.includes('无需复制 token') &&
-      cases.mcp.html.includes('/mcp-config login wechat-woa'),
-    mcpClaude: cases.mcpClaude.html.includes('claude mcp login wechat-woa'),
-    mcpCodex: cases.mcpCodex.html.includes('codex mcp login wechat-woa'),
-    mcpOther:
-      cases.mcpOther.html.includes('当前不属于受支持客户端') &&
-      !cases.mcpOther.html.includes('Authorization: Bearer'),
-    mcpFallback:
-      cases.mcpFallback.html.includes('Kimi Code') &&
-      cases.mcpFallback.html.includes('/mcp-config login wechat-woa'),
+      cases.mcp.html.includes('远程 MCP 参数') &&
+      cases.mcp.html.includes('通用 descriptor') &&
+      cases.mcp.html.includes('streamable-http') &&
+      cases.mcp.html.includes('headers') &&
+      cases.mcp.html.includes('无浏览器服务器') &&
+      !cases.mcp.html.includes('Kimi Code') &&
+      !cases.mcp.html.includes('Claude Code') &&
+      !cases.mcp.html.includes('Codex') &&
+      !cases.mcp.html.includes('Authorization: Bearer'),
     security: cases.security.html.includes('会话与授权客户端'),
     unauthenticatedRedirect:
       cases.unauthenticatedHref === '/login?returnTo=%2Fsecurity%3Ftab%3Dclients',

@@ -77,11 +77,27 @@ The system SHALL support dynamic public OAuth clients for CLI/MCP with PKCE, red
 
 #### Scenario: OAuth token lifetime
 - **WHEN** the system issues CLI or MCP OAuth tokens
-- **THEN** access tokens expire after 1 hour and refresh tokens expire after 30 days
+- **THEN** access tokens expire after 8 hours, rotating refresh tokens expire after 180 days, dynamic clients expire after 365 days, and no non-expiring bearer token is issued
 
 #### Scenario: Revoked token fails
 - **WHEN** an Operator revokes a CLI or MCP authorization
 - **THEN** future use of its access or refresh token fails at or before the next token validation window
+
+#### Scenario: Protected resource metadata is discoverable
+- **WHEN** an unauthenticated native MCP client requests `/mcp`
+- **THEN** the response uses the standard Bearer challenge with protected-resource metadata needed to discover authorization server metadata
+
+#### Scenario: CLI and host grants are isolated
+- **WHEN** a CLI session and a target MCP host are both authorized
+- **THEN** they receive independent clients/grants/refresh-token lifecycles and neither copies the other's access token into configuration
+
+#### Scenario: Agent onboarding requests minimal scopes
+- **WHEN** `woa init` authorizes CLI setup or a host MCP connection
+- **THEN** it requests only the account/context/content scopes required for that stage and excludes publish, billing, audit, and tenant write unless separately requested
+
+#### Scenario: Headless CLI completes without local browser
+- **WHEN** a user runs the CLI on a server without a browser
+- **THEN** the CLI prints a safe authorization URL for another trusted device and accepts the resulting callback only through a direct no-echo human input path, never through Agent JSONL or argv
 
 ### Requirement: Legacy shared-password authorization removal
 The system SHALL remove the legacy shared authorization-password flow when the new identity system launches.

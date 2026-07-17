@@ -105,10 +105,12 @@ await page.route('**/api/**', async route => {
 });
 
 for (const [name, route] of [
+  ['landing', '/'],
+  ['app', '/app'],
   ['login', '/login'],
   ['onboarding', '/onboarding'],
   ['billing', '/billing'],
-  ['mcp', '/mcp?client=kimi'],
+  ['mcp', '/mcp'],
   ['security', '/security'],
 ]) {
   await page.goto(`http://127.0.0.1:4173${route}`, { waitUntil: 'networkidle' });
@@ -118,8 +120,26 @@ for (const [name, route] of [
   });
 }
 
+await page.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' });
+await page.evaluate(() => {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: undefined,
+  });
+});
+await page.getByRole('button', { name: '复制给 Agent' }).click();
+await page.getByRole('status').filter({ hasText: '任务文本已选中' }).waitFor();
+const selectedPrompt = await page.evaluate(() => window.getSelection()?.toString() ?? '');
+if (!selectedPrompt.includes('@ziikoo/woa@latest') || !selectedPrompt.includes('woa help agent')) {
+  throw new Error('Clipboard fallback did not select the complete Agent bootstrap prompt.');
+}
+await page.screenshot({
+  path: path.join(outputDir, 'landing-clipboard-fallback.png'),
+  fullPage: false,
+});
+
 await page.setViewportSize({ width: 390, height: 844 });
-await page.goto('http://127.0.0.1:4173/mcp?client=kimi', { waitUntil: 'networkidle' });
+await page.goto('http://127.0.0.1:4173/mcp', { waitUntil: 'networkidle' });
 await page.screenshot({
   path: path.join(outputDir, 'mcp-mobile.png'),
   fullPage: true,
@@ -127,4 +147,4 @@ await page.screenshot({
 
 await context.close();
 await browser.close();
-process.stdout.write(`${JSON.stringify({ outputDir, screenshots: 6 })}\n`);
+process.stdout.write(`${JSON.stringify({ outputDir, screenshots: 9, clipboardFallback: true })}\n`);

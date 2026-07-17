@@ -47,7 +47,7 @@ async function handleAuthCore(args: unknown, authManager: WechatAuthManagerLike)
       return {
         content: [{
           type: 'text',
-          text: `微信公众号配置已成功保存${accountLine}\n- AppID: ${appId}\n- Token: ${token || '未设置'}\n- EncodingAESKey: ${encodingAESKey || '未设置'}`,
+          text: `微信公众号配置已成功保存${accountLine}\n- AppID: ${appId}\n- Token: ${token ? '已设置' : '未设置'}\n- EncodingAESKey: ${encodingAESKey ? '已设置' : '未设置'}`,
         }],
       };
     }
@@ -90,7 +90,7 @@ async function handleAuthCore(args: unknown, authManager: WechatAuthManagerLike)
       return {
         content: [{
           type: 'text',
-          text: `当前微信公众号配置:${accountLine}\n- AppID: ${config.appId}\n- AppSecret: ***\n- Token: ${config.token || '未设置'}\n- EncodingAESKey: ${config.encodingAESKey || '未设置'}`,
+          text: `当前微信公众号配置:${accountLine}\n- AppID: ${config.appId}\n- AppSecret: 已设置\n- Token: ${config.token ? '已设置' : '未设置'}\n- EncodingAESKey: ${config.encodingAESKey ? '已设置' : '未设置'}`,
         }],
       };
     }
@@ -169,9 +169,9 @@ export const authTool: WechatToolDefinition = {
  */
 export const authMcpTool: McpTool = {
   name: 'wechat_auth',
-  description: '管理微信公众号认证配置和 Access Token',
+  description: '查看并刷新当前公众号 Access Token；凭据配置统一使用安全 handoff 或 woa_account',
   inputSchema: {
-    action: z.enum(['configure', 'get_token', 'refresh_token', 'get_config', 'clear']).describe('操作类型：configure(配置), get_token(获取令牌), refresh_token(刷新令牌), get_config(获取配置), clear(清除账号配置)'),
+    action: z.enum(['get_token', 'refresh_token', 'get_config']).describe('操作类型：get_token(查看令牌状态), refresh_token(刷新令牌), get_config(查看脱敏配置)'),
     accountId: z.string().min(1).max(128).optional().describe('公众号账号 ID（多租户模式可选；省略时使用默认/唯一账号）'),
     appId: z.string().optional().describe('微信公众号 AppID（配置时必需）'),
     appSecret: z.string().optional().describe('微信公众号 AppSecret（配置时必需）'),

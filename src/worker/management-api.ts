@@ -7,7 +7,11 @@ import {
   jsonResponse,
   publicAccounts,
   publicContext,
+  publicTenants,
+  requireConfigurableAccount,
+  requireOperationalAccount,
   requireScope,
+  requireTenantScope,
   resolveAccountContext,
   type AccountContext,
   type TenantRequestContext,
@@ -31,9 +35,13 @@ import {
 } from './saas-onboarding-store.js';
 import { stageMediaUpload, type R2MediaUploadBucket } from './media-upload.js';
 import type { D1AuditLogWriter } from './audit-log.js';
+import {
+  handleAgentInitManagementRoute,
+  type AgentInitManagementDeps,
+} from './agent-init.js';
 
 export interface ManagementApiDeps {
-  createApiClient(): Promise<WechatApiClient>;
+  createApiClient(account?: AccountContext): Promise<WechatApiClient>;
   appId?: string | null;
   defaultUserId?: string | null;
   defaultClientId?: string | null;
@@ -42,7 +50,23 @@ export interface ManagementApiDeps {
   mediaBucket?: R2MediaUploadBucket;
   onboardingStore?: D1SaasOnboardingStore;
   auditLog?: D1AuditLogWriter;
+  agentInit?: AgentInitManagementDeps;
+  listOAuthGrantSessions?(operatorId: string): Promise<Array<{
+    id: string;
+    kind: 'oauth';
+    clientName: string;
+    clientId?: string;
+    createdAt: number;
+    expiresAt: number;
+    canRevoke: boolean;
+  }>>;
+  revokeOAuthGrant?(grantId: string, operatorId: string): Promise<boolean>;
   validateWechatCredentials?(config: WechatConfig, account: AccountContext): Promise<{ accessToken: string; expiresIn: number; expiresAt: number } | null | undefined>;
+  persistValidatedWechatCredentials?(input: {
+    config: WechatConfig;
+    account: AccountContext;
+    tokenInfo: { accessToken: string; expiresIn: number; expiresAt: number } | null | undefined;
+  }): Promise<WechatResourceRecord>;
   trustedContext?: TenantRequestContext;
   allowUnsafeHeaderContextForTests?: boolean;
 }
@@ -95,11 +119,27 @@ export async function handleManagementApiRequest(
           '/api/v1/sessions',
           '/api/v1/sessions/:sessionId',
           '/api/v1/audit',
+          '/api/v1/init/context',
+          '/api/v1/init/runs',
+          '/api/v1/init/runs/:runId',
+          '/api/v1/init/runs/:runId/egress-confirmation',
+          '/api/v1/init/runs/:runId/credential-handoffs',
+          '/api/v1/init/runs/:runId/credential-handoffs/:handoffId/status',
+          '/api/v1/init/runs/:runId/test-draft',
         ],
       });
     }
 
+    const agentInitResponse = await handleAgentInitManagementRoute(
+      request,
+      segments,
+      context,
+      deps.agentInit,
+    );
+    if (agentInitResponse) return agentInitResponse;
+
     if (request.method === 'GET' && segments[0] === 'me' && segments.length === 1) {
+      requireScope(context, 'woa:context:read');
       const data = publicContext(context);
       const operator = await deps.onboardingStore?.findOperatorById(context.userId);
       if (operator) {
@@ -113,6 +153,15 @@ export async function handleManagementApiRequest(
 
     if (request.method === 'POST' && segments[0] === 'me' && segments[1] === 'deletion' && segments.length === 2) {
       requireScope(context, 'woa:tenant:write');
+      const nonOwnerTenant = context.tenants.find(tenant => tenant.role !== 'owner');
+      if (nonOwnerTenant) {
+        throw new ApiError(
+          'membership_role_denied',
+          'Operator deletion requires owner access to every current tenant membership.',
+          403,
+          { tenantId: nonOwnerTenant.tenantId, role: nonOwnerTenant.role },
+        );
+      }
       if (!deps.onboardingStore) {
         throw new ApiError('runtime_unavailable', 'Operator deletion store is not configured in this runtime.', 503);
       }
@@ -162,6 +211,7 @@ export async function handleManagementApiRequest(
       if (!tenant) {
         throw new ApiError('tenant_forbidden', `Tenant ${tenantId} is not accessible.`, 403);
       }
+      requireTenantScope(context, tenantId, 'woa:audit:read');
       if (accountId) {
         resolveAccountContext({ tenantId, accountId }, context, { requireAccount: true });
       }
@@ -267,14 +317,36 @@ async function handleSessionRoutes(
   }
 
   if (request.method === 'GET' && segments.length === 1) {
-    const sessions = await deps.onboardingStore.listSecuritySessions(context.userId);
+    requireScope(context, 'woa:security:read');
+    const storedSessions = await deps.onboardingStore.listSecuritySessions(context.userId);
+    const providerSessions = await deps.listOAuthGrantSessions?.(context.userId) ?? [];
+    const providerIds = new Set(providerSessions.map(session => session.id));
+    const sessions = [
+      ...providerSessions,
+      ...storedSessions.filter(session => session.kind !== 'oauth' || !providerIds.has(session.id)),
+    ].sort((a, b) => b.createdAt - a.createdAt);
     return jsonResponse({ success: true, data: { sessions }, requestId: context.requestId });
   }
 
   if (request.method === 'DELETE' && segments.length === 2) {
+    requireScope(context, 'woa:security:write');
+    const sessionId = decodePathSegment(segments[1], 'sessionId');
+    if (deps.revokeOAuthGrant && await deps.revokeOAuthGrant(sessionId, context.userId)) {
+      await writeManagementAudit(deps, context, {
+        action: 'session.revoke',
+        targetType: 'authorization_session',
+        targetId: sessionId,
+        metadata: { kind: 'oauth', providerGrantRevoked: true },
+      });
+      return jsonResponse({
+        success: true,
+        data: { revoked: true, kind: 'oauth' },
+        requestId: context.requestId,
+      });
+    }
     const result = await deps.onboardingStore.revokeSecuritySession({
       operatorId: context.userId,
-      sessionId: decodePathSegment(segments[1], 'sessionId'),
+      sessionId,
     });
     if (!result.revoked) {
       throw new ApiError('session_not_found', 'Session was not found or is already revoked.', 404);
@@ -282,7 +354,7 @@ async function handleSessionRoutes(
     await writeManagementAudit(deps, context, {
       action: 'session.revoke',
       targetType: 'authorization_session',
-      targetId: decodePathSegment(segments[1], 'sessionId'),
+      targetId: sessionId,
       metadata: { kind: result.kind },
     });
     return jsonResponse({ success: true, data: result, requestId: context.requestId });
@@ -300,7 +372,7 @@ async function handleTenantRoutes(
   requireScope(context, 'woa:tenant:read');
 
   if (request.method === 'GET' && segments.length === 1) {
-    return jsonResponse({ success: true, data: { tenants: context.tenants }, requestId: context.requestId });
+    return jsonResponse({ success: true, data: { tenants: publicTenants(context.tenants) }, requestId: context.requestId });
   }
 
   if (request.method === 'POST' && segments.length === 1) {
@@ -317,13 +389,14 @@ async function handleTenantRoutes(
   if (!tenant) {
     throw new ApiError('tenant_forbidden', `Tenant ${tenantId} is not accessible.`, 403);
   }
+  requireTenantScope(context, tenantId, 'woa:tenant:read');
 
   if (request.method === 'GET' && segments.length === 2) {
     return jsonResponse({ success: true, data: { tenant }, requestId: context.requestId });
   }
 
   if (request.method === 'PATCH' && segments.length === 2) {
-    requireScope(context, 'woa:tenant:write');
+    requireTenantScope(context, tenantId, 'woa:tenant:write');
     if (!deps.onboardingStore) {
       throw new ApiError('runtime_unavailable', 'Tenant store is not configured in this runtime.', 503);
     }
@@ -348,7 +421,7 @@ async function handleTenantRoutes(
   }
 
   if (request.method === 'GET' && segments.length === 3 && segments[2] === 'usage') {
-    requireScope(context, 'woa:usage:read');
+    requireTenantScope(context, tenantId, 'woa:usage:read');
     if (!deps.usageStore) {
       throw new ApiError('runtime_unavailable', 'Usage quota store is not configured in this runtime.', 500);
     }
@@ -364,7 +437,7 @@ async function handleTenantRoutes(
   }
 
   if (request.method === 'POST' && segments.length === 4 && segments[2] === 'billing' && segments[3] === 'checkout') {
-    requireScope(context, 'woa:billing:write');
+    requireTenantScope(context, tenantId, 'woa:billing:write');
     if (!deps.billing) {
       throw new ApiError('stripe_billing_unconfigured', 'Stripe billing is not fully configured in this runtime.', 503);
     }
@@ -407,7 +480,7 @@ async function handleAccountRoutes(
   deps: ManagementApiDeps,
   tenantId: string,
 ): Promise<Response> {
-  requireScope(context, 'woa:account:read');
+  requireTenantScope(context, tenantId, 'woa:account:read');
 
   if (request.method === 'GET' && segments.length === 3) {
     if (deps.onboardingStore) {
@@ -419,7 +492,7 @@ async function handleAccountRoutes(
   }
 
   if (request.method === 'POST' && segments.length === 3) {
-    requireScope(context, 'woa:account:write');
+    requireTenantScope(context, tenantId, 'woa:account:write');
     const body = await readJsonBody(request) as Record<string, unknown>;
     if (deps.onboardingStore) {
       const account = await deps.onboardingStore.createWechatResource({
@@ -459,7 +532,7 @@ async function handleAccountRoutes(
   }
 
   if ((request.method === 'PATCH' || request.method === 'PUT') && segments.length === 4) {
-    requireScope(context, 'woa:account:write');
+    requireTenantScope(context, tenantId, 'woa:account:write');
     const body = await readJsonBody(request) as Record<string, unknown>;
     if (deps.onboardingStore) {
       let resource = await deps.onboardingStore.getWechatResource(tenantId, accountId);
@@ -491,7 +564,7 @@ async function handleAccountRoutes(
   }
 
   if (request.method === 'POST' && segments.length === 5 && segments[4] === 'disable') {
-    requireScope(context, 'woa:account:write');
+    requireTenantScope(context, tenantId, 'woa:account:write');
     const body = await readJsonBody(request) as Record<string, unknown>;
     if (deps.onboardingStore) {
       await deps.onboardingStore.softDeleteWechatResource({
@@ -517,7 +590,8 @@ async function handleAccountRoutes(
   }
 
   if (request.method === 'POST' && segments.length === 5 && segments[4] === 'configure') {
-    requireScope(context, 'woa:account:write');
+    requireTenantScope(context, tenantId, 'woa:account:write');
+    requireConfigurableAccount(account);
     const body = await readJsonBody(request) as Partial<WechatConfig>;
     const appId = body.appId;
     const appSecret = body.appSecret;
@@ -540,15 +614,17 @@ async function handleAccountRoutes(
           throw new ApiError('runtime_unavailable', 'WeChat credential validation is not configured in this runtime.', 500);
         }
         const tokenInfo = await deps.validateWechatCredentials(config, account);
-        const resource = await deps.onboardingStore.configureValidatedWechatCredentials({
-          tenantId,
-          resourceId: accountId,
-          config,
-          tokenInfo,
-        });
+        const resource = deps.persistValidatedWechatCredentials
+          ? await deps.persistValidatedWechatCredentials({ config, account, tokenInfo })
+          : await deps.onboardingStore.configureValidatedWechatCredentials({
+            tenantId,
+            resourceId: accountId,
+            config,
+            tokenInfo,
+          });
         return publicWechatResource(resource);
       }
-      const apiClient = await deps.createApiClient();
+      const apiClient = await deps.createApiClient(account);
       await apiClient.getAuthManager().setConfig(config);
       return {
         tenantId,
@@ -593,12 +669,39 @@ async function handleAccountRoutes(
           } : null,
         };
       }
-      const apiClient = await deps.createApiClient();
+      const apiClient = await deps.createApiClient(account);
       const config = await apiClient.getAuthManager().getConfig();
       return {
         account: account?.account,
         configured: !!(config?.appId && config?.appSecret),
         config: maskConfig(config),
+      };
+    });
+    await writeManagementAudit(deps, context, {
+      tenantId,
+      accountId,
+      action: 'account.status_viewed',
+      targetType: 'wechat_account',
+      targetId: accountId,
+      metadata: { configured: (data as { configured?: boolean }).configured === true },
+    });
+    return apiSuccess(data, context, quota);
+  }
+
+  if (request.method === 'POST' && segments.length === 6 && segments[4] === 'token' && segments[5] === 'refresh') {
+    requireTenantScope(context, tenantId, 'woa:account:write');
+    requireOperationalAccount(account);
+    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
+      toolName: 'wechat_auth',
+      action: 'refresh_token',
+      params: { action: 'refresh_token', tenantId, accountId },
+    }, async () => {
+      const apiClient = await deps.createApiClient(account);
+      const token = await apiClient.getAuthManager().refreshAccessToken();
+      return {
+        accountId,
+        expiresIn: token.expiresIn,
+        expiresAt: token.expiresAt,
       };
     });
     await writeManagementAudit(deps, context, {
@@ -612,26 +715,9 @@ async function handleAccountRoutes(
     return apiSuccess(data, context, quota);
   }
 
-  if (request.method === 'POST' && segments.length === 6 && segments[4] === 'token' && segments[5] === 'refresh') {
-    requireScope(context, 'woa:account:write');
-    const { data, quota } = await runWithOptionalQuota(deps, context, account, {
-      toolName: 'wechat_auth',
-      action: 'refresh_token',
-      params: { action: 'refresh_token', tenantId, accountId },
-    }, async () => {
-      const apiClient = await deps.createApiClient();
-      const token = await apiClient.getAuthManager().refreshAccessToken();
-      return {
-        accountId,
-        expiresIn: token.expiresIn,
-        expiresAt: token.expiresAt,
-      };
-    });
-    return apiSuccess(data, context, quota);
-  }
-
   if (request.method === 'POST' && segments.length === 6 && segments[4] === 'media' && segments[5] === 'uploads') {
-    requireScope(context, 'woa:content:write');
+    requireTenantScope(context, tenantId, 'woa:content:write');
+    requireOperationalAccount(account);
     const upload = await stageMediaUpload(request, {
       bucket: deps.mediaBucket,
       tenantId,
@@ -665,7 +751,8 @@ async function handleAccountRoutes(
   }
 
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'drafts') {
-    requireScope(context, 'woa:content:read');
+    requireTenantScope(context, tenantId, 'woa:content:read');
+    requireOperationalAccount(account);
     const url = new URL(request.url);
     const params = {
       action: 'list',
@@ -680,7 +767,7 @@ async function handleAccountRoutes(
       action: 'list',
       params,
     }, async () => {
-      const apiClient = await deps.createApiClient();
+      const apiClient = await deps.createApiClient(account);
       return await apiClient.post('/cgi-bin/draft/batchget', {
         offset: params.offset,
         count: params.count,
@@ -691,7 +778,8 @@ async function handleAccountRoutes(
   }
 
   if (request.method === 'DELETE' && segments.length === 6 && segments[4] === 'drafts') {
-    requireScope(context, 'woa:content:write');
+    requireTenantScope(context, tenantId, 'woa:content:write');
+    requireOperationalAccount(account);
     const mediaId = decodePathSegment(segments[5], 'mediaId');
     const params = {
       action: 'delete',
@@ -704,7 +792,7 @@ async function handleAccountRoutes(
       action: 'delete',
       params,
     }, async () => {
-      const apiClient = await deps.createApiClient();
+      const apiClient = await deps.createApiClient(account);
       await apiClient.post('/cgi-bin/draft/delete', {
         media_id: mediaId,
       });
@@ -719,7 +807,8 @@ async function handleAccountRoutes(
   }
 
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'publishes') {
-    requireScope(context, 'woa:content:read');
+    requireTenantScope(context, tenantId, 'woa:content:read');
+    requireOperationalAccount(account);
     const url = new URL(request.url);
     const params = {
       action: 'list',
@@ -734,7 +823,7 @@ async function handleAccountRoutes(
       action: 'list',
       params,
     }, async () => {
-      const apiClient = await deps.createApiClient();
+      const apiClient = await deps.createApiClient(account);
       return await apiClient.post('/cgi-bin/freepublish/batchget', {
         offset: params.offset,
         count: params.count,
@@ -745,7 +834,8 @@ async function handleAccountRoutes(
   }
 
   if (request.method === 'DELETE' && segments.length === 6 && segments[4] === 'publishes') {
-    requireScope(context, 'woa:content:write');
+    requireTenantScope(context, tenantId, 'woa:content:publish');
+    requireOperationalAccount(account);
     const url = new URL(request.url);
     const articleId = decodePathSegment(segments[5], 'articleId');
     const index = url.searchParams.has('index')
@@ -763,7 +853,7 @@ async function handleAccountRoutes(
       action: 'delete',
       params,
     }, async () => {
-      const apiClient = await deps.createApiClient();
+      const apiClient = await deps.createApiClient(account);
       await apiClient.post('/cgi-bin/freepublish/delete', {
         article_id: articleId,
         ...(index === undefined ? {} : { index }),
@@ -780,7 +870,8 @@ async function handleAccountRoutes(
   }
 
   if (request.method === 'GET' && segments.length === 5 && segments[4] === 'inbox') {
-    requireScope(context, 'woa:inbox:read');
+    requireTenantScope(context, tenantId, 'woa:inbox:read');
+    requireOperationalAccount(account);
     const url = new URL(request.url);
     const pendingOnly = url.searchParams.get('pending') !== 'false';
     const params = {
@@ -798,7 +889,7 @@ async function handleAccountRoutes(
       action: params.action,
       params,
     }, async () => {
-      const apiClient = await deps.createApiClient();
+      const apiClient = await deps.createApiClient(account);
       const inboxStore = getInboxStore(apiClient);
       return await inboxStore.listMessages({
         pendingOnly: params.pendingOnly,

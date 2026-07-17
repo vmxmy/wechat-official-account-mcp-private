@@ -7,7 +7,7 @@
 
 ## 🚀 项目概述
 
-本项目基于 MCP 协议，为 AI 应用（如 Claude Desktop、Cursor、Trae AI 等）提供微信公众号 API 工具集。通过标准化的工具接口，AI 应用可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计、二维码、评论、黑名单、入站消息收件箱等常用运营能力。
+本项目基于 MCP 协议，为支持远程 Streamable HTTP 与 OAuth 的 AI Agent/宿主提供微信公众号 API 工具集。通过标准化的工具接口，AI 可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计、二维码、评论、黑名单、入站消息收件箱等常用运营能力。
 
 **当前版本**: `v2.2.1` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
@@ -58,6 +58,23 @@
 - 微信回调：`/wx/callback/{accountId}`（推荐，accountId 为管理面生成的不透明账号 ID）；旧 `/wx/callback` 仅在安全的单账号兼容模式下处理，否则返回迁移提示
 - 本地桌面端 stdio CLI 与 MCP-over-SSE 均已移除
 
+普通用户无需手工拼接 Bearer header，也无需安装客户端专用适配器。把下面这条任务交给任意可运行终端命令的通用 Agent；Agent 会先读取当前 CLI 版本内置的唯一工作流，再以 `woa init` 完成可恢复初始化：
+
+```text
+请运行 npx -y --registry=https://registry.npmjs.org --package @ziikoo/woa@latest woa help agent，完整阅读输出，并严格按其中规范用 woa init 帮我完成微信公众号 MCP 接入；需要登录授权、把固定出口 IP 加入微信白名单、输入 AppSecret 或确认创建只保存不发布的测试草稿时暂停让我操作，不要在聊天、参数、环境变量或日志中索取或回显任何凭据。
+```
+
+直接操作终端时使用渐进式 TUI；读屏、日志或不支持控制字符的终端可用 `--plain`。Agent、pipe 与 CI 必须使用严格非交互 JSONL：
+
+```bash
+woa init
+woa init --plain
+woa init --agent --format jsonl
+woa mcp descriptor
+```
+
+CLI OAuth 与宿主原生 MCP OAuth 是两份独立、可刷新、可撤销的授权。CLI 不会把 access token 写入 MCP 配置；若宿主不支持 OAuth discovery、PKCE、动态客户端注册与自动刷新，不应退回静态 Bearer 配置。
+
 ### Cloudflare Workers Remote MCP（推荐）
 
 ```bash
@@ -104,6 +121,16 @@ npm run worker:deploy
 | `STRIPE_BILLING_SUCCESS_URL` / `STRIPE_BILLING_CANCEL_URL` | 可选：Checkout 默认成功/取消跳转 URL |
 
 Stripe Checkout 采用 fail-closed 策略：只有 secret key、webhook secret、Plus/Pro price ID、默认成功/取消 URL 全部配置后，受 OAuth 保护的付费 checkout 能力才会启用。
+
+Agent-first 初始化还要求以下非敏感 Worker vars（不是 secret）：
+
+| Worker var | 用途 |
+|---|---|
+| `WECHAT_EGRESS_IPS` | 当前所有受信任固定出口 IP，逗号分隔；用户必须全部加入公众号白名单 |
+| `WECHAT_EGRESS_CONFIG_VERSION` | 出口配置版本；用于检测确认期间发生的 IP 轮换 |
+| `WECHAT_EGRESS_UPDATED_AT` | 出口配置更新时间（ISO 8601） |
+
+relay URL 与鉴权 token 永远不通过 init context、Web Prompt 或 Agent Help 返回。
 
 > 生产注意：微信公众号 API 通常要求在公众号后台配置服务器 IP 白名单。Cloudflare Workers 默认出口 IP 不固定，正式切流前请配置固定出口代理。Workers 不支持传统 HTTP CONNECT forward proxy，本项目支持 `WECHAT_PROXY_URL` HTTPS relay：所有发往 `api.weixin.qq.com` 的 token/API/上传请求会改发到 relay，并通过 `x-wechat-proxy-target-url` header 传递目标 URL（默认不放 query，避免 access_token/AppSecret 进入代理访问日志）；relay 服务需在白名单 IP 机器上按原 method/body/headers 转发到该 target，并原样返回微信响应。
 > relay 运维要求：relay 必须校验 `x-wechat-proxy-token`（如启用），限制只转发到 `https://api.weixin.qq.com/*`，并在 access log 中禁用或脱敏 `x-wechat-proxy-target-url` 与 `x-wechat-proxy-token` header，避免目标 URL 中的 `access_token` 或 AppSecret 落盘。
@@ -573,7 +600,7 @@ Kimi Code 使用内置的 MCP 配置向导，不要填写静态 Bearer header：
 /mcp
 ```
 
-OAuth access token 到期后由支持该协议的客户端使用 refresh token 自动刷新。授权被撤销或 refresh token 失效后，需要重新登录；不要把 access token、refresh token 或静态 Authorization 请求头写入 MCP 配置文件。
+OAuth access token 有效期为 8 小时；客户端应在到期前使用会轮换的 refresh token 自动刷新。refresh token 有效期为 180 天，动态注册客户端有效期为 365 天。授权被撤销或 refresh token 失效后才需要重新登录；不要把 access token、refresh token 或静态 Authorization 请求头写入 MCP 配置文件。
 
 首版官方支持原生 Streamable HTTP/OAuth 客户端。不要在本项目文档中恢复本地 stdio、SSE 或桥接式本地 MCP server 配置。
 
@@ -600,7 +627,7 @@ npx -y --package @ziikoo/woa woa login --server https://<your-worker-domain>
 ```
 
 ```bash
-woa login --server https://<your-worker-domain>  # 打开浏览器完成 OAuth 授权并保存 access token
+woa login --server https://<your-worker-domain>  # 打开浏览器完成 OAuth 授权并保存可刷新的会话
 woa whoami
 woa usage                         # 查看当前租户套餐、用量、重置时间与升级提示
 woa quota status                   # usage 的别名
@@ -615,6 +642,22 @@ woa publish delete <article_id> --dry-run
 woa publish delete <article_id> --confirm-delete
 woa media upload ./cover.png --tenant <id> --account <id>
 ```
+
+`woa` 会在 access token 剩余不足 5 分钟时自动刷新并原子保存轮换后的 refresh token；如果服务端提前撤销了 access token，CLI 会在收到 401 后强制刷新一次并重试。正常使用不再需要手工复制新 token。
+
+无浏览器服务器使用两段式 PKCE 登录。第一步在服务器生成授权 URL，不会监听回调端口或等待浏览器：
+
+```bash
+woa login --server https://<your-worker-domain> --headless
+```
+
+在任意有浏览器的设备打开输出的 URL 并批准授权。浏览器最终跳转到 `127.0.0.1` 时可能显示无法连接，这是预期行为；复制地址栏中的完整回调 URL，在服务器执行：
+
+```bash
+woa login complete
+```
+
+按提示粘贴完整回调 URL。pending PKCE 状态只在本机以 `0600` 权限短暂保存，并在 15 分钟后拒绝使用。完整回调 URL 含一次性 authorization code，不要把它放进 shell 参数、聊天、日志或工单中。
 
 本地媒体上传不会把 base64 放进 LLM/MCP 参数。CLI 读取文件字节并调用 OAuth 保护的
 `POST /api/v1/tenants/:tenantId/accounts/:accountId/media/uploads?filename=...`，Worker 校验 MIME、文件头和 10MB 暂存上限后写入租户/账号隔离的 R2 key。返回结果可直接用于：
@@ -637,11 +680,9 @@ npm run r2:lifecycle:media
 
 该命令只配置暂存前缀，不会影响 bucket 中其它对象。
 
-CI/冒烟测试可跳过浏览器授权，直接保存已有 OAuth token：
-
-```bash
-woa login --server https://<your-worker-domain> --token <oauth-token>
-```
+CI 与服务器同样使用 PKCE OAuth 和可刷新会话；CLI 不接受 `--token` 静态 access token。无浏览器环境先运行
+`woa login --server https://<your-worker-domain> --headless`，由用户在浏览器授权，再在直接操作的可信 TTY 中运行
+`woa login complete`。自动化测试应使用本地 OAuth 测试服务器或隔离的临时配置文件，不应在命令参数中注入 Bearer 凭据。
 
 ## 🧪 开发指南
 

@@ -22,6 +22,36 @@ The system SHALL route WeChat API calls through the platform HTTPS relay when co
 - **WHEN** credential validation fails due to WeChat IP allowlist or relay configuration
 - **THEN** the system returns actionable guidance without exposing secrets
 
+### Requirement: One-time credential handoff
+The system SHALL provide a short-lived, same-Operator, write-only HTTPS handoff for Agent-guided WeChat credential entry.
+
+#### Scenario: Handoff cannot read credentials
+- **WHEN** a valid handoff token is opened and credentials are submitted
+- **THEN** the token authorizes only a single write/validation attempt and no API or page can read the submitted AppSecret back
+
+#### Scenario: Handoff limits browser leakage
+- **WHEN** the credential page or response is served
+- **THEN** it uses a token hash, short expiry, single use, same-Operator authentication, HttpOnly continuation cookie, clean URL, `no-store`, `no-referrer`, and no third-party scripts
+
+#### Scenario: Agent path never receives secrets
+- **WHEN** credential setup is initiated by Agent/JSONL/pipe/CI mode
+- **THEN** events, stdout/stderr, checkpoints, logs, analytics, and local CLI config contain no AppSecret, OAuth callback code, PKCE verifier, or raw token
+
+### Requirement: Init run integrity
+The system SHALL persist only non-sensitive Agent init progress with atomic and concurrency-safe recovery.
+
+#### Scenario: Run is not an authorization credential
+- **WHEN** a client resumes by run ID
+- **THEN** the server revalidates the current Operator, Tenant, account, grant and scopes before returning or advancing state
+
+#### Scenario: Concurrent resume is rejected
+- **WHEN** two runners attempt to advance the same run version
+- **THEN** lease/CAS semantics allow one transition and return a stable conflict error to the other without repeating side effects
+
+#### Scenario: Idempotent result contains no secret
+- **WHEN** an init operation records material or draft reconciliation data
+- **THEN** it stores only non-sensitive identifiers, hashes, status, versions, timestamps and expiry data
+
 ### Requirement: Audit logging
 The system SHALL retain key audit logs for 180 days.
 
@@ -32,6 +62,17 @@ The system SHALL retain key audit logs for 180 days.
 #### Scenario: Audit retention
 - **WHEN** audit events are older than 180 days
 - **THEN** the system may purge them according to retention policy
+
+### Requirement: Operator session isolation
+The system SHALL require explicit OAuth security scopes before exposing or revoking an Operator's Web and OAuth sessions.
+
+#### Scenario: Low-privilege client cannot inspect sessions
+- **WHEN** an OAuth client without `woa:security:read` requests the Operator session list
+- **THEN** the system rejects the request before reading session or Provider grant data
+
+#### Scenario: Low-privilege client cannot revoke another client
+- **WHEN** an OAuth client without `woa:security:write` requests session revocation
+- **THEN** the system rejects the request before revoking a Web session or OAuth Provider grant
 
 ### Requirement: Public signup abuse controls
 The system SHALL protect public signup with Turnstile, rate limits, quotas, and audit logs.

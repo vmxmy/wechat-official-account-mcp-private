@@ -53,7 +53,15 @@ The Web entrypoint SHALL use TanStack Query for server state and native forms wi
 - **THEN** the Web validates input with Zod and Astryx form components before or alongside backend validation
 
 ### Requirement: Web route inventory
-The Web entrypoint SHALL include the first-release login, onboarding, billing, MCP config, security sessions, Terms, and Privacy routes.
+The Web entrypoint SHALL include a public Agent-first root plus the first-release authenticated overview, login, onboarding, billing, MCP config, security sessions, Terms, and Privacy routes.
+
+#### Scenario: Public root is a lightweight handoff
+- **WHEN** an unauthenticated visitor opens `/`
+- **THEN** the route renders business copy, one Agent prompt, one copy action, a safety note, and secondary management/legal links without fetching session or health state
+
+#### Scenario: Existing overview moves to app route
+- **WHEN** an authenticated Operator needs the management overview
+- **THEN** it remains available under `/app` instead of occupying the public root
 
 #### Scenario: Protected route redirects
 - **WHEN** an unauthenticated browser requests a protected Web route
@@ -62,6 +70,17 @@ The Web entrypoint SHALL include the first-release login, onboarding, billing, M
 #### Scenario: Login returns to target
 - **WHEN** an Operator completes login with a `returnTo` target
 - **THEN** the system returns the browser to that target if it is safe
+
+### Requirement: Public prompt copy accessibility
+The public handoff SHALL remain usable with keyboard, screen reader, zoom, and clipboard denial.
+
+#### Scenario: Clipboard copy succeeds
+- **WHEN** the visitor activates `复制给 Agent`
+- **THEN** the page copies the complete prompt, announces success without moving focus, and explains that the page can close
+
+#### Scenario: Clipboard copy is denied
+- **WHEN** the Clipboard API is unavailable or denied
+- **THEN** the page selects the prompt or provides an equivalent manual-copy path and announces `Cmd/Ctrl+C` guidance instead of failing silently
 
 ### Requirement: Web login UX
 The Web login UI SHALL present email code login before GitHub login.

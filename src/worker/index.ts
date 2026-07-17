@@ -38,7 +38,11 @@ import {
   type StripePriceIds,
 } from './stripe-billing.js';
 import {
-  createDefaultTenantContext,
+  ApiError,
+  requireConfigurableAccount,
+  requireTenantScope,
+  resolveAccountContext,
+  scopesAllowedByAnyMembership,
   type TenantRequestContext,
 } from './tenant-context.js';
 import { D1UsageQuotaStore } from './usage-store.js';
@@ -51,7 +55,27 @@ import {
   fetchGitHubOAuthProfile,
 } from './github-oauth.js';
 import { renderAuthorizationConsentForm } from './oauth-consent.js';
+import {
+  OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+  OAUTH_DYNAMIC_CLIENT_TTL_SECONDS,
+  OAUTH_INIT_SCOPES,
+  OAUTH_SUPPORTED_SCOPES,
+  OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+  normalizeRequestedOAuthScopes,
+  unsupportedOAuthScopes,
+} from './oauth-policy.js';
 import { runRetentionMaintenance } from './maintenance.js';
+import { verifyTurnstile } from './turnstile.js';
+import { canUseLegacyGlobalWechatSecrets } from './account-config-policy.js';
+import { D1AgentInitStore } from './agent-init-store.js';
+import {
+  handleCredentialHandoffRequest,
+  resolveAgentInitEgressContext,
+  testCoverFilename,
+  testDraftTitle,
+  WechatCredentialProbeError,
+  wechatCredentialProbeErrorForResponse,
+} from './agent-init.js';
 
 type SecretBinding = string | { get(): Promise<string | null> };
 type DurableObjectNamespaceLike = unknown;
@@ -88,6 +112,9 @@ export interface WorkerEnv {
   GITHUB_CLIENT_ID?: SecretBinding;
   GITHUB_CLIENT_SECRET?: SecretBinding;
   ENVIRONMENT?: string;
+  WECHAT_EGRESS_IPS?: string;
+  WECHAT_EGRESS_CONFIG_VERSION?: string;
+  WECHAT_EGRESS_UPDATED_AT?: string;
 }
 
 type TokenOwnerRequestOptions = {
@@ -99,6 +126,7 @@ type TokenOwnerStub = {
   getAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
   refreshAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
   clearAccessToken(options?: { accountContext?: AccountContext }): Promise<void>;
+  replaceAccessToken(tokenInfo: AccessTokenInfo, options?: { accountContext?: AccountContext }): Promise<void>;
   getDebugStatus(): Promise<Record<string, unknown>>;
   runCoalescingSelfTest(): Promise<Record<string, unknown>>;
 };
@@ -122,6 +150,7 @@ const GITHUB_OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60;
 const EMAIL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const EMAIL_RATE_LIMIT_PER_WINDOW = 5;
 const IP_RATE_LIMIT_PER_WINDOW = 30;
+const INIT_TEST_COVER_SHA256 = 'c2402f8307a0d8b1424557674770de1aa7c3e057ef40dc1702a4aea55f99964d';
 
 export function tokenOwnerNameForAccount(accountContext: AccountContext): string {
   return `token:${accountContext.tenantId}:${accountContext.accountId}`;
@@ -299,6 +328,301 @@ async function createSaasOnboardingStore(env: WorkerEnv): Promise<D1SaasOnboardi
   const store = new D1SaasOnboardingStore(env.DB, env.WECHAT_MCP_SECRET_KEY);
   await store.ensureSchema();
   return store;
+}
+
+async function persistValidatedWechatCredentialsForAccount(
+  env: WorkerEnv,
+  onboardingStore: D1SaasOnboardingStore,
+  input: {
+    config: WechatConfig;
+    account: import('./tenant-context.js').AccountContext;
+    tokenInfo: AccessTokenInfo | null | undefined;
+  },
+) {
+  const accountContext = toStorageAccountContext(input.account);
+  const tokenOwner = await getTokenOwner(env, accountContext);
+  // 先让旧 DO token 失效，再提交新配置；任一步失败都不会让旧 AppID token
+  // 在新配置名下继续被复用。
+  await tokenOwner.clearAccessToken({ accountContext });
+  const resource = await onboardingStore.configureValidatedWechatCredentials({
+    tenantId: input.account.tenantId,
+    resourceId: input.account.accountId,
+    config: input.config,
+    tokenInfo: input.tokenInfo,
+  });
+  if (input.tokenInfo) {
+    await tokenOwner.replaceAccessToken(input.tokenInfo, { accountContext });
+  }
+  return resource;
+}
+
+function createAgentInitDeps(env: WorkerEnv) {
+  return {
+    store: new D1AgentInitStore(env.DB),
+    egress: resolveAgentInitEgressContext({
+      ips: env.WECHAT_EGRESS_IPS,
+      configVersion: env.WECHAT_EGRESS_CONFIG_VERSION,
+      updatedAt: env.WECHAT_EGRESS_UPDATED_AT,
+    }),
+    testCoverChecksum: INIT_TEST_COVER_SHA256,
+    findTestCover: async (input: { runId: string; account: import('./tenant-context.js').AccountContext }) => {
+      const apiClient = (await createWorkerToolContext(env, toStorageAccountContext(input.account))).apiClient;
+      const expectedName = testCoverFilename(input.runId);
+      let offset = 0;
+      for (let page = 0; page < 10; page += 1) {
+        const result = await apiClient.post('/cgi-bin/material/batchget_material', {
+          type: 'image',
+          offset,
+          count: 20,
+        }) as {
+          total_count?: number;
+          item?: Array<{ media_id?: string; name?: string }>;
+          errcode?: number;
+        };
+        if (result.errcode) throw new Error('WeChat test-cover reconciliation failed.');
+        const items = Array.isArray(result.item) ? result.item : [];
+        const existing = items.find(item => item.name === expectedName && item.media_id);
+        if (existing?.media_id) {
+          return { mediaId: existing.media_id, checksum: INIT_TEST_COVER_SHA256 };
+        }
+        offset += items.length;
+        if (items.length === 0 || offset >= (result.total_count ?? offset)) break;
+      }
+      return null;
+    },
+    uploadTestCover: async (input: { runId: string; account: import('./tenant-context.js').AccountContext }) => {
+      const apiClient = (await createWorkerToolContext(env, toStorageAccountContext(input.account))).apiClient;
+      const bytes = createInitTestCoverBytes();
+      const form = new FormData();
+      form.append('media', new Blob([bytes], { type: 'image/bmp' }), testCoverFilename(input.runId));
+      const result = await apiClient.postForm('/cgi-bin/material/add_material?type=image', form) as {
+        media_id?: string;
+        errcode?: number;
+      };
+      if (result.errcode || !result.media_id) {
+        throw new Error('WeChat did not return a media_id for the init test cover.');
+      }
+      return { mediaId: result.media_id, checksum: INIT_TEST_COVER_SHA256 };
+    },
+    findTestDraft: async (input: { runId: string; account: import('./tenant-context.js').AccountContext }) => {
+      const apiClient = (await createWorkerToolContext(env, toStorageAccountContext(input.account))).apiClient;
+      const expectedTitle = testDraftTitle(input.runId);
+      let offset = 0;
+      for (let page = 0; page < 10; page += 1) {
+        const result = await apiClient.post('/cgi-bin/draft/batchget', {
+          offset,
+          count: 20,
+          no_content: 0,
+        }) as {
+          total_count?: number;
+          item?: Array<{ media_id?: string; content?: { news_item?: Array<{ title?: string }> } }>;
+          errcode?: number;
+        };
+        if (result.errcode) throw new Error('WeChat test-draft reconciliation failed.');
+        const items = Array.isArray(result.item) ? result.item : [];
+        const existing = items.find(item =>
+          item.media_id && item.content?.news_item?.[0]?.title === expectedTitle,
+        );
+        if (existing?.media_id) return { mediaId: existing.media_id, title: expectedTitle };
+        offset += items.length;
+        if (items.length === 0 || offset >= (result.total_count ?? offset)) break;
+      }
+      return null;
+    },
+    createTestDraft: async (input: {
+      runId: string;
+      account: import('./tenant-context.js').AccountContext;
+      coverMediaId: string;
+    }) => {
+      const apiClient = (await createWorkerToolContext(env, toStorageAccountContext(input.account))).apiClient;
+      const title = testDraftTitle(input.runId);
+      const result = await apiClient.post('/cgi-bin/draft/add', {
+        articles: [{
+          article_type: 'news',
+          title,
+          author: 'WOA',
+          digest: '用于验证 MCP 连接与公众号草稿写入能力；不会自动发布。',
+          content: '<p>这是 WOA 首次接入的未发布测试草稿。验证完成后可在公众号后台保留或手动删除。</p>',
+          content_source_url: '',
+          thumb_media_id: input.coverMediaId,
+          show_cover_pic: 0,
+          need_open_comment: 0,
+          only_fans_can_comment: 0,
+        }],
+      }) as { media_id?: string; errcode?: number };
+      if (result.errcode || !result.media_id) {
+        throw new Error('WeChat did not return a media_id for the init test draft.');
+      }
+      return { mediaId: result.media_id, title };
+    },
+    readTestDraft: async (input: {
+      account: import('./tenant-context.js').AccountContext;
+      mediaId: string;
+      expectedTitle: string;
+    }) => {
+      const apiClient = (await createWorkerToolContext(env, toStorageAccountContext(input.account))).apiClient;
+      const result = await apiClient.post('/cgi-bin/draft/get', {
+        media_id: input.mediaId,
+      }) as { news_item?: Array<{ title?: string }>; errcode?: number };
+      const articles = Array.isArray(result.news_item) ? result.news_item : [];
+      const title = articles[0]?.title ?? '';
+      if (result.errcode || title !== input.expectedTitle) {
+        throw new Error('WeChat test draft read-back did not match the created draft.');
+      }
+      return {
+        mediaId: input.mediaId,
+        title,
+        articleCount: articles.length,
+        readBack: true as const,
+      };
+    },
+  };
+}
+
+function createOAuthGrantManagementDeps(env: WorkerEnv) {
+  return {
+    listOAuthGrantSessions: async (operatorId: string) => {
+      const sessions: Array<{
+        id: string;
+        kind: 'oauth';
+        clientName: string;
+        clientId?: string;
+        createdAt: number;
+        expiresAt: number;
+        canRevoke: boolean;
+      }> = [];
+      let cursor: string | undefined;
+      do {
+        const page = await env.OAUTH_PROVIDER.listUserGrants(operatorId, { limit: 100, cursor });
+        for (const grant of page.items) {
+          sessions.push({
+            id: grant.id,
+            kind: 'oauth',
+            clientId: grant.clientId,
+            clientName: grant.clientId || 'OAuth client',
+            createdAt: grant.createdAt * 1000,
+            expiresAt: (grant.expiresAt ?? grant.createdAt) * 1000,
+            canRevoke: !grant.expiresAt || grant.expiresAt * 1000 > Date.now(),
+          });
+        }
+        cursor = page.cursor;
+      } while (cursor);
+      return sessions;
+    },
+    revokeOAuthGrant: async (grantId: string, operatorId: string): Promise<boolean> => {
+      let cursor: string | undefined;
+      do {
+        const page = await env.OAUTH_PROVIDER.listUserGrants(operatorId, { limit: 100, cursor });
+        if (page.items.some(grant => grant.id === grantId && grant.userId === operatorId)) {
+          await env.OAUTH_PROVIDER.revokeGrant(grantId, operatorId);
+          return true;
+        }
+        cursor = page.cursor;
+      } while (cursor);
+      return false;
+    },
+  };
+}
+
+async function hasActiveOAuthClientGrant(
+  env: WorkerEnv,
+  operatorId: string,
+  clientId: string,
+): Promise<boolean> {
+  let cursor: string | undefined;
+  do {
+    const page = await env.OAUTH_PROVIDER.listUserGrants(operatorId, { limit: 100, cursor });
+    if (page.items.some(grant =>
+      grant.clientId === clientId &&
+      (!grant.expiresAt || grant.expiresAt * 1000 > Date.now()) &&
+      OAUTH_INIT_SCOPES.every(scope => grant.scope.includes(scope)),
+    )) {
+      return true;
+    }
+    cursor = page.cursor;
+  } while (cursor);
+  return false;
+}
+
+async function assertCredentialHandoffAuthority(
+  env: WorkerEnv,
+  onboardingStore: D1SaasOnboardingStore,
+  initStore: D1AgentInitStore,
+  operatorId: string,
+  handoff: import('./agent-init-store.js').AgentCredentialHandoffRecord,
+): Promise<import('./tenant-context.js').AccountContext> {
+  const operatorContext = await onboardingStore.getTenantContextForOperator(operatorId, { source: 'rest' });
+  const account = operatorContext.accounts.find(item =>
+    item.tenantId === handoff.tenantId && item.accountId === handoff.accountId,
+  );
+  if (!account) {
+    throw new ApiError(
+      'membership_scope_denied',
+      'The target WeChat account is no longer accessible to this Operator.',
+      403,
+    );
+  }
+  requireTenantScope(operatorContext, handoff.tenantId, 'woa:account:write');
+  const accountContext = { tenantId: handoff.tenantId, accountId: handoff.accountId, account };
+  requireConfigurableAccount(accountContext);
+  const run = await initStore.getRun(operatorId, handoff.runId);
+  if (
+    !run?.oauthClientId ||
+    !(await hasActiveOAuthClientGrant(env, operatorId, run.oauthClientId))
+  ) {
+    throw new ApiError(
+      'oauth_revoked',
+      'The OAuth grant that started this initialization run is no longer active or no longer has init scopes.',
+      403,
+    );
+  }
+  return accountContext;
+}
+
+function toStorageAccountContext(account: import('./tenant-context.js').AccountContext): AccountContext {
+  return {
+    tenantId: account.tenantId,
+    tenantSlug: account.account.slug,
+    tenantName: account.tenantId,
+    accountId: account.accountId,
+    accountSlug: account.account.slug,
+    accountName: account.account.name,
+    appId: account.account.appId,
+    status: account.account.status,
+    role: 'owner',
+  };
+}
+
+/** 320×180 deterministic BMP; large enough to exercise the real cover path without remote assets. */
+function createInitTestCoverBytes(): Uint8Array {
+  const width = 320;
+  const height = 180;
+  const rowSize = Math.ceil((width * 3) / 4) * 4;
+  const pixelBytes = rowSize * height;
+  const bytes = new Uint8Array(54 + pixelBytes);
+  const view = new DataView(bytes.buffer);
+  bytes[0] = 0x42;
+  bytes[1] = 0x4d;
+  view.setUint32(2, bytes.byteLength, true);
+  view.setUint32(10, 54, true);
+  view.setUint32(14, 40, true);
+  view.setInt32(18, width, true);
+  view.setInt32(22, height, true);
+  view.setUint16(26, 1, true);
+  view.setUint16(28, 24, true);
+  view.setUint32(34, pixelBytes, true);
+  view.setInt32(38, 2835, true);
+  view.setInt32(42, 2835, true);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = 54 + y * rowSize + x * 3;
+      const accent = x > 36 && x < 52;
+      bytes[offset] = accent ? 82 : 44;
+      bytes[offset + 1] = accent ? 166 : 46;
+      bytes[offset + 2] = accent ? 239 : 48;
+    }
+  }
+  return bytes;
 }
 
 function getAgentEnv(agent: unknown): WorkerEnv {
@@ -803,33 +1127,30 @@ async function handleWebSessionManagementApiRequest(request: Request, env: Worke
     mediaBucket: env.MEDIA,
     onboardingStore,
     auditLog: new D1AuditLogWriter(env.DB),
+    agentInit: createAgentInitDeps(env),
+    ...createOAuthGrantManagementDeps(env),
     validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
+    persistValidatedWechatCredentials: async input => await persistValidatedWechatCredentialsForAccount(
+      env,
+      onboardingStore,
+      input,
+    ),
     trustedContext,
-    createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
+    createApiClient: async account => (await createWorkerToolContext(
+      env,
+      account ? toStorageAccountContext(account) : undefined,
+    )).apiClient,
   });
 }
 
 async function verifyTurnstileIfConfigured(env: WorkerEnv, request: Request, token: string): Promise<{ ok: true } | { ok: false; message: string }> {
-  const secret = await resolveSecret(env.TURNSTILE_SECRET_KEY);
-  if (!secret) return { ok: true };
-  if (!token) return { ok: false, message: '缺少 Turnstile 校验 token。' };
-
-  const body = new FormData();
-  body.set('secret', secret);
-  body.set('response', token);
-  const ip = request.headers.get('cf-connecting-ip');
-  if (ip) body.set('remoteip', ip);
-
-  try {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      body,
-    });
-    const result = await response.json() as { success?: boolean };
-    return result.success ? { ok: true } : { ok: false, message: 'Turnstile 校验未通过。' };
-  } catch {
-    return { ok: false, message: 'Turnstile 校验服务暂不可用。' };
-  }
+  const result = await verifyTurnstile({
+    secretBinding: env.TURNSTILE_SECRET_KEY,
+    production: isProductionEnv(env),
+    request,
+    token,
+  });
+  return result.ok ? { ok: true } : { ok: false, message: result.message ?? 'Turnstile 校验未通过。' };
 }
 
 async function sendEmailCode(env: WorkerEnv, email: string, code: string): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -868,29 +1189,45 @@ async function validateWechatCredentialsForAccount(
   env: WorkerEnv,
   config: WechatConfig,
 ): Promise<AccessTokenInfo> {
-  const executor = await createWechatWorkersHttpExecutor(env);
-  const response = await executor.get<{
-    access_token?: string;
-    expires_in?: number;
-    errcode?: number;
-    errmsg?: string;
-  }>('/cgi-bin/token', {
-    params: {
-      grant_type: 'client_credential',
-      appid: config.appId,
-      secret: config.appSecret,
-    },
-  });
-  const result = response.data;
-  if (result.errcode || !result.access_token || !result.expires_in) {
-    const reason = result.errmsg ?? 'invalid response';
-    throw new Error(`WeChat credential validation failed: ${reason}. 请确认 AppID/AppSecret 正确，并已将平台 HTTPS relay 出口 IP 加入微信公众号 IP 白名单。`);
+  const proxy = await resolveWorkerProxyConfig(env);
+  if (!proxy) {
+    throw new WechatCredentialProbeError(
+      'wechat_relay_unavailable',
+      'The controlled WeChat relay is not configured.',
+      503,
+    );
   }
-  return {
-    accessToken: result.access_token,
-    expiresIn: result.expires_in,
-    expiresAt: Date.now() + result.expires_in * 1000,
-  };
+
+  try {
+    const executor = await createWechatWorkersHttpExecutor(env, proxy);
+    const response = await executor.get<{
+      access_token?: string;
+      expires_in?: number;
+      errcode?: number;
+      errmsg?: string;
+    }>('/cgi-bin/token', {
+      params: {
+        grant_type: 'client_credential',
+        appid: config.appId,
+        secret: config.appSecret,
+      },
+    });
+    const result = response.data;
+    if (result.errcode || !result.access_token || !result.expires_in) {
+      throw wechatCredentialProbeErrorForResponse({ errcode: result.errcode });
+    }
+    return {
+      accessToken: result.access_token,
+      expiresIn: result.expires_in,
+      expiresAt: Date.now() + result.expires_in * 1000,
+    };
+  } catch (error) {
+    if (error instanceof WechatCredentialProbeError) throw error;
+    const httpStatus = (error as { response?: { status?: unknown } } | null)?.response?.status;
+    throw wechatCredentialProbeErrorForResponse({
+      httpStatus: typeof httpStatus === 'number' ? httpStatus : undefined,
+    });
+  }
 }
 
 async function resolveTrustedTenantContext(
@@ -900,34 +1237,24 @@ async function resolveTrustedTenantContext(
   store: D1SaasOnboardingStore,
   source: TenantRequestContext['source'],
 ): Promise<TenantRequestContext> {
-  if (props.userId) {
-    const stored = await store.getTenantContextForOperator({
-      operatorId: props.userId,
-      oauthClientId: props.oauthClientId,
-      scopes: props.scopes,
-      requestId: request.headers.get('x-request-id'),
-    }, { source });
-    if (stored.tenants.length > 0) {
-      return stored;
-    }
+  if (!props.userId) {
+    throw new ApiError('unauthorized', 'OAuth authorization is missing an Operator identity.', 401);
   }
 
-  const storage = await createD1Storage(env);
-  const accountContext = await storage.getDefaultAccountContext();
-  return createDefaultTenantContext({
-    source,
-    userId: props.userId || await resolveSecret(env.OAUTH_CLIENT_ID) || 'wechat-admin',
-    oauthClientId: props.oauthClientId || await resolveSecret(env.OAUTH_CLIENT_ID),
+  const stored = await store.getTenantContextForOperator({
+    operatorId: props.userId,
+    oauthClientId: props.oauthClientId,
     scopes: props.scopes,
     requestId: request.headers.get('x-request-id'),
-    appId: accountContext?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
-    tenantId: accountContext?.tenantId,
-    tenantSlug: accountContext?.tenantSlug,
-    tenantName: accountContext?.tenantName,
-    accountId: accountContext?.accountId,
-    accountSlug: accountContext?.accountSlug,
-    accountName: accountContext?.accountName,
-  });
+  }, { source });
+  if (stored.tenants.length === 0) {
+    throw new ApiError(
+      'tenant_required',
+      'The authorized Operator has no accessible tenant. Re-authenticate after onboarding.',
+      403,
+    );
+  }
+  return stored;
 }
 
 function isStripeWebhookPath(pathname: string): boolean {
@@ -937,7 +1264,7 @@ function isStripeWebhookPath(pathname: string): boolean {
 function registerWorkerMcpTool(
   server: McpServer,
   tool: McpTool,
-  apiClient: WechatApiClient,
+  resolveApiClient: (account: import('./tenant-context.js').AccountContext) => Promise<WechatApiClient>,
   resolveTenantContext: () => Promise<TenantRequestContext>,
   usageStore: D1UsageQuotaStore,
   auditLog: D1AuditLogWriter,
@@ -948,20 +1275,42 @@ function registerWorkerMcpTool(
     tool.description,
     tool.inputSchema as any,
     async (params: unknown) => {
+      let failureContext: TenantRequestContext | undefined;
+      let failureTenantId: string | undefined;
+      let failureAccountId: string | undefined;
       try {
         const tenantContext = await resolveTenantContext();
+        failureContext = tenantContext;
+        try {
+          const requested = params && typeof params === 'object' && !Array.isArray(params)
+            ? params as Record<string, unknown>
+            : {};
+          const account = resolveAccountContext(requested, tenantContext, {
+            requireAccount: !tool.name.startsWith('woa_'),
+          });
+          failureTenantId = account?.tenantId ?? tenantContext.defaultTenantId;
+          failureAccountId = account?.accountId ?? tenantContext.defaultAccountId;
+        } catch {
+          failureTenantId = tenantContext.defaultTenantId;
+          failureAccountId = tenantContext.defaultAccountId;
+        }
         const result = await executeMcpToolWithQuota({
           tool,
-          apiClient,
+          resolveApiClient,
           params,
           tenantContext,
           usageStore,
         });
         const action = getAction(params);
-        const accountId = mcpParamAccountId(params) ?? tenantContext.defaultAccountId;
         const resultMeta = result._meta && typeof result._meta === 'object'
           ? result._meta as Record<string, unknown>
           : {};
+        const tenantId = typeof resultMeta.tenantId === 'string'
+          ? resultMeta.tenantId
+          : failureTenantId;
+        const accountId = typeof resultMeta.accountId === 'string'
+          ? resultMeta.accountId
+          : failureAccountId;
         const resultError = resultMeta.error;
         const quotaRejected = resultError &&
           typeof resultError === 'object' &&
@@ -970,7 +1319,7 @@ function registerWorkerMcpTool(
           await auditLog.write({
             userId: tenantContext.userId,
             oauthClientId: tenantContext.oauthClientId,
-            tenantId: tenantContext.defaultTenantId,
+            tenantId,
             accountId,
             action: 'quota.rejected',
             targetType: 'mcp_tool',
@@ -980,7 +1329,7 @@ function registerWorkerMcpTool(
           });
           await onboardingStore.recordMonitoringEvent({
             eventType: 'quota.rejected',
-            tenantId: tenantContext.defaultTenantId,
+            tenantId,
             accountId,
             severity: 'warning',
             metadata: { toolName: tool.name, action, requestId: tenantContext.requestId },
@@ -989,7 +1338,7 @@ function registerWorkerMcpTool(
           await auditLog.write({
             userId: tenantContext.userId,
             oauthClientId: tenantContext.oauthClientId,
-            tenantId: tenantContext.defaultTenantId,
+            tenantId,
             accountId,
             action: 'publish.success',
             targetType: 'mcp_tool',
@@ -1001,11 +1350,11 @@ function registerWorkerMcpTool(
         return result as any;
       } catch (error) {
         try {
-          const tenantContext = await resolveTenantContext();
+          const tenantContext = failureContext ?? await resolveTenantContext();
           await onboardingStore.recordMonitoringEvent({
             eventType: 'mcp.tool_failed',
-            tenantId: tenantContext.defaultTenantId,
-            accountId: mcpParamAccountId(params) ?? tenantContext.defaultAccountId,
+            tenantId: failureTenantId ?? tenantContext.defaultTenantId,
+            accountId: failureAccountId ?? tenantContext.defaultAccountId,
             severity: 'warning',
             metadata: {
               toolName: tool.name,
@@ -1017,6 +1366,21 @@ function registerWorkerMcpTool(
         } catch {
           // MCP 原始错误优先于 best-effort monitoring。
         }
+        if (error instanceof ApiError) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: `操作被拒绝：${error.message}`,
+            }],
+            isError: true,
+            _meta: {
+              error: {
+                code: error.code,
+                details: error.details,
+              },
+            },
+          };
+        }
         return {
           content: [{
             type: 'text' as const,
@@ -1027,12 +1391,6 @@ function registerWorkerMcpTool(
       }
     },
   );
-}
-
-function mcpParamAccountId(params: unknown): string | null {
-  if (!params || typeof params !== 'object' || Array.isArray(params)) return null;
-  const accountId = (params as Record<string, unknown>).accountId;
-  return typeof accountId === 'string' && accountId.trim() ? accountId.trim() : null;
 }
 
 async function handleWechatCallbackRequest(request: Request, env: WorkerEnv): Promise<Response> {
@@ -1290,35 +1648,16 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
 
   async init(): Promise<void> {
     const env = getAgentEnv(this);
-    const { apiClient, storage, accountContext } = await createWorkerToolContext(env);
     const usageStore = new D1UsageQuotaStore(env.DB);
     await usageStore.ensureSchema();
     const onboardingStore = await createSaasOnboardingStore(env);
-    const currentConfig = await apiClient.getAuthManager().getConfig();
-    const fallbackClientId = await resolveSecret(env.OAUTH_CLIENT_ID) ?? undefined;
     const authorizedScopes = normalizeOAuthScopes(this.props?.scopes);
     const resolveMcpTenantContext = async (): Promise<TenantRequestContext> => {
-      let tenantContext = await resolveTrustedTenantContext(env, new Request('https://worker.internal/mcp'), {
-        userId: this.props?.userId ?? fallbackClientId,
-        oauthClientId: this.props?.oauthClientId ?? fallbackClientId,
+      return await resolveTrustedTenantContext(env, new Request('https://worker.internal/mcp'), {
+        userId: this.props?.userId,
+        oauthClientId: this.props?.oauthClientId,
         scopes: authorizedScopes,
       }, onboardingStore, 'mcp');
-      if (tenantContext.tenants.length === 0) {
-        tenantContext = createDefaultTenantContext({
-          source: 'mcp',
-          userId: this.props?.userId ?? fallbackClientId,
-          oauthClientId: this.props?.oauthClientId ?? fallbackClientId,
-          scopes: authorizedScopes,
-          appId: currentConfig?.appId ?? await resolveSecret(env.WECHAT_APP_ID),
-          tenantId: accountContext.tenantId,
-          tenantSlug: accountContext.tenantSlug,
-          tenantName: accountContext.tenantName,
-          accountId: accountContext.accountId,
-          accountSlug: accountContext.accountSlug,
-          accountName: accountContext.accountName,
-        });
-      }
-      return tenantContext;
     };
     const auditLog = new D1AuditLogWriter(env.DB);
     const managementTools = createTenantManagementMcpTools({
@@ -1326,10 +1665,14 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
       usageStore,
       auditLog,
       validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
+      persistValidatedWechatCredentials: async input => await persistValidatedWechatCredentialsForAccount(
+        env,
+        onboardingStore,
+        input,
+      ),
     });
     const mediaTools = createWorkerMediaTools({
       mediaBucket: env.MEDIA,
-      saveMedia: media => storage.saveMedia(media),
     }).map(withOptionalAccountId);
 
     const sharedTools = WORKER_SHARED_MCP_TOOLS.filter(tool => !tool.name.startsWith('woa_'));
@@ -1337,7 +1680,7 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
       registerWorkerMcpTool(
         this.server,
         tool,
-        apiClient,
+        async account => (await createWorkerToolContext(env, toStorageAccountContext(account))).apiClient,
         resolveMcpTenantContext,
         usageStore,
         auditLog,
@@ -1397,6 +1740,7 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
 export class TokenOwner extends Agent<WorkerEnv> {
   private refreshPromise: Promise<AccessTokenInfo> | null = null;
   private tokenTableReady = false;
+  private tokenGeneration = 0;
 
   async getAccessToken(options: TokenOwnerRequestOptions = {}): Promise<AccessTokenInfo> {
     await this.ensureTokenTables();
@@ -1414,9 +1758,25 @@ export class TokenOwner extends Agent<WorkerEnv> {
   async clearAccessToken(options: { accountContext?: AccountContext } = {}): Promise<void> {
     await this.ensureTokenTables();
     const accountContext = await this.resolveAccountContext(options.accountContext);
+    this.tokenGeneration += 1;
+    this.refreshPromise = null;
     void this.sql`DELETE FROM wechat_access_token`;
     const storage = await createD1Storage(getAgentEnv(this));
     await storage.clearAccountAccessToken(accountContext);
+  }
+
+  async replaceAccessToken(
+    tokenInfo: AccessTokenInfo,
+    options: { accountContext?: AccountContext } = {},
+  ): Promise<void> {
+    await this.ensureTokenTables();
+    const accountContext = await this.resolveAccountContext(options.accountContext);
+    this.tokenGeneration += 1;
+    this.refreshPromise = null;
+    await this.writeStoredToken(tokenInfo);
+    const storage = await createD1Storage(getAgentEnv(this));
+    await storage.saveAccountAccessToken(accountContext, tokenInfo);
+    await this.schedulePreExpiryRefresh(tokenInfo, accountContext);
   }
 
   async getDebugStatus(): Promise<Record<string, unknown>> {
@@ -1504,6 +1864,7 @@ export class TokenOwner extends Agent<WorkerEnv> {
 
   private async refreshAndPersist(accountContext: AccountContext): Promise<AccessTokenInfo> {
     await this.incrementMetric('refreshAttempts');
+    const generation = this.tokenGeneration;
 
     const config = await this.resolveWechatConfig(accountContext);
     const env = getAgentEnv(this);
@@ -1533,6 +1894,10 @@ export class TokenOwner extends Agent<WorkerEnv> {
       expiresIn: result.expires_in,
       expiresAt: Date.now() + result.expires_in * 1000,
     };
+
+    if (generation !== this.tokenGeneration) {
+      throw new Error('Discarded a stale WeChat token refresh after account credentials changed.');
+    }
 
     await this.writeStoredToken(tokenInfo);
 
@@ -1580,6 +1945,12 @@ export class TokenOwner extends Agent<WorkerEnv> {
     const stored = await storage.getAccountConfig(accountContext);
     if (stored?.appId && stored?.appSecret) {
       return stored;
+    }
+
+    if (!canUseLegacyGlobalWechatSecrets(accountContext)) {
+      throw new Error(
+        `Wechat config not found for account ${accountContext.accountId}. Configure this account before calling WeChat tools.`,
+      );
     }
 
     const env = getAgentEnv(this);
@@ -1742,9 +2113,19 @@ const managementApiHandler = {
       mediaBucket: env.MEDIA,
       onboardingStore,
       auditLog: new D1AuditLogWriter(env.DB),
+      agentInit: createAgentInitDeps(env),
+      ...createOAuthGrantManagementDeps(env),
       validateWechatCredentials: async config => await validateWechatCredentialsForAccount(env, config),
+      persistValidatedWechatCredentials: async input => await persistValidatedWechatCredentialsForAccount(
+        env,
+        onboardingStore,
+        input,
+      ),
       trustedContext,
-      createApiClient: async () => (await createWorkerToolContext(env)).apiClient,
+      createApiClient: async account => (await createWorkerToolContext(
+        env,
+        account ? toStorageAccountContext(account) : undefined,
+      )).apiClient,
     });
   },
 };
@@ -1767,15 +2148,6 @@ const defaultHandler = {
         mcpEndpoint: '/mcp',
         webhookEndpoint: '/wx/callback/{accountId}',
         legacyWebhookEndpoint: '/wx/callback',
-      });
-    }
-
-    if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
-      return new Response('Unauthorized', {
-        status: 401,
-        headers: {
-          'WWW-Authenticate': 'Bearer realm="wechat-official-account-mcp"',
-        },
       });
     }
 
@@ -1822,6 +2194,17 @@ async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Respon
   }
 
   const oauthRequest = await provider.parseAuthRequest(request);
+  const requestedScopes = normalizeRequestedOAuthScopes(oauthRequest.scope);
+  const unsupportedScopes = unsupportedOAuthScopes(requestedScopes);
+  if (unsupportedScopes.length > 0) {
+    return json({
+      error: 'invalid_scope',
+      error_description: `Unsupported OAuth scopes: ${unsupportedScopes.join(' ')}`,
+    }, {
+      status: 400,
+      headers: { 'cache-control': 'no-store' },
+    });
+  }
 
   if (request.method !== 'GET' && request.method !== 'POST') {
     return new Response('Method Not Allowed', {
@@ -1839,24 +2222,36 @@ async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Respon
   }
 
   await store.bootstrapDefaultTenantForOperator({ operatorId: session.operatorId });
+  const authorizationContext = await store.getTenantContextForOperator(session.operatorId, { source: 'rest' });
+  const membershipAllowedScopes = new Set(scopesAllowedByAnyMembership(authorizationContext));
+  const membershipDeniedScopes = requestedScopes.filter(scope => !membershipAllowedScopes.has(scope));
+  if (membershipDeniedScopes.length > 0) {
+    return json({
+      error: 'invalid_scope',
+      error_description: `Current tenant memberships do not allow scopes: ${membershipDeniedScopes.join(' ')}`,
+    }, {
+      status: 403,
+      headers: { 'cache-control': 'no-store' },
+    });
+  }
   await store.registerOAuthClient({
     clientId: oauthRequest.clientId,
     clientName: oauthRequest.clientId || 'OAuth client',
     redirectUris: [oauthRequest.redirectUri],
-    scopes: oauthRequest.scope,
+    scopes: requestedScopes,
   });
 
   const hasConsent = await store.hasOAuthConsent({
     operatorId: session.operatorId,
     clientId: oauthRequest.clientId,
-    scopes: oauthRequest.scope,
+    scopes: requestedScopes,
   });
 
   if (request.method === 'GET' && !hasConsent) {
     return renderAuthorizationConsentForm({
       query: url.searchParams.toString(),
       clientId: oauthRequest.clientId,
-      scopes: oauthRequest.scope,
+      scopes: requestedScopes,
     });
   }
 
@@ -1866,25 +2261,25 @@ async function handleAuthorize(request: Request, env: WorkerEnv): Promise<Respon
       return renderAuthorizationConsentForm({
         query: url.searchParams.toString(),
         clientId: oauthRequest.clientId,
-        scopes: oauthRequest.scope,
+        scopes: requestedScopes,
         error: '请确认授权后继续。',
       });
     }
     await store.rememberOAuthConsent({
       operatorId: session.operatorId,
       clientId: oauthRequest.clientId,
-      scopes: oauthRequest.scope,
+      scopes: requestedScopes,
     });
   }
 
   const { redirectTo } = await provider.completeAuthorization({
     request: oauthRequest,
     userId: session.operatorId,
-    scope: oauthRequest.scope,
+    scope: requestedScopes,
     props: {
       userId: session.operatorId,
       oauthClientId: oauthRequest.clientId,
-      scopes: oauthRequest.scope,
+      scopes: requestedScopes,
     },
     metadata: {
       mcpServer: 'wechat-official-account-mcp',
@@ -1904,21 +2299,22 @@ function createOAuthProvider(): OAuthProvider<WorkerEnv> {
       '/api/v1': managementApiHandler,
     },
     defaultHandler,
-    scopesSupported: [
-      'wechat.mcp',
-      'woa:context:read',
-      'woa:tenant:read',
-      'woa:tenant:write',
-      'woa:account:read',
-      'woa:account:write',
-      'woa:content:read',
-      'woa:content:write',
-      'woa:content:publish',
-      'woa:inbox:read',
-      'woa:usage:read',
-      'woa:billing:write',
-      'woa:audit:read',
-    ],
+    accessTokenTTL: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+    refreshTokenTTL: OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+    clientRegistrationTTL: OAUTH_DYNAMIC_CLIENT_TTL_SECONDS,
+    scopesSupported: [...OAUTH_SUPPORTED_SCOPES],
+    resourceMetadata: {
+      scopes_supported: [...OAUTH_SUPPORTED_SCOPES],
+      bearer_methods_supported: ['header'],
+      resource_name: 'WeChat Official Account MCP',
+    },
+    tokenExchangeCallback: ({ props, requestedScope }) => ({
+      accessTokenProps: {
+        ...(props && typeof props === 'object' ? props : {}),
+        scopes: [...requestedScope],
+      },
+      accessTokenScope: [...requestedScope],
+    }),
     allowPlainPKCE: false,
   });
 }
@@ -1933,6 +2329,55 @@ export default {
 
     const removedTransportResponse = removedMcpTransportResponseForRequest(request);
     if (removedTransportResponse) return removedTransportResponse;
+
+    if (url.pathname === '/init/credentials') {
+      const onboardingStore = await createSaasOnboardingStore(env);
+      const sessionToken = getSessionCookie(request);
+      const session = sessionToken ? await onboardingStore.getWebSession(sessionToken) : null;
+      const agentInit = createAgentInitDeps(env);
+      return await handleCredentialHandoffRequest(request, {
+        ...agentInit,
+        operatorId: session?.operatorId,
+        assertAuthority: async handoff => {
+          await assertCredentialHandoffAuthority(
+            env,
+            onboardingStore,
+            agentInit.store,
+            session?.operatorId ?? '',
+            handoff,
+          );
+        },
+        validateAndPersist: async ({ handoff, config }) => {
+          const tokenInfo = await validateWechatCredentialsForAccount(env, config);
+
+          // The WeChat probe is a network boundary. Re-check the membership,
+          // account lock, and initiating OAuth grant immediately before persist
+          // so an administrator can revoke authority while the probe is pending.
+          const account = await assertCredentialHandoffAuthority(
+            env,
+            onboardingStore,
+            agentInit.store,
+            session?.operatorId ?? '',
+            handoff,
+          );
+          await persistValidatedWechatCredentialsForAccount(env, onboardingStore, {
+            config,
+            account,
+            tokenInfo,
+          });
+          await safeWriteAudit(env, {
+            userId: session?.operatorId,
+            tenantId: handoff.tenantId,
+            accountId: handoff.accountId,
+            action: 'account.credentials_configured_via_handoff',
+            targetType: 'wechat_account',
+            targetId: handoff.accountId,
+            metadata: { handoffId: handoff.handoffId, relayProbe: true },
+          });
+          return tokenInfo;
+        },
+      });
+    }
 
     if (
       url.pathname === '/api/v1/auth/email-code/request' ||
@@ -2011,10 +2456,6 @@ export default {
     if (url.pathname === '/__debug/mcp-event-store/replay' && isLocalhost(url.hostname)) {
       const agent = await getDebugMcpAgent(env);
       return json(await agent.runEventStoreSelfTest());
-    }
-
-    if ((url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) && !request.headers.has('authorization')) {
-      return await defaultHandler.fetch(request, env);
     }
 
     return await createOAuthProvider().fetch(request, env, ctx as any);

@@ -52,7 +52,10 @@
     }
   ],
   "vars": {
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "WECHAT_EGRESS_IPS": "101.34.57.185",
+    "WECHAT_EGRESS_CONFIG_VERSION": "shanghai-relay-2026-07-17",
+    "WECHAT_EGRESS_UPDATED_AT": "2026-07-17T00:00:00+08:00"
   },
   "triggers": {
     "crons": [

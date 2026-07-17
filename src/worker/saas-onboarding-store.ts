@@ -1,13 +1,20 @@
 import CryptoJS from 'crypto-js';
 import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
 import type { D1DatabaseLike, D1Value, SecretStoreBindingLike } from '../storage/d1-storage-manager.js';
-import type { AccountSummary, TenantRequestContext, TenantRole, TenantSummary } from './tenant-context.js';
+import {
+  membershipScopesForRole,
+  type AccountSummary,
+  type TenantRequestContext,
+  type TenantRole,
+  type TenantSummary,
+} from './tenant-context.js';
 import {
   DEFAULT_SUBSCRIPTION_PLAN,
   PLAN_QUOTA_POLICIES,
   normalizeSubscriptionPlan,
   type SubscriptionPlan,
 } from './quota-policy.js';
+import { OAUTH_ACCESS_TOKEN_TTL_MS, OAUTH_REFRESH_TOKEN_TTL_MS } from './oauth-policy.js';
 
 export type SaasSecretKeySource = string | null | undefined | SecretStoreBindingLike | (() => string | null | undefined | Promise<string | null | undefined>);
 export type IdentityProvider = 'email' | 'github' | string;
@@ -297,6 +304,69 @@ CREATE TABLE IF NOT EXISTS operator_deletion_requests (
   support_note TEXT,
   FOREIGN KEY(operator_id) REFERENCES operators(id)
 );
+CREATE TABLE IF NOT EXISTS agent_init_runs (
+  id TEXT PRIMARY KEY,
+  operator_id TEXT NOT NULL,
+  tenant_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  request_key_hash TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  phase TEXT NOT NULL DEFAULT 'context_ready',
+  run_version INTEGER NOT NULL DEFAULT 1,
+  oauth_client_id TEXT,
+  egress_config_version TEXT NOT NULL,
+  egress_confirmed_at INTEGER,
+  credentials_verified_at INTEGER,
+  relay_probe_at INTEGER,
+  test_asset_checksum TEXT,
+  test_asset_media_id TEXT,
+  test_draft_idempotency_key_hash TEXT,
+  test_draft_media_id TEXT,
+  last_error_code TEXT,
+  active_handoff_id TEXT,
+  lease_owner_hash TEXT,
+  lease_expires_at INTEGER,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE(operator_id, request_key_hash),
+  FOREIGN KEY(operator_id) REFERENCES operators(id)
+);
+CREATE TABLE IF NOT EXISTS agent_credential_handoffs (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  operator_id TEXT NOT NULL,
+  tenant_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  url_token_hash TEXT NOT NULL UNIQUE,
+  cookie_token_hash TEXT UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  error_code TEXT,
+  expires_at INTEGER NOT NULL,
+  claimed_at INTEGER,
+  consumed_at INTEGER,
+  verified_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY(run_id) REFERENCES agent_init_runs(id),
+  FOREIGN KEY(operator_id) REFERENCES operators(id)
+);
+CREATE TABLE IF NOT EXISTS agent_init_idempotency (
+  tenant_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  tool_name TEXT NOT NULL,
+  idempotency_key_hash TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  result_ref TEXT,
+  lease_owner_hash TEXT,
+  lease_expires_at INTEGER,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(tenant_id, account_id, tool_name, idempotency_key_hash),
+  FOREIGN KEY(run_id) REFERENCES agent_init_runs(id)
+);
 CREATE INDEX IF NOT EXISTS idx_operator_email_codes_email ON operator_email_codes(email, consumed_at, expires_at);
 CREATE INDEX IF NOT EXISTS idx_operator_identities_operator ON operator_identities(operator_id);
 CREATE INDEX IF NOT EXISTS idx_web_sessions_operator ON web_sessions(operator_id, revoked_at, expires_at);
@@ -305,11 +375,13 @@ CREATE INDEX IF NOT EXISTS idx_public_signup_rate_limits_reset ON public_signup_
 CREATE INDEX IF NOT EXISTS idx_tenant_owners_operator ON tenant_owners(operator_id);
 CREATE INDEX IF NOT EXISTS idx_r2_media_retention_expires ON r2_media_retention_metadata(expires_at, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_monitoring_events_type_time ON monitoring_events(event_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_init_runs_operator ON agent_init_runs(operator_id, status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_agent_init_runs_account ON agent_init_runs(tenant_id, account_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_agent_credential_handoffs_run ON agent_credential_handoffs(run_id, status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_agent_init_idempotency_expiry ON agent_init_idempotency(expires_at, status);
 `;
 
 const WEB_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
-const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
 const EMAIL_CODE_MAX_ATTEMPTS = 5;
 const ACCOUNT_ALLOWANCES: Record<SubscriptionPlan, number> = {
@@ -530,20 +602,49 @@ export class D1SaasOnboardingStore {
     const expectedHash = stringValue(row.code_hash);
     const actualHash = await hashText(`${email}:${input.code}`);
     if (expectedHash !== actualHash) {
-      const nextAttempts = attempts + 1;
-      await this.db.prepare(
+      const update = await this.db.prepare(
         `UPDATE operator_email_codes
-         SET attempts = ?, consumed_at = CASE WHEN ? >= max_attempts THEN ? ELSE consumed_at END, updated_at = ?
-         WHERE id = ?`,
-      ).bind(nextAttempts, nextAttempts, now, now, codeId).run();
+         SET attempts = attempts + 1,
+             consumed_at = CASE WHEN attempts + 1 >= max_attempts THEN ? ELSE consumed_at END,
+             updated_at = ?
+         WHERE id = ?
+           AND consumed_at IS NULL
+           AND expires_at > ?
+           AND attempts < max_attempts`,
+      ).bind(now, now, codeId, now).run();
+      if ((update.meta?.changes ?? 0) === 0) {
+        return { ok: false, reason: 'not_found' };
+      }
+
+      const updated = await this.db.prepare(
+        `SELECT attempts, max_attempts
+         FROM operator_email_codes
+         WHERE id = ?
+         LIMIT 1`,
+      ).bind(codeId).first<Record<string, unknown>>();
+      const nextAttempts = numberValue(updated?.attempts) ?? (attempts + 1);
+      const updatedMaxAttempts = numberValue(updated?.max_attempts) ?? maxAttempts;
       return {
         ok: false,
-        reason: nextAttempts >= maxAttempts ? 'attempt_limit' : 'invalid_code',
-        attemptsRemaining: Math.max(0, maxAttempts - nextAttempts),
+        reason: nextAttempts >= updatedMaxAttempts ? 'attempt_limit' : 'invalid_code',
+        attemptsRemaining: Math.max(0, updatedMaxAttempts - nextAttempts),
       };
     }
 
-    await this.consumeEmailCode(codeId, now);
+    const claim = await this.db.prepare(
+      `UPDATE operator_email_codes
+       SET consumed_at = ?, updated_at = ?
+       WHERE id = ?
+         AND consumed_at IS NULL
+         AND code_hash = ?
+         AND expires_at > ?
+         AND attempts < max_attempts`,
+    ).bind(now, now, codeId, actualHash, now).run();
+    if ((claim.meta?.changes ?? 0) !== 1) {
+      // Another verifier won the compare-and-set or the code became invalid.
+      // Only the winner may create a session/operator from this one-time code.
+      return { ok: false, reason: 'not_found' };
+    }
     const { operator } = await this.createOrResolveOperatorByEmail({
       email,
       displayName: input.displayName,
@@ -564,22 +665,19 @@ export class D1SaasOnboardingStore {
     const windowStart = Math.floor(now / input.windowMs) * input.windowMs;
     const resetAt = windowStart + input.windowMs;
     const keyHash = await hashText(input.key);
-    const existing = await this.db.prepare(
-      `SELECT count, reset_at
-       FROM public_signup_rate_limits
-       WHERE bucket = ? AND key_hash = ? AND window_start = ?
-       LIMIT 1`,
-    ).bind(input.bucket, keyHash, windowStart).first<Record<string, unknown>>();
-    const count = (numberValue(existing?.count) ?? 0) + 1;
-
-    await this.db.prepare(
+    const updated = await this.db.prepare(
       `INSERT INTO public_signup_rate_limits (bucket, key_hash, window_start, count, reset_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, 1, ?, ?, ?)
        ON CONFLICT(bucket, key_hash, window_start) DO UPDATE SET
-         count = excluded.count,
+         count = public_signup_rate_limits.count + 1,
          reset_at = excluded.reset_at,
-         updated_at = excluded.updated_at`,
-    ).bind(input.bucket, keyHash, windowStart, count, resetAt, now, now).run();
+         updated_at = excluded.updated_at
+       RETURNING count`,
+    ).bind(input.bucket, keyHash, windowStart, resetAt, now, now).first<Record<string, unknown>>();
+    const count = numberValue(updated?.count);
+    if (count === null) {
+      throw new Error('Failed to atomically record public signup rate-limit hit.');
+    }
 
     return { allowed: count <= input.limit, count, resetAt, limit: input.limit };
   }
@@ -715,8 +813,8 @@ export class D1SaasOnboardingStore {
     await this.ensureSchema();
     const now = input.now ?? Date.now();
     const sessionId = opaqueId('oauthsess');
-    const accessExpiresAt = input.accessExpiresAt ?? now + ACCESS_TOKEN_TTL_MS;
-    const refreshExpiresAt = input.refreshExpiresAt ?? now + REFRESH_TOKEN_TTL_MS;
+    const accessExpiresAt = input.accessExpiresAt ?? now + OAUTH_ACCESS_TOKEN_TTL_MS;
+    const refreshExpiresAt = input.refreshExpiresAt ?? now + OAUTH_REFRESH_TOKEN_TTL_MS;
     await this.db.prepare(
       `INSERT INTO oauth_token_sessions (
          id,
@@ -906,9 +1004,12 @@ export class D1SaasOnboardingStore {
     ).bind(operatorId).all<Record<string, unknown>>();
 
     const tenants = (tenantRows.results ?? []).map(rowToTenantSummary);
+    const hasExplicitOAuthGrant = typeof input !== 'string' && input.scopes !== null && input.scopes !== undefined;
     const scopes = typeof input === 'string'
       ? ownerScopes()
-      : normalizeStringList(input.scopes?.length ? input.scopes : scopesFromTenantRows(tenantRows.results ?? []));
+      : hasExplicitOAuthGrant
+        ? normalizeStringList(input.scopes)
+        : scopesFromTenantRows(tenantRows.results ?? []);
     const accounts: AccountSummary[] = [];
     for (const tenant of tenants) {
       const accountRows = await this.db.prepare(
@@ -927,7 +1028,9 @@ export class D1SaasOnboardingStore {
     return {
       userId: operatorId,
       oauthClientId: typeof input === 'string' ? undefined : input.oauthClientId ?? undefined,
-      scopes: scopes.length > 0 ? scopes : ownerScopes(),
+      // OAuth Provider props are the authorization source of truth. An explicit
+      // empty grant must remain empty instead of silently escalating to owner.
+      scopes: hasExplicitOAuthGrant ? scopes : scopes.length > 0 ? scopes : ownerScopes(),
       tenants,
       accounts,
       defaultTenantId,
@@ -1092,7 +1195,7 @@ export class D1SaasOnboardingStore {
            app_secret = ?,
            webhook_token = CASE WHEN ? = 1 THEN ? ELSE webhook_token END,
            encoding_aes_key = CASE WHEN ? = 1 THEN ? ELSE encoding_aes_key END,
-           status = 'active',
+           status = CASE WHEN status = 'locked' THEN 'locked' ELSE 'active' END,
            updated_at = ?
        WHERE tenant_id = ? AND id = ? AND status != 'disabled'`,
     ).bind(
@@ -1684,12 +1787,14 @@ function rowToSecuritySession(row: Record<string, unknown>, kind: SecuritySessio
 }
 
 function rowToTenantSummary(row: Record<string, unknown>): TenantSummary {
+  const role = normalizeTenantRole(stringValue(row.role));
   return {
     tenantId: stringValue(row.tenant_id) || '',
     slug: stringValue(row.tenant_slug) || stringValue(row.tenant_id) || '',
     name: stringValue(row.tenant_name) || stringValue(row.tenant_id) || '',
-    role: (stringValue(row.role) || 'owner') as TenantRole,
+    role,
     status: stringValue(row.tenant_status) === 'disabled' ? 'disabled' : 'active',
+    membershipScopes: parseJsonStringArray(stringValue(row.scopes_json)),
   };
 }
 
@@ -1701,7 +1806,13 @@ function rowToAccountSummary(row: Record<string, unknown>): AccountSummary {
     slug: stringValue(row.slug) || stringValue(row.id) || '',
     name: stringValue(row.name) || stringValue(row.id) || '',
     appId: stringValue(row.app_id) || undefined,
-    status: status === 'active' ? 'active' : status === 'disabled' ? 'disabled' : 'unconfigured',
+    status: status === 'active'
+      ? 'active'
+      : status === 'disabled'
+        ? 'disabled'
+        : status === 'locked'
+          ? 'locked'
+          : 'unconfigured',
     isDefault: Boolean(numberValue(row.is_default)),
   };
 }
@@ -1730,21 +1841,11 @@ function secretSafeResourceFallback(tenantId: string): AccountSummary {
 }
 
 function ownerScopes(): string[] {
-  return [
-    'wechat.mcp',
-    'woa:context:read',
-    'woa:tenant:read',
-    'woa:tenant:write',
-    'woa:account:read',
-    'woa:account:write',
-    'woa:content:read',
-    'woa:content:write',
-    'woa:content:publish',
-    'woa:inbox:read',
-    'woa:usage:read',
-    'woa:billing:write',
-    'woa:audit:read',
-  ];
+  return membershipScopesForRole('owner');
+}
+
+function normalizeTenantRole(value: string | null): TenantRole {
+  return value === 'admin' || value === 'operator' || value === 'viewer' ? value : 'owner';
 }
 
 function scopesFromTenantRows(rows: Record<string, unknown>[]): string[] {

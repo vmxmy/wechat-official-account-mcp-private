@@ -1,0 +1,13 @@
+# Use CLI-owned Agent-first onboarding
+
+The public onboarding surface will hand one short bootstrap prompt to any command-capable Agent. The exact, versioned workflow is bundled in `@ziikoo/woa` and exposed by `woa help agent`; the website, README, and individual Agent products will not maintain independent setup skills or client-specific adapters. A CLI upgrade therefore upgrades the workflow contract.
+
+`woa init` is the only first-run orchestrator. It uses one pure state model and separate effect, terminal-capability, progressive TUI, plain-text, JSONL, and secure-input boundaries. The human TUI preserves terminal scrollback and exposes one current action; Agent/pipe/CI execution is non-interactive and emits a secret-free discriminated JSONL protocol. Init runs persist only non-sensitive state, use atomic checkpoints and CAS versions, and produce structured recovery data locked to the exact CLI package version.
+
+Identity login, OAuth consent, the WeChat relay IP allowlist, AppID/AppSecret entry, ambiguous target selection, and confirmation of an unpublished test draft remain human actions. Current relay egress IPs come from trusted `WECHAT_EGRESS_IPS` deployment configuration, and a user confirmation is not proof: the service must obtain a WeChat access token through the relay before marking the allowlist verified. Secret entry uses a short-lived same-Operator write-only HTTPS handoff or a directly operated no-echo terminal path; Agent/JSONL/pipe/CI modes never read secrets or complete callback URLs.
+
+CLI OAuth and each host MCP OAuth authorization are separate grants. Static Bearer headers are never generated. This decision supersedes ADR 0024 only for Agent-guided initialization: init and default host grants request the minimum account/context/content scopes and exclude publish, billing, audit, and tenant write until separately requested. CLI login or a CLI MCP probe cannot prove host readiness; the host must complete its own OAuth and MCP initialization and call `woa_context` plus a read-only draft count.
+
+End-to-end verification may create one user-confirmed WOA test cover and one draft, never publish them, and read the draft back. Tenant/account/tool/idempotency-key records must return the same material and media IDs across retries, timeouts, and host restarts. Deletion remains a separately confirmed destructive action.
+
+The CLI release precedes the public bootstrap page. An exact provenance-enabled prerelease is tested from its packed artifact and registry, the same exact version is promoted to `latest`, `@latest` is verified again, and only then may the public page deploy.

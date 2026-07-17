@@ -2,7 +2,7 @@
 
 - [x] 1.1 Run `openspec validate saas-onboarding` and fix schema/format issues before implementation.
 - [x] 1.2 Review `CONTEXT.md`, `docs/adr/0001-*.md` through `docs/adr/0117-*.md`, and `docs/design/anti-ai-slop-rules.md` before coding.
-- [ ] 1.3 Snapshot current production `/health`, unauthenticated `/mcp`, authenticated `tools/list`, `woa_context`, `woa_account.status`, draft list, publish list, and Stripe webhook behavior.
+- [x] 1.3 Snapshot current production `/health`, unauthenticated `/mcp`, authenticated `tools/list`, `woa_context`, `woa_account.status`, draft list, publish list, and Stripe webhook behavior.
 - [x] 1.4 Confirm production secrets that will be required in Cloudflare: Resend, Turnstile, GitHub OAuth, Stripe live keys/prices/webhook secret, WeChat relay, encryption key, session/OAuth signing secrets.
 - [x] 1.5 Write a migration runbook that explicitly notes accepted risks: direct production D1 migration without required backup, live Stripe verification, and short WeChat API downtime.
 
@@ -27,8 +27,8 @@
 - [x] 3.4 Implement first-login bootstrap that creates default Tenant and one unconfigured WeChat resource for Operators without memberships.
 - [x] 3.5 Implement HttpOnly 7-day sliding Web session issuance, validation, logout, and server-side revocation.
 - [x] 3.6 Replace legacy shared authorization-password logic with email/GitHub identity login and consent pages.
-- [x] 3.7 Implement dynamic public OAuth client registration with PKCE, redirect URI validation, consent display, remembered consent, access token 1h TTL, refresh token 30d TTL, and revocation.
-- [ ] 3.8 Add tests for new Operator signup, existing Operator login, GitHub verified-email linking, missing verified email completion, Turnstile failure, rate limiting, token expiry, and revoked token denial.
+- [x] 3.7 Implement dynamic public OAuth client registration with PKCE, redirect URI validation, consent display, remembered consent, access token 8h TTL, rotating refresh token 180d TTL, dynamic client 365d TTL, and revocation.
+- [x] 3.8 Add tests for new Operator signup, existing Operator login, GitHub verified-email linking, missing verified email completion, Turnstile failure, rate limiting, token expiry, and revoked token denial.
 
 ## 4. Tenant and WeChat resource onboarding
 
@@ -92,7 +92,7 @@
 - [x] 8.4 Remove or reject Tenant create from MCP in the first release with clear guidance.
 - [x] 8.5 Implement MCP plan-limit and quota responses with reset timing and Web/CLI upgrade guidance while not creating Stripe checkout sessions.
 - [x] 8.6 Ensure MCP tools remain visible for Free Tenants while quota enforcement protects operations.
-- [ ] 8.7 Add MCP tests for unauthenticated challenge, context, resource create/configure/status, over-allowance rejection, delete confirmation, and no checkout creation.
+- [x] 8.7 Add MCP tests for unauthenticated challenge, context, resource create/configure/status, over-allowance rejection, delete confirmation, and no checkout creation.
 
 ## 9. Security, retention, and operations
 
@@ -120,7 +120,51 @@
 - [x] 11.3 Run `npm run lint`.
 - [x] 11.4 Run `npm test`.
 - [x] 11.5 Run Web build and Worker dry-run deploy validation.
-- [ ] 11.6 Run local or deployed smoke for email login, Web session, OAuth consent, CLI login, MCP tools/list, `woa_context`, account configure/status, quota rejection, and session revocation.
+- [x] 11.6 Run local or deployed smoke for email login, Web session, OAuth consent, CLI login, MCP tools/list, `woa_context`, account configure/status, quota rejection, and session revocation.
 - [ ] 11.7 Run live Stripe production smoke for checkout, webhook entitlement update, and cancellation/downgrade behavior, treating all payments as real operations.
 - [ ] 11.8 Run production WeChat credential reconfiguration through the new onboarding path and verify article/image publish still works.
 - [x] 11.9 Capture final Web screenshots and complete anti-AI-slop reviewer pass before declaring release ready.
+
+## 12. Agent-first contract and architecture
+
+- [x] 12.1 Add `agent-guided-onboarding` and reconcile proposal/design plus Web, identity, tenant-resource, MCP, CLI, and security capability specs.
+- [x] 12.2 Add an ADR covering CLI Help as the only Agent workflow source, no client adapters, human-in-the-loop boundaries, trusted relay egress IP rotation, minimal scopes, resumable init, and unpublished idempotent test drafts.
+- [x] 12.3 Validate the updated `saas-onboarding` change before implementation continues.
+
+## 13. CLI Agent Help, init protocol, and TUI
+
+- [x] 13.1 Implement `woa --version` and a structured manifest rendered by `woa help agent --format markdown|json` without client brands, static bearer configuration, argv secrets, or server-injected commands.
+- [x] 13.2 Implement a pure init state machine plus effect runner with typed actions/events, exact-version structured resume, atomic checkpoint, lease/CAS run version, signals, EPIPE, and idempotent reconciliation.
+- [x] 13.3 Implement terminal capability detection, progressive `@clack/prompts@0.11.0` TUI, no-control `--plain` mode, and strict non-interactive behavior without alternate screen or scrollback clearing.
+- [x] 13.4 Implement stable secret-free JSONL envelopes with discriminated type, sequence, run version, schema validation, pure stdout, fixed exit codes, and no prompts in Agent/pipe/CI modes.
+- [x] 13.5 Replace echoed AppSecret/callback input with isolated human-only secure input and enforce restrictive, atomic local OAuth/checkpoint storage.
+- [x] 13.6 Replace first-run client-specific config guidance with the generic `woa mcp descriptor`; retain any compatibility aliases outside Agent Help only if the ADR permits them.
+- [x] 13.7 Add pseudo-TTY, plain, JSONL, signal, EPIPE, checkpoint, concurrent resume, secret-redaction, Node 18/20 and Agent Help contract tests.
+
+## 14. Worker OAuth, init context, and idempotent backend
+
+- [x] 14.1 Return RFC 9728 protected-resource metadata from unauthenticated `/mcp` and verify authorization-server metadata, DCR, PKCE, refresh and revocation behavior.
+- [x] 14.2 Remove authenticated global default Tenant/account fallback, separate CLI/host grants, and enforce minimal init/MCP scopes fail closed.
+- [x] 14.3 Add authenticated init context backed by trusted `WECHAT_EGRESS_IPS` with configuration versioning and no relay URL/token disclosure.
+- [x] 14.4 Add short-lived same-Operator write-only credential handoff with hashed single-use token, clean URL, HttpOnly continuation, no-store/no-referrer, no third-party scripts, relay validation and stable allowlist errors.
+- [x] 14.5 Add non-sensitive init run persistence with TTL, atomic/CAS transitions, authorization checks, and idempotent material/draft result records.
+- [x] 14.6 Require a successful WeChat access-token probe through relay before allowlist verification and keep failed AppSecret validation non-persistent.
+- [x] 14.7 Add tenant/account/tool/idempotency-key reuse for the onboarding test cover and draft so retries return the same media ID without publish.
+- [x] 14.8 Add Worker/OAuth/init/tenant-isolation/allowlist/handoff/idempotency tests and secret-redaction assertions.
+
+## 15. Stateless public Web handoff
+
+- [x] 15.1 Move the authenticated overview from `/` to `/app` and implement a public root containing concrete business copy, one bootstrap prompt, one `复制给 Agent` action, a secret-safety note and secondary management/legal links.
+- [x] 15.2 Ensure the public root renders without `/me`/health requests or authenticated navigation chrome and remains operable at 320px, 400% zoom, keyboard and screen reader modes.
+- [x] 15.3 Add Clipboard success announcement and manual selection/Cmd-Ctrl-C fallback without focus loss or silent failure.
+- [x] 15.4 Remove client-brand tabs/commands and Bearer examples from the primary MCP page/config model; expose only generic Streamable HTTP/OAuth descriptor facts and empty headers.
+- [x] 15.5 Update SSR smoke, route/API tests and screenshots for public root, `/app`, clipboard fallback and generic MCP configuration.
+
+## 16. End-to-end verification and release sequence
+
+- [ ] 16.1 Verify host-native OAuth and MCP evidence separately from CLI login/probe: protected-resource discovery, host grant, initialize, tools/list, `woa_context`, and draft count.
+- [x] 16.2 Verify user-confirmed, idempotent unpublished test cover/draft creation and read-back across timeout and host restart without duplicate side effects.
+- [x] 16.3 Run OpenSpec validation, typecheck, lint, full tests, Web build, Worker dry-run, package content checks, and secret/client-brand/stdio regression searches.
+- [x] 16.4 Run `npm pack` tarball smoke at the minimum supported Node 18 and Node 20 for import, TTY, plain, pipe/CI, JSONL, pause/signals, cursor restoration and exit codes.
+- [ ] 16.5 Publish an exact provenance-enabled prerelease to `next`, validate the exact version, promote the same version to `latest`, verify `@latest` and integrity, and only then deploy the public root.
+- [ ] 16.6 Run production smoke recording trusted egress configuration, relay allowlist token probe, redacted grants/request IDs and test-draft media ID without publishing.

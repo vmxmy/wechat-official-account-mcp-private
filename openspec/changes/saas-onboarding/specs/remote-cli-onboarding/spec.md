@@ -59,16 +59,34 @@ The CLI SHALL allow Tenant owners to initiate Stripe checkout for Plus or Pro.
 - **WHEN** a user runs `woa billing checkout --plan plus` or `--plan pro`
 - **THEN** the CLI requests a Checkout session, prints the URL, and attempts to open it in a browser
 
-### Requirement: CLI MCP config generation
-The CLI SHALL generate native Streamable HTTP MCP config without embedding OAuth tokens.
+### Requirement: Generic CLI MCP descriptor
+The CLI SHALL generate a client-neutral Streamable HTTP/OAuth descriptor without embedding OAuth tokens.
 
-#### Scenario: Generate Codex config
-- **WHEN** a user runs a Codex MCP config generation command
-- **THEN** the CLI outputs config pointing to `https://woa.ziikoo.app/mcp` without embedding bearer tokens or WeChat secrets
+#### Scenario: Generate generic descriptor
+- **WHEN** a user or Agent runs `woa mcp descriptor --format json`
+- **THEN** the CLI outputs the hosted `/mcp` URL, Streamable HTTP transport, OAuth protected-resource/PKCE/refresh capabilities, and empty headers without a client-specific configuration shape
 
-#### Scenario: Generate Claude config
-- **WHEN** a user runs a Claude MCP config generation command
-- **THEN** the CLI outputs native HTTP MCP config pointing to `/mcp` without restoring local stdio/SSE MCP
+#### Scenario: Static Bearer configuration is never generated
+- **WHEN** a user requests MCP connection information
+- **THEN** the CLI does not output a bearer token, Authorization header, local stdio/SSE transport, or expiring token copy workflow
+
+### Requirement: CLI-bundled Agent workflow
+The CLI SHALL expose `woa help agent` as the only versioned Agent onboarding workflow source.
+
+#### Scenario: Help formats share one manifest
+- **WHEN** Agent Help is requested as Markdown or JSON
+- **THEN** both formats render the same bundled manifest with CLI version, schema version, safety rules, capability checks, workflow, success criteria, and stop conditions
+
+### Requirement: Guided CLI init
+The CLI SHALL expose a resumable `woa init` command for first-run orchestration.
+
+#### Scenario: Direct init guides a human
+- **WHEN** a user runs `woa init` in an interactive terminal
+- **THEN** the CLI uses a progressive TUI or explicit plain mode and displays only the current action, verified progress, and recovery path
+
+#### Scenario: Agent init is non-interactive
+- **WHEN** an Agent runs `woa init --agent --format jsonl`
+- **THEN** the CLI emits typed state/action events and pauses instead of prompting for human identity, consent, secrets, or side-effect confirmation
 
 ### Requirement: CLI destructive confirmations
 The CLI SHALL require explicit confirmation for delete operations.
