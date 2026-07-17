@@ -1,6 +1,6 @@
 {
   "name": "@ziikoo/woa",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "type": "module",
   "description": "WOA remote-only CLI and hosted Web entrypoint for WeChat Official Account MCP SaaS",
   "keywords": [

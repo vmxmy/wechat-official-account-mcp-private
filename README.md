@@ -3,15 +3,15 @@
 一个为 AI 应用提供微信公众号 API 集成的 MCP (Model Context Protocol) 服务项目。
 
 **作者**: xwang152-jack <xwang152@163.com>
-**更新日期**: 2026年07月16日
+**更新日期**: 2026年07月18日
 
 ## 🚀 项目概述
 
 本项目基于 MCP 协议，为支持远程 Streamable HTTP 与 OAuth 的 AI Agent/宿主提供微信公众号 API 工具集。通过标准化的工具接口，AI 可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计、二维码、评论、黑名单、入站消息收件箱等常用运营能力。
 
-**当前版本**: `v2.2.1` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
+**当前版本**: `v2.3.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**v2.2.1 + SaaS onboarding 更新**: 新增 hosted Web 入口（`web/`，Astryx + TanStack Router/Query）、remote-only `@ziikoo/woa` CLI、二维码、短链接、评论管理、黑名单、客服账号、账号管理、统一内容发布等能力，并保留入站消息收件箱；修复 CLI 动态默认账号解析与已部署 D1 审计时间列兼容。当前共 27 个 MCP 工具（23 个微信公众号运营工具 + 4 个多租户管理工具）。运行时已切换为 Cloudflare Workers Remote MCP（OAuth 保护的 `/mcp`、D1/R2/Durable Object、Worker assets `web/dist`、微信公众号 `/wx/callback/{accountId}`），本地桌面端 stdio 与 MCP-over-SSE 已移除。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
+**v2.3.0 Agent-first SaaS onboarding 更新**: 新增 hosted Web 入口（`web/`，Astryx + TanStack Router/Query）、remote-only `@ziikoo/woa` CLI、可恢复的 `woa init` TUI/JSONL 流程、OAuth/安全凭据 handoff，以及二维码、短链接、评论管理、黑名单、客服账号、账号管理、统一内容发布等能力，并保留入站消息收件箱。当前共 27 个 MCP 工具（23 个微信公众号运营工具 + 4 个多租户管理工具）。运行时为 Cloudflare Workers Remote MCP（OAuth 保护的 `/mcp`、D1/R2/Durable Object、Worker assets `web/dist`、微信公众号 `/wx/callback/{accountId}`），本地桌面端 stdio 与 MCP-over-SSE 已移除。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
 
 ## 📖 文档导航
 

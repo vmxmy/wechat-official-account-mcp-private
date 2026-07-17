@@ -4,7 +4,7 @@
 
 2026-07-01 起，微信公众号 API contract 以 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源。早期版本说明中的“完整覆盖”“60+ 方法”等表述是当时的发布描述，不代表已逐项核验的官方覆盖率。
 
-## Unreleased
+## v2.3.0 (2026-07-18)
 
 ### Agent-first 初始化与 TUI
 
