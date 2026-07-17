@@ -1370,7 +1370,9 @@ check(
     !deployWorkflowSource.includes('Skipping production deploy') &&
     deployWorkflowSource.includes('Require verified CLI latest before public deployment') &&
     deployWorkflowSource.includes('Public deployment requires @ziikoo/woa@latest=') &&
-    deployWorkflowSource.includes('woa help agent --format json') &&
+    deployWorkflowSource.includes('npm install \\') &&
+    deployWorkflowSource.includes('--ignore-scripts') &&
+    deployWorkflowSource.includes('node "$cli" help agent --format json') &&
     deployWorkflowSource.indexOf('Require verified CLI latest before public deployment') < deployWorkflowSource.indexOf('Apply D1 migrations') &&
     deployWorkflowSource.indexOf('Validate Worker bundle before remote changes') < deployWorkflowSource.indexOf('Apply D1 migrations') &&
     deployWorkflowSource.includes('Verify production health and MCP auth boundary') &&

@@ -46,12 +46,21 @@ jobs:
             echo "::error::Public deployment requires @ziikoo/woa@latest=$expected_version; registry currently resolves to ${latest_version:-nothing}. Publish and verify the exact version on next, then promote that same version to latest."
             exit 1
           fi
-          installed_version="$(npx -y --registry=https://registry.npmjs.org --package "@ziikoo/woa@$expected_version" woa --version)"
+          verify_dir="$(mktemp -d)"
+          npm install \
+            --prefix "$verify_dir" \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            --registry=https://registry.npmjs.org \
+            "@ziikoo/woa@$expected_version"
+          cli="$verify_dir/node_modules/@ziikoo/woa/dist/src/cli/woa.js"
+          installed_version="$(node "$cli" --version)"
           if [ "$installed_version" != "$expected_version" ]; then
             echo "::error::Registry CLI reported $installed_version; expected $expected_version"
             exit 1
           fi
-          npx -y --registry=https://registry.npmjs.org --package "@ziikoo/woa@$expected_version" woa help agent --format json > /tmp/woa-agent-help.json
+          node "$cli" help agent --format json > /tmp/woa-agent-help.json
           EXPECTED_VERSION="$expected_version" node -e "const fs=require('node:fs'); const value=JSON.parse(fs.readFileSync('/tmp/woa-agent-help.json','utf8')); if (value.cliVersion !== process.env.EXPECTED_VERSION || value.entrypoint?.args?.[0] !== 'init') process.exit(1);"
 
       - name: Type check
