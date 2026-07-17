@@ -1,10 +1,11 @@
 {
-  "score": 94,
+  "score": 95,
   "verdict": "pass",
   "category_match": true,
   "differences": [],
   "suggestions": [
-    "发布前继续用真实 API 数据复核长租户名、长公众号名和十个账号时的折行与滚动。"
+    "发布前继续用真实 API 数据复核长租户名、长公众号名和十个账号时的折行与滚动。",
+    "客户端命令发生版本变化时，同步复核 MCP 桌面与 390px 移动截图。"
   ],
-  "reasoning": "这是基于 docs/design/anti-ai-slop-rules.md 的规则评审，不是参考图像素对比。四个关键路由层级明确、表单/列表/定义数据结构匹配；复审已移除对称 KPI 卡并修复桌面表格与移动列表重复显示。"
+  "reasoning": "这是基于 docs/design/anti-ai-slop-rules.md、现有公众号连接页参考图与六张关键路由截图的规则评审。MCP 桌面页延续既有 Stone 层级与间距，390px 下客户端选择器折为两列且 endpoint/代码块无横向溢出；页面没有装饰性卡片、渐变或弱层级。"
 }

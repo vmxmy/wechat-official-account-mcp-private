@@ -560,6 +560,21 @@ src/
 }
 ```
 
+Kimi Code 使用内置的 MCP 配置向导，不要填写静态 Bearer header：
+
+```text
+/mcp-config
+```
+
+在向导中添加用户级 HTTP server，名称填写 `wechat-woa`，URL 填写 `https://<your-worker-domain>/mcp`。保存后完成授权并检查连接：
+
+```text
+/mcp-config login wechat-woa
+/mcp
+```
+
+OAuth access token 到期后由支持该协议的客户端使用 refresh token 自动刷新。授权被撤销或 refresh token 失效后，需要重新登录；不要把 access token、refresh token 或静态 Authorization 请求头写入 MCP 配置文件。
+
 首版官方支持原生 Streamable HTTP/OAuth 客户端。不要在本项目文档中恢复本地 stdio、SSE 或桥接式本地 MCP server 配置。
 
 迁移提示：

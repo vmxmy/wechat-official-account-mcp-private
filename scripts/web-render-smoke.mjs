@@ -110,6 +110,11 @@ try {
     login: await renderPath('/login?returnTo=%2Fonboarding'),
     onboarding: await renderPath('/onboarding'),
     billing: await renderPath('/billing'),
+    mcp: await renderPath('/mcp?client=kimi'),
+    mcpClaude: await renderPath('/mcp?client=claude'),
+    mcpCodex: await renderPath('/mcp?client=codex'),
+    mcpOther: await renderPath('/mcp?client=other'),
+    mcpFallback: await renderPath('/mcp?client=static-bearer'),
     security: await renderPath('/security'),
     unauthenticatedHref: await unauthenticatedRedirectHref(),
   };
@@ -117,6 +122,18 @@ try {
     login: cases.login.html.includes('欢迎回来'),
     onboarding: cases.onboarding.html.includes('公众号连接'),
     billing: cases.billing.html.includes('订阅与用量'),
+    mcp:
+      cases.mcp.html.includes('连接远程 MCP') &&
+      cases.mcp.html.includes('无需复制 token') &&
+      cases.mcp.html.includes('/mcp-config login wechat-woa'),
+    mcpClaude: cases.mcpClaude.html.includes('claude mcp login wechat-woa'),
+    mcpCodex: cases.mcpCodex.html.includes('codex mcp login wechat-woa'),
+    mcpOther:
+      cases.mcpOther.html.includes('当前不属于受支持客户端') &&
+      !cases.mcpOther.html.includes('Authorization: Bearer'),
+    mcpFallback:
+      cases.mcpFallback.html.includes('Kimi Code') &&
+      cases.mcpFallback.html.includes('/mcp-config login wechat-woa'),
     security: cases.security.html.includes('会话与授权客户端'),
     unauthenticatedRedirect:
       cases.unauthenticatedHref === '/login?returnTo=%2Fsecurity%3Ftab%3Dclients',

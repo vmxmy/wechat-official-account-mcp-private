@@ -311,6 +311,102 @@ select {
   word-break: break-word;
 }
 
+/* MCP OAuth onboarding */
+.mcp-client-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1);
+  padding-bottom: var(--spacing-2);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.mcp-client-option {
+  min-height: 40px;
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 0;
+  border-bottom: calc(var(--border-width) * 2) solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.mcp-client-option:hover {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+}
+
+.mcp-client-option[data-selected="true"] {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.mcp-client-panel,
+.mcp-client-panel .astryx-code-block {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mcp-step-list {
+  display: grid;
+  gap: var(--spacing-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-step-list > li {
+  min-width: 0;
+  padding-top: var(--spacing-4);
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+.mcp-step-list > li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.mcp-step-list .astryx-heading {
+  font-size: var(--font-size-base);
+}
+
+.mcp-auth-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: 0;
+  color: var(--color-text-primary);
+  list-style: none;
+}
+
+.mcp-auth-flow li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.mcp-auth-flow li:not(:last-child)::after {
+  color: var(--color-text-secondary);
+  content: "→";
+  font-weight: var(--font-weight-regular);
+}
+
+.mcp-unsupported-note {
+  margin: 0;
+  padding: var(--spacing-3) var(--spacing-4);
+  border-left: calc(var(--border-width) * 2) solid var(--color-border-emphasized);
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  line-height: 1.65;
+}
+
 /* Billing */
 .plan-card {
   position: relative;
@@ -763,6 +859,23 @@ select {
 
   .page-stack {
     gap: var(--spacing-4);
+  }
+
+  .mcp-client-option {
+    flex: 1 1 calc(50% - var(--spacing-1));
+  }
+
+  .mcp-auth-flow {
+    display: grid;
+    align-items: start;
+  }
+
+  .mcp-auth-flow li {
+    justify-content: space-between;
+  }
+
+  .mcp-auth-flow li:not(:last-child)::after {
+    content: "↓";
   }
 
   .next-step-panel {

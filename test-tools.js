@@ -69,6 +69,7 @@ import {
   getAccounts as getWebAccounts,
   updateAccount as updateWebAccount,
 } from './dist/web/src/lib/api.js';
+import { getMcpClientGuide } from './dist/web/src/lib/mcp-config.js';
 
 let failed = false;
 
@@ -818,8 +819,30 @@ check(
 );
 const webMcpConfigSource = readFileSync('./web/src/lib/mcp-config.ts', 'utf8');
 const webMcpRouteSource = readFileSync('./web/src/routes/mcp.tsx', 'utf8');
+const kimiMcpGuide = getMcpClientGuide('kimi', 'https://worker.example.test');
+check(
+  kimiMcpGuide.label === 'Kimi Code' &&
+    kimiMcpGuide.steps.map(step => step.code ?? '').join('\n').includes('/mcp-config login wechat-woa') &&
+    kimiMcpGuide.steps.map(step => step.code ?? '').join('\n').includes('https://worker.example.test/mcp') &&
+    kimiMcpGuide.steps.at(-1)?.code === '/mcp',
+  'Web MCP client guide 提供 Kimi Code 添加、OAuth 登录和状态验证流程',
+);
+const oauthFirstMcpGuides = ['kimi', 'claude', 'codex', 'other']
+  .map(client => getMcpClientGuide(client, 'https://worker.example.test'));
+const oauthFirstMcpGuideCode = oauthFirstMcpGuides
+  .flatMap(guide => guide.steps.map(step => step.code ?? ''))
+  .join('\n');
+check(
+  oauthFirstMcpGuides.map(guide => guide.label).join('|') === 'Kimi Code|Claude Code|Codex|其他客户端' &&
+    oauthFirstMcpGuideCode.includes('claude mcp login wechat-woa') &&
+    oauthFirstMcpGuideCode.includes('codex mcp login wechat-woa') &&
+    !/Authorization|Bearer|access_token|refresh_token|headers|bearerTokenEnvVar/i.test(oauthFirstMcpGuideCode),
+  'Web MCP client guides 仅提供原生 OAuth，不生成静态 Bearer/header/token 配置',
+);
 check(
   webMcpConfigSource.includes('[mcp_servers.wechat-woa]') &&
+    webMcpConfigSource.includes('getMcpClientGuide') &&
+    webMcpConfigSource.includes('/mcp-config login wechat-woa') &&
     webMcpConfigSource.includes('claude mcp add') &&
     webMcpConfigSource.includes('--transport http') &&
     webMcpConfigSource.includes('--scope user') &&
@@ -827,10 +850,13 @@ check(
     webMcpConfigSource.includes('codex mcp add') &&
     webMcpConfigSource.includes('--url') &&
     webMcpConfigSource.includes('codex mcp login wechat-woa') &&
-    webMcpRouteSource.includes('Claude Code CLI') &&
-    webMcpRouteSource.includes('Codex CLI') &&
+    webMcpRouteSource.includes('validateSearch') &&
+    webMcpRouteSource.includes('role="tablist"') &&
+    webMcpRouteSource.includes('无需复制 token') &&
+    webMcpRouteSource.includes('为什么没有 Bearer 配置') &&
+    !webMcpRouteSource.includes('Authorization: Bearer') &&
     !webMcpRouteSource.includes('npx -y --package @ziikoo/woa'),
-  'Web MCP 页面区分 Claude Code/Codex CLI，并为 Codex 输出原生 TOML 配置',
+  'Web MCP 页面提供 Kimi/Claude/Codex OAuth-first 向导，并为 Codex 保留原生 TOML 配置',
 );
 const woaConfig = execFileSync(process.execPath, ['./dist/src/cli/woa.js', 'mcp', 'config', 'codex', '--server', 'https://worker.example.test'], { encoding: 'utf8' });
 check(

@@ -108,6 +108,7 @@ for (const [name, route] of [
   ['login', '/login'],
   ['onboarding', '/onboarding'],
   ['billing', '/billing'],
+  ['mcp', '/mcp?client=kimi'],
   ['security', '/security'],
 ]) {
   await page.goto(`http://127.0.0.1:4173${route}`, { waitUntil: 'networkidle' });
@@ -117,6 +118,13 @@ for (const [name, route] of [
   });
 }
 
+await page.setViewportSize({ width: 390, height: 844 });
+await page.goto('http://127.0.0.1:4173/mcp?client=kimi', { waitUntil: 'networkidle' });
+await page.screenshot({
+  path: path.join(outputDir, 'mcp-mobile.png'),
+  fullPage: true,
+});
+
 await context.close();
 await browser.close();
-process.stdout.write(`${JSON.stringify({ outputDir, screenshots: 4 })}\n`);
+process.stdout.write(`${JSON.stringify({ outputDir, screenshots: 6 })}\n`);
