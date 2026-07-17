@@ -376,6 +376,8 @@ test('secure config is atomic, owner-only, repairs permissive mode, and refuses 
 });
 
 test('headless OAuth callback is accepted only through no-echo TTY input and exact state/origin validation', async () => {
+  const originalCi = process.env.CI;
+  delete process.env.CI;
   const input = new PassThrough();
   const output = new PassThrough();
   Object.defineProperty(input, 'isTTY', { value: true });
@@ -389,29 +391,34 @@ test('headless OAuth callback is accepted only through no-echo TTY input and exa
   };
   let terminalText = '';
   output.on('data', chunk => { terminalText += chunk.toString('utf8'); });
-  const callback = 'http://127.0.0.1:8787/callback?code=AUTH_CODE&state=EXPECTED';
-  const readPromise = readSecureInput({ prompt: 'OAuth: ', input, output });
-  input.write(`${callback}\n`);
-  const entered = await readPromise;
-  assert.equal(entered, callback);
-  assert.deepEqual(rawModes, [true, false]);
-  assert.equal(terminalText.includes('AUTH_CODE'), false);
-  assert.equal(authorizationCodeFromCallback(entered, {
-    redirectUri: 'http://127.0.0.1:8787/callback',
-    state: 'EXPECTED',
-  }), 'AUTH_CODE');
-  assert.throws(() => authorizationCodeFromCallback(
-    'http://127.0.0.1:8787/callback?code=AUTH_CODE&state=WRONG',
-    { redirectUri: 'http://127.0.0.1:8787/callback', state: 'EXPECTED' },
-  ), /state mismatch/);
-  assert.throws(() => authorizationCodeFromCallback(
-    'https://attacker.example/callback?code=AUTH_CODE&state=EXPECTED',
-    { redirectUri: 'http://127.0.0.1:8787/callback', state: 'EXPECTED' },
-  ), /does not match/);
-  await assert.rejects(
-    () => readSecureInput({ prompt: 'OAuth: ', input, output, agent: true }),
-    error => error?.code === 'secure_input_required',
-  );
+  try {
+    const callback = 'http://127.0.0.1:8787/callback?code=AUTH_CODE&state=EXPECTED';
+    const readPromise = readSecureInput({ prompt: 'OAuth: ', input, output });
+    input.write(`${callback}\n`);
+    const entered = await readPromise;
+    assert.equal(entered, callback);
+    assert.deepEqual(rawModes, [true, false]);
+    assert.equal(terminalText.includes('AUTH_CODE'), false);
+    assert.equal(authorizationCodeFromCallback(entered, {
+      redirectUri: 'http://127.0.0.1:8787/callback',
+      state: 'EXPECTED',
+    }), 'AUTH_CODE');
+    assert.throws(() => authorizationCodeFromCallback(
+      'http://127.0.0.1:8787/callback?code=AUTH_CODE&state=WRONG',
+      { redirectUri: 'http://127.0.0.1:8787/callback', state: 'EXPECTED' },
+    ), /state mismatch/);
+    assert.throws(() => authorizationCodeFromCallback(
+      'https://attacker.example/callback?code=AUTH_CODE&state=EXPECTED',
+      { redirectUri: 'http://127.0.0.1:8787/callback', state: 'EXPECTED' },
+    ), /does not match/);
+    await assert.rejects(
+      () => readSecureInput({ prompt: 'OAuth: ', input, output, agent: true }),
+      error => error?.code === 'secure_input_required',
+    );
+  } finally {
+    if (originalCi === undefined) delete process.env.CI;
+    else process.env.CI = originalCi;
+  }
 });
 
 test('desktop OAuth uses an ephemeral loopback callback and completes without copying a token', async () => {
@@ -680,6 +687,7 @@ test('a repeated SIGINT keeps checkpoint semantics instead of bypassing cleanup 
   const script = `
     import { FileInitRunStore, runInit } from ${JSON.stringify(moduleUrl)};
     const store = new FileInitRunStore(${JSON.stringify(tempRoot)});
+    const initialSignalListeners = process.listenerCount('SIGINT');
     const running = runInit({
       mode: 'create', server: 'https://woa.example', store,
       effects: { checkEnvironment: async () => {
@@ -688,8 +696,11 @@ test('a repeated SIGINT keeps checkpoint semantics instead of bypassing cleanup 
       } },
       renderer: { render: async () => undefined },
     });
-    setTimeout(() => process.emit('SIGINT'), 20);
-    setTimeout(() => process.emit('SIGINT'), 30);
+    while (process.listenerCount('SIGINT') <= initialSignalListeners) {
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    process.emit('SIGINT');
+    process.emit('SIGINT');
     const result = await running;
     process.stdout.write(JSON.stringify({ exitCode: result.exitCode, status: result.event.status }));
     process.exitCode = result.exitCode;
