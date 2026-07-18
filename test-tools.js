@@ -54,6 +54,7 @@ import {
   deleteWechatResourceWithAudit,
   handleCredentialHandoffRequest,
   persistCredentialConfigurationWithAudit,
+  releaseCredentialOperationLeaseBestEffort,
 } from './dist/src/worker/agent-init.js';
 import {
   AccountAllowanceError,
@@ -2379,6 +2380,7 @@ check(
     workerIndexSource.includes('const leaseId = `credential-config-${crypto.randomUUID()}`') &&
     workerIndexSource.includes('finalize: complete') &&
     workerIndexSource.includes("action: 'account.credentials_configuration_rolled_back'") &&
+    (workerIndexSource.match(/releaseCredentialOperationLeaseBestEffort\(/g) ?? []).length === 2 &&
     !workerIndexSource.includes('credentialLeaseId: handoff.handoffId') &&
     agentInitStoreSource.includes('return `credential-handoff-submit:${crypto.randomUUID()}`') &&
     agentInitStoreSource.includes('async completeCredentialHandoff(input:') &&
@@ -2512,6 +2514,28 @@ check(
     handoffCompletionFailureSteps.join(',') ===
       'audit_started,persisted,audit_succeeded,handoff_complete_failed,rolled_back,rollback_audited,handoff_failed',
   'handoff 最终提交失败时在账号 lease 内恢复旧凭据并记录补偿审计，再把一次性链接标记失败',
+);
+
+let credentialLeaseReleaseAttempts = 0;
+let credentialLeaseReleaseWarnings = 0;
+let credentialLeaseReleaseWarningSawError = false;
+await releaseCredentialOperationLeaseBestEffort(
+  async () => {
+    credentialLeaseReleaseAttempts += 1;
+    throw new Error('lease release failure fixture');
+  },
+  error => {
+    credentialLeaseReleaseWarnings += 1;
+    credentialLeaseReleaseWarningSawError = error instanceof Error &&
+      error.message === 'lease release failure fixture';
+    throw new Error('logging failure fixture');
+  },
+);
+check(
+  credentialLeaseReleaseAttempts === 1 &&
+    credentialLeaseReleaseWarnings === 1 &&
+    credentialLeaseReleaseWarningSawError,
+  '凭据配置/删除的 lease 释放与告警失败均不会把已提交业务结果改写成失败',
 );
 
 const deletionAuditSuccessSteps = [];

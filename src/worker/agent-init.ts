@@ -151,6 +151,24 @@ export async function deleteWechatResourceWithAudit(deps: {
   }
 }
 
+export async function releaseCredentialOperationLeaseBestEffort(
+  release: () => Promise<void>,
+  onFailure?: (error: unknown) => void,
+): Promise<void> {
+  try {
+    await release();
+  } catch (error) {
+    // Lease cleanup is non-authoritative and the TokenOwner lease expires on its
+    // own. Never turn an already committed credential/delete operation into a
+    // reported failure because cleanup RPC delivery was interrupted.
+    try {
+      onFailure?.(error);
+    } catch {
+      // Logging/monitoring must not reintroduce a post-commit throw.
+    }
+  }
+}
+
 const CREDENTIAL_HANDOFF_COOKIE = 'woa_credential_handoff';
 const MAX_INIT_JSON_BYTES = 16 * 1024;
 const MAX_CREDENTIAL_FORM_BYTES = 8 * 1024;

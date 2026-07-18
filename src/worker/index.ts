@@ -73,6 +73,7 @@ import {
   deleteWechatResourceWithAudit,
   handleCredentialHandoffRequest,
   persistCredentialConfigurationWithAudit,
+  releaseCredentialOperationLeaseBestEffort,
   resolveAgentInitEgressContext,
   testCoverFilename,
   testDraftTitle,
@@ -428,7 +429,13 @@ async function persistValidatedWechatCredentialsForAccount(
       }),
     });
   } finally {
-    await tokenOwner.releaseCredentialConfigurationLease({ leaseId });
+    await releaseCredentialOperationLeaseBestEffort(
+      async () => await tokenOwner.releaseCredentialConfigurationLease({ leaseId }),
+      error => logger.warn(
+        'Credential configuration lease release failed; lease will expire automatically.',
+        error,
+      ),
+    );
   }
 }
 
@@ -491,7 +498,13 @@ async function softDeleteWechatResourceForAccount(
       },
     });
   } finally {
-    await tokenOwner.releaseCredentialConfigurationLease({ leaseId });
+    await releaseCredentialOperationLeaseBestEffort(
+      async () => await tokenOwner.releaseCredentialConfigurationLease({ leaseId }),
+      error => logger.warn(
+        'Credential deletion lease release failed; lease will expire automatically.',
+        error,
+      ),
+    );
   }
 }
 

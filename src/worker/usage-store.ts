@@ -324,6 +324,10 @@ export class D1UsageQuotaStore {
   ): Promise<boolean> {
     await this.ensureSchema();
     const now = input.now ?? Date.now();
+    // Stripe event IDs are opaque and are not a causal tie-breaker. Events that
+    // share the same second/priority must remain replayable: non-deletion events
+    // re-fetch authoritative subscription state, while subscription-ID CAS
+    // prevents terminal deletions or replacements from crossing bindings.
     const result = await this.db.prepare(
       `INSERT INTO tenant_entitlements (
          tenant_id,
