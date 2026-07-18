@@ -2381,6 +2381,9 @@ check(
     workerIndexSource.includes("action: 'account.credentials_configuration_rolled_back'") &&
     !workerIndexSource.includes('credentialLeaseId: handoff.handoffId') &&
     agentInitStoreSource.includes('return `credential-handoff-submit:${crypto.randomUUID()}`') &&
+    agentInitStoreSource.includes('async completeCredentialHandoff(input:') &&
+    agentInitStoreSource.includes('}): Promise<void> {') &&
+    !agentInitStoreSource.includes('return await this.requireRun(input.operatorId, runId, now);') &&
     workerIndexSource.includes('softDeleteWechatResourceForAccount') &&
     workerIndexSource.includes('deleteWechatResourceWithAudit({') &&
     workerIndexSource.includes('softDeleteWechatResourceAtomically({') &&

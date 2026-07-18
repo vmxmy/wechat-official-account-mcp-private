@@ -509,7 +509,7 @@ export class D1AgentInitStore {
     handoffId: string;
     leaseOwner: string;
     now?: number;
-  }): Promise<AgentInitRunRecord> {
+  }): Promise<void> {
     const now = input.now ?? Date.now();
     const row = await this.db.prepare(
       `SELECT h.run_id FROM agent_credential_handoffs h
@@ -559,7 +559,6 @@ export class D1AgentInitStore {
     } catch {
       // 可恢复投影，不回滚已经验证并持久化的凭据事实。
     }
-    return await this.requireRun(input.operatorId, runId, now);
   }
 
   async failCredentialHandoff(input: {
