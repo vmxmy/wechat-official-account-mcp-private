@@ -28,6 +28,8 @@ const child = spawn(process.execPath, [
   persistDir,
   '--var',
   'ENVIRONMENT:development',
+  '--var',
+  'WECHAT_EGRESS_IPS:8.8.8.8',
 ], {
   cwd: projectRoot,
   env: {
@@ -82,6 +84,11 @@ try {
   assert.ok(authorizationServer.grant_types_supported?.includes('refresh_token'));
   assert.deepEqual(authorizationServer.code_challenge_methods_supported, ['S256']);
   assert.ok(authorizationServer.revocation_endpoint);
+
+  const credentialLeaseResponse = await fetch(`${origin}/api/__debug/token-owner/credential-lease`, { redirect: 'manual' });
+  await assertResponseStatus(credentialLeaseResponse, 200, 'credential lease self-test', logs);
+  const credentialLease = await credentialLeaseResponse.json();
+  assert.equal(credentialLease.singleWriter, true);
 
   const redirectUri = `http://127.0.0.1:${port + 1}/callback`;
   const registrationResponse = await fetch(`${origin}/oauth/register`, {
@@ -143,6 +150,7 @@ try {
     'woa:context:read',
     'woa:tenant:read',
     'woa:account:read',
+    'woa:account:write',
     'woa:content:read',
     'woa:usage:read',
     'woa:security:read',
@@ -257,10 +265,91 @@ try {
   );
   assert.equal(accountStatus.status, 200);
   assert.equal((await accountStatus.json()).data.configured, false);
+  const preHandoffSessions = await fetch(`${origin}/api/v1/sessions`, { headers: { cookie: sessionCookie } });
+  await assertResponseStatus(preHandoffSessions, 200, 'pre-handoff Web session', logs);
+
+  const initContextResponse = await fetch(`${origin}/api/v1/init/context`, {
+    headers: { authorization: `Bearer ${refreshed.access_token}` },
+  });
+  assert.equal(initContextResponse.status, 200);
+  const initContext = await initContextResponse.json();
+  const initRunResponse = await fetch(`${origin}/api/v1/init/runs`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${refreshed.access_token}`,
+      'content-type': 'application/json',
+      'idempotency-key': 'worker-oauth-credential-route-smoke',
+    },
+    body: JSON.stringify({ tenantId, accountId }),
+  });
+  assert.equal(initRunResponse.status, 201);
+  const initRun = (await initRunResponse.json()).data.run;
+  const egressConfirmationResponse = await fetch(`${origin}/api/v1/init/runs/${initRun.runId}/egress-confirmation`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${refreshed.access_token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      confirmed: true,
+      expectedVersion: initRun.version,
+      egressConfigVersion: initContext.data.egress.configVersion,
+    }),
+  });
+  assert.equal(egressConfirmationResponse.status, 200);
+  const egressConfirmedRun = (await egressConfirmationResponse.json()).data.run;
+  const handoffResponse = await fetch(`${origin}/api/v1/init/runs/${initRun.runId}/credential-handoffs`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${refreshed.access_token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ expectedVersion: egressConfirmedRun.version }),
+  });
+  assert.equal(handoffResponse.status, 201);
+  const handoff = (await handoffResponse.json()).data;
+  const advertisedHandoffUrl = new URL(handoff.handoffUrl);
+  const localHandoffUrl = new URL(`${advertisedHandoffUrl.pathname}${advertisedHandoffUrl.search}`, origin);
+  const handoffClaim = await fetch(localHandoffUrl, {
+    headers: { cookie: sessionCookie },
+    redirect: 'manual',
+  });
+  await assertResponseStatus(handoffClaim, 303, 'credential handoff claim', logs);
+  const handoffCookie = cookieFromResponse(handoffClaim);
+  assert.ok(handoffCookie);
 
   const sessions = await fetch(`${origin}/api/v1/sessions`, { headers: { cookie: sessionCookie } });
   assert.equal(sessions.status, 200);
-  assert.ok((await sessions.json()).data.sessions.some(session => session.id === webSessionId));
+  const sessionList = (await sessions.json()).data.sessions;
+  assert.ok(sessionList.some(session => session.id === webSessionId));
+  const oauthGrant = sessionList.find(session => session.kind === 'oauth' && session.clientId === registration.client_id);
+  assert.ok(oauthGrant?.id);
+  const revokedGrant = await fetch(`${origin}/api/v1/sessions/${oauthGrant.id}`, {
+    method: 'DELETE',
+    headers: { cookie: sessionCookie },
+  });
+  assert.equal(revokedGrant.status, 200);
+  assert.equal((await revokedGrant.json()).data.kind, 'oauth');
+
+  const credentialRouteResponse = await fetch(`${origin}/init/credentials`, {
+    method: 'POST',
+    headers: {
+      cookie: `${sessionCookie}; ${handoffCookie}`,
+      origin,
+      'sec-fetch-mode': 'navigate',
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      appId: 'wx1234567890abcdef',
+      appSecret: 'credential-route-smoke-secret',
+    }),
+  });
+  assert.equal(credentialRouteResponse.status, 403);
+  const credentialRouteBody = await credentialRouteResponse.text();
+  assert.match(credentialRouteBody, /oauth_revoked/);
+  assert.doesNotMatch(credentialRouteBody, /wechat_relay_unavailable/);
+
   const revoked = await fetch(`${origin}/api/v1/sessions/${webSessionId}`, {
     method: 'DELETE',
     headers: { cookie: sessionCookie },
@@ -283,6 +372,8 @@ try {
     toolsList: 27,
     context: true,
     accountStatus: true,
+    credentialLeaseSingleWriter: true,
+    credentialHandoffProviderGrantCheck: true,
     sessionRevocation: true,
   })}\n`);
 } finally {

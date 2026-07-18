@@ -1,6 +1,11 @@
 import CryptoJS from 'crypto-js';
 import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
-import type { D1DatabaseLike, D1Value, SecretStoreBindingLike } from '../storage/d1-storage-manager.js';
+import type {
+  D1DatabaseLike,
+  D1PreparedStatement,
+  D1Value,
+  SecretStoreBindingLike,
+} from '../storage/d1-storage-manager.js';
 import {
   membershipScopesForRole,
   type AccountSummary,
@@ -1174,6 +1179,59 @@ export class D1SaasOnboardingStore {
     }
   }
 
+  async softDeleteWechatResourceAtomically(
+    input: { tenantId: string; resourceId: string; confirmation: string; now?: number },
+    trailingStatements: D1PreparedStatement[] = [],
+  ): Promise<void> {
+    await this.ensureSchema();
+    if (input.confirmation !== `DELETE ${input.resourceId}`) {
+      throw new Error(`Resource deletion requires confirmation marker: DELETE ${input.resourceId}`);
+    }
+    if (!this.db.batch) {
+      throw new Error('Atomic D1 batch support is required for production WeChat resource deletion.');
+    }
+    const now = input.now ?? Date.now();
+    await this.db.batch([
+      this.db.prepare(
+        `UPDATE wechat_accounts
+         SET app_id = NULL,
+             app_secret = NULL,
+             webhook_token = NULL,
+             encoding_aes_key = NULL,
+             status = 'disabled',
+             is_default = 0,
+             updated_at = ?
+         WHERE tenant_id = ? AND id = ?`,
+      ).bind(now, input.tenantId, input.resourceId),
+      this.db.prepare(
+        `DELETE FROM wechat_access_tokens
+         WHERE tenant_id = ? AND account_id = ?`,
+      ).bind(input.tenantId, input.resourceId),
+      this.db.prepare(
+        `UPDATE tenants
+         SET default_account_id = (
+               SELECT id
+               FROM wechat_accounts
+               WHERE tenant_id = ? AND status != 'disabled'
+               ORDER BY is_default DESC, created_at ASC
+               LIMIT 1
+             ),
+             updated_at = ?
+         WHERE id = ?`,
+      ).bind(input.tenantId, now, input.tenantId),
+      this.db.prepare(
+        `UPDATE wechat_accounts
+         SET is_default = CASE
+               WHEN id = (SELECT default_account_id FROM tenants WHERE id = ?) THEN 1
+               ELSE 0
+             END,
+             updated_at = ?
+         WHERE tenant_id = ? AND status != 'disabled'`,
+      ).bind(input.tenantId, now, input.tenantId),
+      ...trailingStatements,
+    ]);
+  }
+
   async configureValidatedWechatCredentials(input: ConfigureWechatCredentialsInput): Promise<WechatResourceRecord> {
     await this.ensureSchema();
     const existing = await this.db.prepare(
@@ -1296,6 +1354,7 @@ export class D1SaasOnboardingStore {
   async reconcileAccountAllowanceLocks(input: {
     tenantId: string;
     plan: SubscriptionPlan;
+    expectedStripeEventId?: string | null;
     now?: number;
   }): Promise<{ locked: string[]; unlocked: string[] }> {
     await this.ensureSchema();
@@ -1315,25 +1374,53 @@ export class D1SaasOnboardingStore {
       if (!accountId) continue;
       const status = stringValue(row.status);
       if (index < limit && status === 'locked') {
-        await this.db.prepare(
+        const result = await this.db.prepare(
           `UPDATE wechat_accounts
            SET status = CASE WHEN app_secret IS NULL THEN 'unconfigured' ELSE 'active' END,
                plan_locked_at = NULL,
                plan_lock_reason = NULL,
                updated_at = ?
-           WHERE tenant_id = ? AND id = ? AND status = 'locked'`,
-        ).bind(now, input.tenantId, accountId).run();
-        unlocked.push(accountId);
+           WHERE tenant_id = ? AND id = ? AND status = 'locked'
+             AND (
+               ? IS NULL OR EXISTS (
+                 SELECT 1 FROM tenant_entitlements
+                 WHERE tenant_id = ? AND last_stripe_event_id = ?
+               )
+             )`,
+        ).bind(
+          now,
+          input.tenantId,
+          accountId,
+          input.expectedStripeEventId ?? null,
+          input.tenantId,
+          input.expectedStripeEventId ?? null,
+        ).run();
+        if ((result.meta?.changes ?? 0) > 0) unlocked.push(accountId);
       } else if (index >= limit && status !== 'locked') {
-        await this.db.prepare(
+        const result = await this.db.prepare(
           `UPDATE wechat_accounts
            SET status = 'locked',
                plan_locked_at = ?,
                plan_lock_reason = ?,
                updated_at = ?
-           WHERE tenant_id = ? AND id = ? AND status != 'disabled'`,
-        ).bind(now, `plan:${input.plan}:account_allowance:${limit}`, now, input.tenantId, accountId).run();
-        locked.push(accountId);
+           WHERE tenant_id = ? AND id = ? AND status != 'disabled'
+             AND (
+               ? IS NULL OR EXISTS (
+                 SELECT 1 FROM tenant_entitlements
+                 WHERE tenant_id = ? AND last_stripe_event_id = ?
+               )
+             )`,
+        ).bind(
+          now,
+          `plan:${input.plan}:account_allowance:${limit}`,
+          now,
+          input.tenantId,
+          accountId,
+          input.expectedStripeEventId ?? null,
+          input.tenantId,
+          input.expectedStripeEventId ?? null,
+        ).run();
+        if ((result.meta?.changes ?? 0) > 0) locked.push(accountId);
       }
     }
 

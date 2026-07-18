@@ -1,0 +1,368 @@
+{
+  "evidenceVersion": 1,
+  "capturedAt": "2026-07-18T07:23:42.798Z",
+  "environment": "production",
+  "release": {
+    "repositoryPublic": true,
+    "exactVersion": "2.3.0",
+    "nextAndLatestSameVersion": true,
+    "npmIntegrity": "sha512-sZkGxBYvs5WHHkbvV7r83+wVMJzqYWXqq0s7T5FIDKk8YXhDtYMNa3C7VynHbHXSqJzeYh9YBIHVLVfxX7wk0A==",
+    "workflowRuns": [
+      {
+        "runId": 29621633955,
+        "name": "Publish npm CLI",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "407de5b9c7bb14f3111351e4b7d6b5f2b33c796e",
+        "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/actions/runs/29621633955"
+      },
+      {
+        "runId": 29621758475,
+        "name": "Publish npm CLI",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "407de5b9c7bb14f3111351e4b7d6b5f2b33c796e",
+        "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/actions/runs/29621758475"
+      },
+      {
+        "runId": 29621921891,
+        "name": "Deploy production Worker",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "cf198a234f6e2514ac02cafec2b7fdea85b16bc4",
+        "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/actions/runs/29621921891"
+      }
+    ],
+    "finalWorkerDeployment": {
+      "status": "pending",
+      "migration0011AppliedBeforeDeploy": true
+    }
+  },
+  "oauthAndMcp": {
+    "protectedResourceDiscovery": true,
+    "hostNativeMcp": {
+      "initializeAndToolDiscovery": "proven_by_successful_native_tool_calls",
+      "woaContext": {
+        "status": "success",
+        "plan": "pro"
+      },
+      "wechatDraftCount": {
+        "status": "success",
+        "count": 1
+      },
+      "writesPerformed": false,
+      "publishPerformed": false
+    },
+    "grantRefs": [
+      {
+        "clientRefSha256": "ac8e3d5c88b223b9d72a688c9189880fc073225e2aff22e877f34dc4269981ed",
+        "scopeSetRefSha256": "fa65ef94f5f5b166e219c2e19c5aa78af8b2f047f213276a9ba1c925f008f1f0",
+        "scopes": [
+          "woa:account:read",
+          "woa:account:write",
+          "woa:content:publish",
+          "woa:content:read",
+          "woa:content:write",
+          "woa:context:read"
+        ],
+        "updatedAtMs": 1784346020165
+      },
+      {
+        "clientRefSha256": "76eb12d400cfadd1453870c2b1268e15ec8061b2c05dfba6839cec0eee2b6330",
+        "scopeSetRefSha256": "9d99d985d8e09fcc06a86c6d33dbcadde1234df4392c96da0bffaf996be4f7a8",
+        "scopes": [
+          "wechat.mcp",
+          "woa:account:read",
+          "woa:content:read",
+          "woa:context:read",
+          "woa:tenant:read"
+        ],
+        "updatedAtMs": 1784333261414
+      },
+      {
+        "clientRefSha256": "f9ccec0fff51ad943fbde6abca2d7ff03697a2f6a65babc394b07955ce2468f5",
+        "scopeSetRefSha256": "9d99d985d8e09fcc06a86c6d33dbcadde1234df4392c96da0bffaf996be4f7a8",
+        "scopes": [
+          "wechat.mcp",
+          "woa:account:read",
+          "woa:content:read",
+          "woa:context:read",
+          "woa:tenant:read"
+        ],
+        "updatedAtMs": 1784333158243
+      },
+      {
+        "clientRefSha256": "e3b8054d8ddaa1b5b7d97f01cadd22d75c70265b1478adfa897bcf0f63ee60aa",
+        "scopeSetRefSha256": "5678f8c36207cc76090b124972145d575b9c8a51b5ee1b6314ed1328783c3507",
+        "scopes": [
+          "wechat.mcp",
+          "woa:account:read",
+          "woa:account:write",
+          "woa:audit:read",
+          "woa:billing:write",
+          "woa:content:publish",
+          "woa:content:read",
+          "woa:content:write",
+          "woa:context:read",
+          "woa:inbox:read",
+          "woa:tenant:read",
+          "woa:tenant:write",
+          "woa:usage:read"
+        ],
+        "updatedAtMs": 1784304079053
+      },
+      {
+        "clientRefSha256": "b8369c6a8649ebe3226236c0c9d50b3ba88e128c4ff83d4c756232028bf50522",
+        "scopeSetRefSha256": "5678f8c36207cc76090b124972145d575b9c8a51b5ee1b6314ed1328783c3507",
+        "scopes": [
+          "wechat.mcp",
+          "woa:account:read",
+          "woa:account:write",
+          "woa:audit:read",
+          "woa:billing:write",
+          "woa:content:publish",
+          "woa:content:read",
+          "woa:content:write",
+          "woa:context:read",
+          "woa:inbox:read",
+          "woa:tenant:read",
+          "woa:tenant:write",
+          "woa:usage:read"
+        ],
+        "updatedAtMs": 1784304031967
+      },
+      {
+        "clientRefSha256": "25e8848a2a67fa37bd56ffa64d65742bbad6b30320108fd2d70182560068656a",
+        "scopeSetRefSha256": "5678f8c36207cc76090b124972145d575b9c8a51b5ee1b6314ed1328783c3507",
+        "scopes": [
+          "wechat.mcp",
+          "woa:account:read",
+          "woa:account:write",
+          "woa:audit:read",
+          "woa:billing:write",
+          "woa:content:publish",
+          "woa:content:read",
+          "woa:content:write",
+          "woa:context:read",
+          "woa:inbox:read",
+          "woa:tenant:read",
+          "woa:tenant:write",
+          "woa:usage:read"
+        ],
+        "updatedAtMs": 1784303886657
+      },
+      {
+        "clientRefSha256": "9b898def3c5b713ef2f558322123c4d6041664d881289f9946d583e30ca52120",
+        "scopeSetRefSha256": "5678f8c36207cc76090b124972145d575b9c8a51b5ee1b6314ed1328783c3507",
+        "scopes": [
+          "wechat.mcp",
+          "woa:account:read",
+          "woa:account:write",
+          "woa:audit:read",
+          "woa:billing:write",
+          "woa:content:publish",
+          "woa:content:read",
+          "woa:content:write",
+          "woa:context:read",
+          "woa:inbox:read",
+          "woa:tenant:read",
+          "woa:tenant:write",
+          "woa:usage:read"
+        ],
+        "updatedAtMs": 1784303855463
+      },
+      {
+        "clientRefSha256": "aa32092012a027287a89a74c3b6993c7b29a1a247fb8c498bbd3fd6eea1ab71c",
+        "scopeSetRefSha256": "5678f8c36207cc76090b124972145d575b9c8a51b5ee1b6314ed1328783c3507",
+        "scopes": [
+          "wechat.mcp",
+          "woa:account:read",
+          "woa:account:write",
+          "woa:audit:read",
+          "woa:billing:write",
+          "woa:content:publish",
+          "woa:content:read",
+          "woa:content:write",
+          "woa:context:read",
+          "woa:inbox:read",
+          "woa:tenant:read",
+          "woa:tenant:write",
+          "woa:usage:read"
+        ],
+        "updatedAtMs": 1784294973407
+      }
+    ],
+    "requestRefs": [
+      {
+        "requestIdSha256": "55f1e7932c8db6e6f9ad90e152681bdf91a56d8d23493bc2847fa995222c6bf6",
+        "oauthClientRefSha256": "ac8e3d5c88b223b9d72a688c9189880fc073225e2aff22e877f34dc4269981ed",
+        "action": "publish.success",
+        "createdAtMs": 1784346142339
+      },
+      {
+        "requestIdSha256": "c516ea0c5587140e3227d3ac8e11624155c53dfdc2952e026aad2ea3b3318c24",
+        "oauthClientRefSha256": "ac8e3d5c88b223b9d72a688c9189880fc073225e2aff22e877f34dc4269981ed",
+        "action": "publish.success",
+        "createdAtMs": 1784346121791
+      },
+      {
+        "requestIdSha256": "b6d6d98c7e31d6b5ef854457d85c07e1bed3944893c67ecbd930836a44a8091e",
+        "oauthClientRefSha256": "e3b8054d8ddaa1b5b7d97f01cadd22d75c70265b1478adfa897bcf0f63ee60aa",
+        "action": "billing.checkout_created",
+        "createdAtMs": 1784337537525
+      },
+      {
+        "requestIdSha256": "8d902b2fe25e73a5567f9e6b2bb2d1da99a5c030988d2db8559f9871f304f414",
+        "oauthClientRefSha256": "e3b8054d8ddaa1b5b7d97f01cadd22d75c70265b1478adfa897bcf0f63ee60aa",
+        "action": "stripe.operation_failed",
+        "createdAtMs": 1784337469296
+      },
+      {
+        "requestIdSha256": "6a4503793982b3dc81a688ea8cc2934e2bb65fe33107c3391baad7d72e5e281f",
+        "oauthClientRefSha256": "e3b8054d8ddaa1b5b7d97f01cadd22d75c70265b1478adfa897bcf0f63ee60aa",
+        "action": "billing.checkout_created",
+        "createdAtMs": 1784334101335
+      },
+      {
+        "requestIdSha256": "c4c83462110f81c0583a60fb1edc754dbc4c364b84867e00155469a6726f007a",
+        "oauthClientRefSha256": "034d4a2b58a49d77d0885ff0cd829cc0c398465f5531f57f353599c1aa34f4c7",
+        "action": "worker.operation_failed",
+        "createdAtMs": 1784287433166
+      },
+      {
+        "requestIdSha256": "0165efe25b57149453e0b1db2b1b8014b27cfe22366981c11deac47107496d25",
+        "oauthClientRefSha256": "3bc5f3ae08ddff987625402b008bc379980ca87260db598054db0e27e03bd5a0",
+        "action": "worker.operation_failed",
+        "createdAtMs": 1784257007981
+      },
+      {
+        "requestIdSha256": "9bf4fbdc7ae790d7fee78289c66cfef26c3d9773177d24dfc233e951e6d9c703",
+        "oauthClientRefSha256": "3bc5f3ae08ddff987625402b008bc379980ca87260db598054db0e27e03bd5a0",
+        "action": "worker.operation_failed",
+        "createdAtMs": 1784255764696
+      },
+      {
+        "requestIdSha256": "7629301b424d8b19efdc6f2661701ed3d6848c9824d6416e7cde9431946be8bc",
+        "oauthClientRefSha256": "2af9c9c3b7591968297d1fd0b2320a02b3a5e0be136f812b00c44bf509fca8fa",
+        "action": "worker.operation_failed",
+        "createdAtMs": 1784252628700
+      },
+      {
+        "requestIdSha256": "8480d0525ea16445134d23a196f2353067d8de69ec1d585911147713e7e2e41d",
+        "oauthClientRefSha256": "2af9c9c3b7591968297d1fd0b2320a02b3a5e0be136f812b00c44bf509fca8fa",
+        "action": "worker.operation_failed",
+        "createdAtMs": 1784251274115
+      },
+      {
+        "requestIdSha256": "5748131e70da2db2bb6d53107cc31c6fa91ca52711318a45fee9c2f73f22c76d",
+        "oauthClientRefSha256": "2af9c9c3b7591968297d1fd0b2320a02b3a5e0be136f812b00c44bf509fca8fa",
+        "action": "publish.success",
+        "createdAtMs": 1784211832391
+      },
+      {
+        "requestIdSha256": "2fd47974d2df8530cebffcc9bcef2f120c6a587835112020fed1e7164c56f92e",
+        "oauthClientRefSha256": "2af9c9c3b7591968297d1fd0b2320a02b3a5e0be136f812b00c44bf509fca8fa",
+        "action": "publish.success",
+        "createdAtMs": 1784211012509
+      }
+    ]
+  },
+  "stripe": {
+    "liveCheckout": true,
+    "paymentMethod": "card",
+    "cancelAtPeriodEnd": true,
+    "entitlement": {
+      "plan": "plus",
+      "status": "active",
+      "hasStripeCustomer": true,
+      "hasStripeSubscription": true,
+      "pendingPlan": "free",
+      "pendingPlanEffectiveAtMs": 1787020251000,
+      "monthlyQuota": 300
+    },
+    "eventRefs": [
+      {
+        "eventIdSha256": "2fe37de2df02533186eeb30cbf17e16516634040658a6445c3d5cb3e5ba25f48",
+        "tenantIdSha256": "152d12d55b95fb787fdc640ed57b47f50d8bf08c16e90489156389d5d6abc55c",
+        "eventType": "customer.subscription.updated",
+        "processedAtMs": 1784342285213
+      },
+      {
+        "eventIdSha256": "ab7e6465d462129d12a04f55e71a4d61e8dbe7de0d56cd6905dab7d567e29635",
+        "tenantIdSha256": "152d12d55b95fb787fdc640ed57b47f50d8bf08c16e90489156389d5d6abc55c",
+        "eventType": "customer.subscription.created",
+        "processedAtMs": 1784341870532
+      },
+      {
+        "eventIdSha256": "184bcdd16179c090542e454c678cd78da58c1608b82e69bc2d6ce0873acc0cbf",
+        "tenantIdSha256": "152d12d55b95fb787fdc640ed57b47f50d8bf08c16e90489156389d5d6abc55c",
+        "eventType": "checkout.session.completed",
+        "processedAtMs": 1784341870159
+      }
+    ]
+  },
+  "wechat": {
+    "relayProbeVerified": true,
+    "credentialsVerified": true,
+    "unpublishedTestDraft": {
+      "mediaIdSha256": "f338c365a4b29f065c5fd4b223ac0970ab5eb40fe9296e279f2641904ce678d8",
+      "coverMediaIdSha256": "e45070035715bd1b6e925d64ccb16f60028284821e89e7489eca86f4e7d1d642",
+      "created": true,
+      "readBack": true,
+      "publishedDuringInit": false
+    },
+    "articlePublish": {
+      "submitted": true,
+      "finalState": "published",
+      "titleMatched": true,
+      "hasPublishedUrl": true,
+      "pollAttempts": 2,
+      "draftMediaIdSha256": "f338c365a4b29f065c5fd4b223ac0970ab5eb40fe9296e279f2641904ce678d8",
+      "publishIdSha256": "60fd6f8811648fcfcc0c59cd71c42589b96087560550f11e57da53b15a803992"
+    },
+    "imagePublish": {
+      "submitted": true,
+      "finalState": "published",
+      "titleMatched": true,
+      "hasPublishedUrl": true,
+      "pollAttempts": 2,
+      "sourceMediaIdSha256": "e45070035715bd1b6e925d64ccb16f60028284821e89e7489eca86f4e7d1d642",
+      "publishIdSha256": "7d53582bc56787117af8b374bc4b1b3f4fa9835474fb3fe23d756e1291428901"
+    },
+    "listReadBack": {
+      "matchedPublishedItems": 2,
+      "articleTitleMatched": true,
+      "imageTitleMatched": true,
+      "publishedUrlsPresent": true
+    }
+  },
+  "migrations": {
+    "command": "npx wrangler d1 migrations apply DB --remote",
+    "applied": [
+      "0010_legacy_owner_full_scope_backfill.sql",
+      "0011_stripe_event_ordering_guard.sql"
+    ],
+    "verificationCommand": "npx wrangler d1 migrations apply DB --remote (second invocation)",
+    "pendingAfter": 0,
+    "legacyOwnerAudit": {
+      "legacyStubCount": 1,
+      "claimedOwnerCount": 1,
+      "unrelatedOwnerCount": 0
+    },
+    "appliedAtUtc": "2026-07-18T07:15:19Z",
+    "appliedAtUtcByMigration": {
+      "0010_legacy_owner_full_scope_backfill.sql": "2026-07-18T04:04:23Z",
+      "0011_stripe_event_ordering_guard.sql": "2026-07-18T07:15:19Z"
+    }
+  },
+  "redaction": {
+    "algorithm": "SHA-256",
+    "rawIdentifiersCommitted": false,
+    "omitted": [
+      "OAuth tokens",
+      "WeChat credentials",
+      "card details",
+      "raw tenant/account/operator/media/publish/payment identifiers"
+    ]
+  }
+}

@@ -32,7 +32,8 @@ export type WechatCredentialProbeErrorCode =
   | 'wechat_credentials_rejected'
   | 'oauth_revoked'
   | 'membership_scope_denied'
-  | 'account_plan_locked';
+  | 'account_plan_locked'
+  | 'credential_configuration_busy';
 
 export class WechatCredentialProbeError extends Error {
   constructor(
@@ -79,10 +80,75 @@ export interface CredentialHandoffDeps {
   operatorId?: string | null;
   egress: AgentInitEgressContext | null;
   assertAuthority?(handoff: AgentCredentialHandoffRecord): Promise<void>;
-  validateAndPersist(input: {
+  validatePersistAndComplete(input: {
     handoff: AgentCredentialHandoffRecord;
     config: WechatConfig;
+    complete(): Promise<void>;
   }): Promise<AccessTokenInfo>;
+}
+
+export async function persistCredentialConfigurationWithAudit<T>(deps: {
+  writeStartedAudit(): Promise<void>;
+  persist(): Promise<T>;
+  writeSucceededAudit(): Promise<void>;
+  finalize?(): Promise<void>;
+  rollback(): Promise<void>;
+  writeRollbackAudit?(): Promise<void>;
+}): Promise<T> {
+  // Establish an audit record before any credential mutation. If the success
+  // audit fails after persistence, restore the prior credential/token state so
+  // the caller never observes an unaudited successful configuration.
+  await deps.writeStartedAudit();
+  try {
+    const result = await deps.persist();
+    await deps.writeSucceededAudit();
+    await deps.finalize?.();
+    return result;
+  } catch (error) {
+    const rollbackFailures: unknown[] = [];
+    let rollbackSucceeded = false;
+    try {
+      await deps.rollback();
+      rollbackSucceeded = true;
+    } catch (rollbackError) {
+      rollbackFailures.push(rollbackError);
+    }
+    if (rollbackSucceeded) {
+      try {
+        await deps.writeRollbackAudit?.();
+      } catch (rollbackAuditError) {
+        rollbackFailures.push(rollbackAuditError);
+      }
+    }
+    if (rollbackFailures.length > 0) {
+      const combined = new Error('Credential configuration failed and rollback did not complete cleanly.');
+      (combined as Error & { causes?: unknown[] }).causes = [error, ...rollbackFailures];
+      throw combined;
+    }
+    throw error;
+  }
+}
+
+export async function deleteWechatResourceWithAudit(deps: {
+  writeStartedAudit(): Promise<void>;
+  clearToken(): Promise<void>;
+  deleteWithSucceededAudit(): Promise<void>;
+  restoreToken(): Promise<void>;
+}): Promise<void> {
+  await deps.writeStartedAudit();
+  try {
+    await deps.clearToken();
+    await deps.deleteWithSucceededAudit();
+  } catch (error) {
+    try {
+      await deps.restoreToken();
+    } catch (rollbackError) {
+      const combined = new Error('WeChat resource deletion failed and token rollback did not complete.');
+      (combined as Error & { causes?: unknown[] }).causes = [error, rollbackError];
+      throw combined;
+    }
+    throw error;
+  }
 }
 
 const CREDENTIAL_HANDOFF_COOKIE = 'woa_credential_handoff';
@@ -569,13 +635,16 @@ export async function handleCredentialHandoffRequest(
     });
     try {
       await deps.assertAuthority?.(handoff);
-      await deps.validateAndPersist({
+      await deps.validatePersistAndComplete({
         handoff,
         config: { appId, appSecret },
-      });
-      await deps.store.completeCredentialHandoff({
-        operatorId: deps.operatorId,
-        handoffId: handoff.handoffId,
+        complete: async () => {
+          await deps.store.completeCredentialHandoff({
+            operatorId: deps.operatorId!,
+            handoffId: handoff.handoffId,
+            leaseOwner: handoff.leaseOwner,
+          });
+        },
       });
       return credentialPage(
         'credentials_verified',
@@ -589,6 +658,7 @@ export async function handleCredentialHandoffRequest(
       await deps.store.failCredentialHandoff({
         operatorId: deps.operatorId,
         handoffId: handoff.handoffId,
+        leaseOwner: handoff.leaseOwner,
         errorCode: probeError.code,
       });
       const currentIps = probeError.code === 'wechat_ip_not_allowlisted'
@@ -754,7 +824,8 @@ function normalizeProbeError(error: unknown): WechatCredentialProbeError {
   if (error instanceof ApiError) {
     const code = error.code === 'oauth_revoked' ||
       error.code === 'membership_scope_denied' ||
-      error.code === 'account_plan_locked'
+      error.code === 'account_plan_locked' ||
+      error.code === 'credential_configuration_busy'
       ? error.code
       : 'wechat_credentials_rejected';
     return new WechatCredentialProbeError(code, error.message, error.status);
@@ -766,9 +837,29 @@ function normalizeProbeError(error: unknown): WechatCredentialProbeError {
 
 function assertSameOriginFormPost(request: Request): void {
   const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(request.url).origin) {
-    throw new ApiError('invalid_origin', 'Credential form origin validation failed.', 403);
+  const requestUrl = new URL(request.url);
+  if (origin && origin !== 'null') {
+    const allowedOrigins = new Set([requestUrl.origin]);
+    const host = normalizedHostHeader(request.headers.get('host'));
+    if (host) allowedOrigins.add(`${requestUrl.protocol}//${host}`);
+    try {
+      if (allowedOrigins.has(new URL(origin).origin)) return;
+    } catch {
+      // Malformed origins remain fail-closed.
+    }
+  } else if (
+    request.headers.get('sec-fetch-site')?.toLowerCase() === 'same-origin' &&
+    request.headers.get('sec-fetch-mode')?.toLowerCase() === 'navigate'
+  ) {
+    return;
   }
+  throw new ApiError('invalid_origin', 'Credential form origin validation failed.', 403);
+}
+
+function normalizedHostHeader(value: string | null): string | null {
+  const host = value?.trim().toLowerCase() ?? '';
+  if (!host || /[\s/?#@]/.test(host)) return null;
+  return host;
 }
 
 function credentialFormPage(handoff: AgentCredentialHandoffRecord, request: Request): Response {

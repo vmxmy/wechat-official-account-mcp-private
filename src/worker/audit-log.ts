@@ -68,8 +68,12 @@ export class D1AuditLogWriter implements AuditLogWriter {
   }
 
   async write(event: AuditLogEvent): Promise<void> {
+    await (await this.prepareWriteStatement(event)).run();
+  }
+
+  async prepareWriteStatement(event: AuditLogEvent) {
     await this.ensureSchema();
-    await this.db.prepare(
+    return this.db.prepare(
       `INSERT INTO audit_logs (
         user_id,
         oauth_client_id,
@@ -93,7 +97,7 @@ export class D1AuditLogWriter implements AuditLogWriter {
       event.requestId ?? null,
       JSON.stringify(sanitizeAuditMetadata(event.metadata ?? {})),
       event.occurredAt ?? Date.now(),
-    ).run();
+    );
   }
 
   async list(query: AuditLogQuery): Promise<AuditLogRecord[]> {

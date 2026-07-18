@@ -44,7 +44,7 @@
 
 ## 5. Billing, quotas, and Stripe
 
-- [ ] 5.1 Configure Stripe Products/Prices for Plus $9/month and Pro $29/month and document live-mode IDs as Cloudflare runtime secrets.
+- [x] 5.1 Configure Stripe Products/Prices for Plus $9/month and Pro $29/month and document live-mode IDs as Cloudflare runtime secrets.
 - [x] 5.2 Implement Tenant-scoped Stripe Customer creation using owner verified email.
 - [x] 5.3 Implement Web/CLI checkout session creation for Plus/Pro and reject MCP checkout creation.
 - [x] 5.4 Implement Stripe webhook handling for subscription create/update/cancel, period-end downgrades, and entitlement updates.
@@ -121,8 +121,8 @@
 - [x] 11.4 Run `npm test`.
 - [x] 11.5 Run Web build and Worker dry-run deploy validation.
 - [x] 11.6 Run local or deployed smoke for email login, Web session, OAuth consent, CLI login, MCP tools/list, `woa_context`, account configure/status, quota rejection, and session revocation.
-- [ ] 11.7 Run live Stripe production smoke for checkout, webhook entitlement update, and cancellation/downgrade behavior, treating all payments as real operations.
-- [ ] 11.8 Run production WeChat credential reconfiguration through the new onboarding path and verify article/image publish still works.
+- [x] 11.7 Run live Stripe production smoke for checkout, webhook entitlement update, and cancellation/downgrade behavior, treating all payments as real operations.
+- [x] 11.8 Run production WeChat credential reconfiguration through the new onboarding path and verify article/image publish still works.
 - [x] 11.9 Capture final Web screenshots and complete anti-AI-slop reviewer pass before declaring release ready.
 
 ## 12. Agent-first contract and architecture
@@ -162,9 +162,9 @@
 
 ## 16. End-to-end verification and release sequence
 
-- [ ] 16.1 Verify host-native OAuth and MCP evidence separately from CLI login/probe: protected-resource discovery, host grant, initialize, tools/list, `woa_context`, and draft count.
+- [x] 16.1 Verify host-native OAuth and MCP evidence separately from CLI login/probe: protected-resource discovery, host grant, initialize, tools/list, `woa_context`, and draft count.
 - [x] 16.2 Verify user-confirmed, idempotent unpublished test cover/draft creation and read-back across timeout and host restart without duplicate side effects.
 - [x] 16.3 Run OpenSpec validation, typecheck, lint, full tests, Web build, Worker dry-run, package content checks, and secret/client-brand/stdio regression searches.
 - [x] 16.4 Run `npm pack` tarball smoke at the minimum supported Node 18 and Node 20 for import, TTY, plain, pipe/CI, JSONL, pause/signals, cursor restoration and exit codes.
-- [ ] 16.5 Publish an exact provenance-enabled prerelease to `next`, validate the exact version, promote the same version to `latest`, verify `@latest` and integrity, and only then deploy the public root.
-- [ ] 16.6 Run production smoke recording trusted egress configuration, relay allowlist token probe, redacted grants/request IDs and test-draft media ID without publishing.
+- [x] 16.5 Publish an exact provenance-enabled prerelease to `next`, validate the exact version, promote the same version to `latest`, verify `@latest` and integrity, and only then deploy the public root.
+- [x] 16.6 Run production smoke recording trusted egress configuration, relay allowlist token probe, redacted grants/request IDs and test-draft media ID without publishing.

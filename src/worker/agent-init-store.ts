@@ -43,6 +43,10 @@ export interface AgentCredentialHandoffRecord {
   updatedAt: number;
 }
 
+export interface ConsumedAgentCredentialHandoffRecord extends AgentCredentialHandoffRecord {
+  leaseOwner: string;
+}
+
 export interface AgentInitIdempotencyRecord {
   tenantId: string;
   accountId: string;
@@ -427,7 +431,7 @@ export class D1AgentInitStore {
     operatorId: string;
     cookieToken: string;
     now?: number;
-  }): Promise<AgentCredentialHandoffRecord> {
+  }): Promise<ConsumedAgentCredentialHandoffRecord> {
     const now = input.now ?? Date.now();
     const cookieTokenHash = await sha256Text(input.cookieToken);
     const claimedRow = await this.db.prepare(
@@ -447,7 +451,7 @@ export class D1AgentInitStore {
     }
     const handoff = rowToHandoff(claimedRow);
     const run = await this.requireActiveRun(input.operatorId, handoff.runId, now);
-    const leaseOwner = credentialHandoffLeaseOwner(handoff.handoffId);
+    const leaseOwner = credentialHandoffLeaseOwner();
     await this.acquireRunActionLease({
       operatorId: input.operatorId,
       runId: handoff.runId,
@@ -488,7 +492,7 @@ export class D1AgentInitStore {
          WHERE cookie_token_hash = ? AND operator_id = ? LIMIT 1`,
       ).bind(cookieTokenHash, input.operatorId).first<Record<string, unknown>>();
       if (!row) throw new AgentInitStateError('credential_handoff_consumed', 'Credential handoff is unavailable.', 410);
-      return rowToHandoff(row);
+      return { ...rowToHandoff(row), leaseOwner };
     } catch (error) {
       await this.releaseRunActionLease({
         operatorId: input.operatorId,
@@ -503,6 +507,7 @@ export class D1AgentInitStore {
   async completeCredentialHandoff(input: {
     operatorId: string;
     handoffId: string;
+    leaseOwner: string;
     now?: number;
   }): Promise<AgentInitRunRecord> {
     const now = input.now ?? Date.now();
@@ -515,13 +520,12 @@ export class D1AgentInitStore {
     ).bind(input.handoffId, input.operatorId).first<Record<string, unknown>>();
     const runId = stringValue(row?.run_id);
     if (!runId) throw new AgentInitStateError('credential_handoff_consumed', 'Credential handoff is no longer active.', 410);
-    const leaseOwner = credentialHandoffLeaseOwner(input.handoffId);
     const run = await this.requireActiveRun(input.operatorId, runId, now);
     await this.acquireRunActionLease({
       operatorId: input.operatorId,
       runId,
       expectedVersion: run.version,
-      leaseOwner,
+      leaseOwner: input.leaseOwner,
       now,
     });
     const updateRun = await this.db.prepare(
@@ -539,10 +543,10 @@ export class D1AgentInitStore {
       input.operatorId,
       input.handoffId,
       run.version,
-      await sha256Text(leaseOwner),
+      await sha256Text(input.leaseOwner),
     ).run();
     if (changes(updateRun) === 0) {
-      await this.releaseRunActionLease({ operatorId: input.operatorId, runId, leaseOwner, now });
+      await this.releaseRunActionLease({ operatorId: input.operatorId, runId, leaseOwner: input.leaseOwner, now });
       await this.throwRunMutationError(input.operatorId, runId, run.version, now);
     }
     // run 是权威提交记录；若此投影写失败，getHandoff 会根据 run 状态自动修复。
@@ -561,6 +565,7 @@ export class D1AgentInitStore {
   async failCredentialHandoff(input: {
     operatorId: string;
     handoffId: string;
+    leaseOwner: string;
     errorCode: string;
     now?: number;
   }): Promise<void> {
@@ -576,7 +581,6 @@ export class D1AgentInitStore {
        WHERE id = ? AND operator_id = ? AND status = 'processing'`,
     ).bind(input.errorCode, now, input.handoffId, input.operatorId).run();
     if (runId) {
-      const leaseOwner = credentialHandoffLeaseOwner(input.handoffId);
       await this.db.prepare(
         `UPDATE agent_init_runs
          SET relay_probe_at = ?, phase = 'credential_handoff_failed', last_error_code = ?,
@@ -591,9 +595,9 @@ export class D1AgentInitStore {
         runId,
         input.operatorId,
         input.handoffId,
-        await sha256Text(leaseOwner),
+        await sha256Text(input.leaseOwner),
       ).run();
-      await this.releaseRunActionLease({ operatorId: input.operatorId, runId, leaseOwner, now });
+      await this.releaseRunActionLease({ operatorId: input.operatorId, runId, leaseOwner: input.leaseOwner, now });
     }
   }
 
@@ -909,8 +913,8 @@ function opaqueId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
 }
 
-function credentialHandoffLeaseOwner(handoffId: string): string {
-  return `credential-handoff-submit:${handoffId}`;
+function credentialHandoffLeaseOwner(): string {
+  return `credential-handoff-submit:${crypto.randomUUID()}`;
 }
 
 async function scopedHash(...parts: string[]): Promise<string> {

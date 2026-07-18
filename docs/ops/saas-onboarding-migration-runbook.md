@@ -27,13 +27,13 @@ Run the SaaS onboarding migration and release checks without mixing local verifi
 
 ## Pre-migration checklist
 
-- [ ] Confirm Cloudflare account/project target and production Worker name.
-- [ ] Confirm D1 database binding points at production `wechat-official-account-mcp-prod`.
-- [ ] Confirm runtime business secrets are Cloudflare bindings/secrets, not GitHub CI secrets.
-- [ ] Confirm `WECHAT_PROXY_URL` and relay allowlist are active.
-- [ ] Confirm Stripe live product/price IDs and webhook secret are configured.
-- [ ] Confirm Resend, Turnstile, GitHub OAuth, session/OAuth signing, and encryption secrets are configured before public signup.
-- [ ] Capture `/health`, unauthenticated `/mcp`, authenticated `tools/list`, `woa_context`, `woa_account.status`, draft list, publish list, and Stripe webhook behavior before migration.
+- [x] Confirm Cloudflare account/project target and production Worker name.
+- [x] Confirm D1 database binding points at production `wechat-official-account-mcp-prod`.
+- [x] Confirm runtime business secrets are Cloudflare bindings/secrets, not GitHub CI secrets.
+- [x] Confirm `WECHAT_PROXY_URL` and relay allowlist are active.
+- [x] Confirm Stripe live product/price IDs and webhook secret are configured.
+- [x] Confirm Resend, Turnstile, GitHub OAuth, session/OAuth signing, and encryption secrets are configured before public signup.
+- [x] Capture `/health`, unauthenticated `/mcp`, authenticated `tools/list`, `woa_context`, `woa_account.status`, draft list, publish list, and Stripe webhook behavior before migration.
 
 ## 2026-07-07 safe readiness observation
 
@@ -56,6 +56,40 @@ Non-destructive production checks were run from the local operator shell at `202
 - Authenticated MCP, live Stripe checkout/webhook, production WeChat credential
   reconfiguration, and publish smoke were not run in this safe pass. Treat them as
   external-production blockers until a fresh operator-approved live run records evidence.
+
+## 2026-07-18 authorized production closure
+
+The operator explicitly authorized the real release, billing, credential, and publish
+operations. The following redacted outcomes were recorded; raw OAuth, Stripe, WeChat,
+tenant, account, request, media, publish, and payment identifiers were not committed.
+
+- The source repository was made public, `@ziikoo/woa@2.3.0` was published to `next`,
+  the same package artifact was promoted to `latest`, integrity/provenance checks passed,
+  and the production Worker deployment completed.
+- A live Plus checkout completed with a real card payment. Stripe delivered checkout and
+  subscription events, D1 reflected the paid entitlement, and cancellation at period end
+  preserved Plus until the recorded period boundary with Free pending afterward.
+- Host-native OAuth separately completed protected-resource discovery, PKCE authorization,
+  MCP initialization, `tools/list`, `woa_context`, and a read-only draft count. CLI probe
+  evidence was not used as a substitute for the host grant.
+- The secure credential handoff validated the AppID/AppSecret through the fixed-exit relay,
+  persisted the encrypted credentials, and advanced the init run to `credentials_verified`.
+- The approved idempotent test operation created one cover and one unpublished draft, then
+  read the expected draft back without invoking publish.
+- A separately authorized publish grant added only `woa:content:publish`. The production
+  smoke published the verified article and a distinct image/newspic message; both reached
+  published state and appeared in the publish list with public URLs.
+- Production D1 applied migrations `0010` and `0011`, then reported no pending migrations.
+  `0010` completed the legacy owner membership ceiling with the security session scopes;
+  `0011` installed the Stripe event-ordering watermark before the final Worker deployment.
+  The immediate owner-scope audit found one legacy stub, one claimed first Operator, and zero
+  unrelated active owners; the committed migration predicates retain that narrow fingerprint.
+
+The local Ultragoal audit retains redacted/digested evidence under
+`.omx/ultragoal/evidence/` for the release session. The committed machine-readable record
+is [`saas-onboarding-production-verification-20260718.json`](./saas-onboarding-production-verification-20260718.json),
+which contains dated workflow results plus SHA-256 grant, request, Stripe event, tenant,
+media, and publish references without raw credentials or identifiers.
 
 ## Local verification before production
 

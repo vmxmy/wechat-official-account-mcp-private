@@ -26,6 +26,24 @@ export interface TenantEntitlement {
   periodAnchorAt?: number | null;
   pendingPlan?: SubscriptionPlan | null;
   pendingPlanEffectiveAt?: number | null;
+  lastStripeEventCreatedAt?: number | null;
+  lastStripeEventPriority?: number | null;
+  lastStripeEventId?: string | null;
+}
+
+export interface TenantEntitlementUpsertInput {
+  tenantId: string;
+  plan: SubscriptionPlan;
+  status?: string;
+  limitOverrides?: Record<string, unknown> | null;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+  currentPeriodStart?: number | null;
+  currentPeriodEnd?: number | null;
+  periodAnchorAt?: number | null;
+  pendingPlan?: SubscriptionPlan | null;
+  pendingPlanEffectiveAt?: number | null;
+  now?: number;
 }
 
 export interface UsageCounterSnapshot {
@@ -156,6 +174,9 @@ CREATE TABLE IF NOT EXISTS tenant_entitlements (
   period_anchor_at INTEGER,
   pending_plan TEXT,
   pending_plan_effective_at INTEGER,
+  last_stripe_event_created_at INTEGER,
+  last_stripe_event_priority INTEGER,
+  last_stripe_event_id TEXT,
   limits_json TEXT NOT NULL DEFAULT '{}',
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
@@ -218,7 +239,8 @@ export class D1UsageQuotaStore {
     await this.ensureSchema();
     const row = await this.db.prepare(
       `SELECT plan, status, limits_json, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end,
-              period_anchor_at, pending_plan, pending_plan_effective_at
+              period_anchor_at, pending_plan, pending_plan_effective_at, last_stripe_event_created_at,
+              last_stripe_event_priority, last_stripe_event_id
        FROM tenant_entitlements
        WHERE tenant_id = ?
        LIMIT 1`,
@@ -231,7 +253,8 @@ export class D1UsageQuotaStore {
     await this.ensureSchema();
     const row = await this.db.prepare(
       `SELECT tenant_id, plan, status, limits_json, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end,
-              period_anchor_at, pending_plan, pending_plan_effective_at
+              period_anchor_at, pending_plan, pending_plan_effective_at, last_stripe_event_created_at,
+              last_stripe_event_priority, last_stripe_event_id
        FROM tenant_entitlements
        WHERE stripe_subscription_id = ?
        LIMIT 1`,
@@ -241,20 +264,7 @@ export class D1UsageQuotaStore {
     return rowToTenantEntitlement(stringValue(row.tenant_id) || '', row);
   }
 
-  async upsertEntitlement(input: {
-    tenantId: string;
-    plan: SubscriptionPlan;
-    status?: string;
-    limitOverrides?: Record<string, unknown> | null;
-    stripeCustomerId?: string | null;
-    stripeSubscriptionId?: string | null;
-    currentPeriodStart?: number | null;
-    currentPeriodEnd?: number | null;
-    periodAnchorAt?: number | null;
-    pendingPlan?: SubscriptionPlan | null;
-    pendingPlanEffectiveAt?: number | null;
-    now?: number;
-  }): Promise<void> {
+  async upsertEntitlement(input: TenantEntitlementUpsertInput): Promise<void> {
     await this.ensureSchema();
     const now = input.now ?? Date.now();
     await this.db.prepare(
@@ -300,6 +310,90 @@ export class D1UsageQuotaStore {
       now,
       now,
     ).run();
+  }
+
+  async upsertEntitlementFromStripeEvent(
+    input: TenantEntitlementUpsertInput,
+    event: {
+      id: string;
+      createdAt: number;
+      priority: number;
+      enforceExpectedCurrentStripeSubscriptionId?: boolean;
+      expectedCurrentStripeSubscriptionId?: string | null;
+    },
+  ): Promise<boolean> {
+    await this.ensureSchema();
+    const now = input.now ?? Date.now();
+    const result = await this.db.prepare(
+      `INSERT INTO tenant_entitlements (
+         tenant_id,
+         plan,
+         status,
+         stripe_customer_id,
+         stripe_subscription_id,
+         current_period_start,
+         current_period_end,
+         period_anchor_at,
+         pending_plan,
+         pending_plan_effective_at,
+         last_stripe_event_created_at,
+         last_stripe_event_priority,
+         last_stripe_event_id,
+         limits_json,
+         created_at,
+         updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(tenant_id) DO UPDATE SET
+         plan = excluded.plan,
+         status = excluded.status,
+         stripe_customer_id = excluded.stripe_customer_id,
+         stripe_subscription_id = excluded.stripe_subscription_id,
+         current_period_start = excluded.current_period_start,
+         current_period_end = excluded.current_period_end,
+         period_anchor_at = COALESCE(tenant_entitlements.period_anchor_at, excluded.period_anchor_at),
+         pending_plan = excluded.pending_plan,
+         pending_plan_effective_at = excluded.pending_plan_effective_at,
+         last_stripe_event_created_at = excluded.last_stripe_event_created_at,
+         last_stripe_event_priority = excluded.last_stripe_event_priority,
+         last_stripe_event_id = excluded.last_stripe_event_id,
+         limits_json = excluded.limits_json,
+         updated_at = excluded.updated_at
+       WHERE (
+            tenant_entitlements.last_stripe_event_created_at IS NULL
+            OR excluded.last_stripe_event_created_at > tenant_entitlements.last_stripe_event_created_at
+            OR (
+              excluded.last_stripe_event_created_at = tenant_entitlements.last_stripe_event_created_at
+              AND excluded.last_stripe_event_priority >= COALESCE(tenant_entitlements.last_stripe_event_priority, -1)
+            )
+          )
+          AND (
+            ? = 0
+            OR (? IS NULL AND tenant_entitlements.stripe_subscription_id IS NULL)
+            OR tenant_entitlements.stripe_subscription_id = ?
+          )
+          `,
+    ).bind(
+      input.tenantId,
+      input.plan,
+      input.status ?? 'active',
+      input.stripeCustomerId ?? null,
+      input.stripeSubscriptionId ?? null,
+      input.currentPeriodStart ?? null,
+      input.currentPeriodEnd ?? null,
+      input.periodAnchorAt ?? now,
+      input.pendingPlan ?? null,
+      input.pendingPlanEffectiveAt ?? null,
+      event.createdAt,
+      event.priority,
+      event.id,
+      JSON.stringify(input.limitOverrides ?? {}),
+      now,
+      now,
+      event.enforceExpectedCurrentStripeSubscriptionId ? 1 : 0,
+      event.expectedCurrentStripeSubscriptionId ?? null,
+      event.expectedCurrentStripeSubscriptionId ?? null,
+    ).run();
+    return (result.meta?.changes ?? 0) > 0;
   }
 
   async hasStripeBillingEvent(eventId: string): Promise<boolean> {
@@ -776,6 +870,9 @@ function rowToTenantEntitlement(tenantId: string, row: Record<string, unknown> |
     periodAnchorAt: numberValue(row.period_anchor_at),
     pendingPlan: row.pending_plan ? normalizeSubscriptionPlan(row.pending_plan) : null,
     pendingPlanEffectiveAt: numberValue(row.pending_plan_effective_at),
+    lastStripeEventCreatedAt: numberValue(row.last_stripe_event_created_at),
+    lastStripeEventPriority: numberValue(row.last_stripe_event_priority),
+    lastStripeEventId: stringValue(row.last_stripe_event_id),
   };
 }
 

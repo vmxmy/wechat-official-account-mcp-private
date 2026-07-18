@@ -75,6 +75,10 @@ export interface TenantManagementMcpToolOptions {
     account: AccountContext;
     tokenInfo: AccessTokenInfo | null | undefined;
   }) => Promise<WechatResourceRecord>;
+  deleteWechatResource?: (input: {
+    account: AccountContext;
+    confirmation: string;
+  }) => Promise<void>;
 }
 
 /**
@@ -307,18 +311,20 @@ function createAccountTool(options: TenantManagementMcpToolOptions): McpTool {
               config,
               tokenInfo,
             });
-          await writeAudit(options, context, {
-            tenantId: account.tenantId,
-            accountId: account.accountId,
-            action: 'account.credentials_configured',
-            targetType: 'wechat_account',
-            targetId: account.accountId,
-            metadata: {
-              appId: configured.appId,
-              hasWebhookToken: configured.hasWebhookToken,
-              hasEncodingAESKey: configured.hasEncodingAESKey,
-            },
-          });
+          if (!options.persistValidatedWechatCredentials) {
+            await writeAudit(options, context, {
+              tenantId: account.tenantId,
+              accountId: account.accountId,
+              action: 'account.credentials_configured',
+              targetType: 'wechat_account',
+              targetId: account.accountId,
+              metadata: {
+                appId: configured.appId,
+                hasWebhookToken: configured.hasWebhookToken,
+                hasEncodingAESKey: configured.hasEncodingAESKey,
+              },
+            });
+          }
           return textResult('公众号账号配置已验证并保存', {
             account: publicResource(configured),
             inbox: configured.hasWebhookToken && configured.hasEncodingAESKey
@@ -370,19 +376,25 @@ function createAccountTool(options: TenantManagementMcpToolOptions): McpTool {
         }
 
         const confirmation = validated.confirmation ?? '';
-        await options.onboardingStore.softDeleteWechatResource({
-          tenantId: account.tenantId,
-          resourceId: account.accountId,
-          confirmation,
-        });
-        await writeAudit(options, context, {
-          tenantId: account.tenantId,
-          accountId: account.accountId,
-          action: 'account.delete',
-          targetType: 'wechat_account',
-          targetId: account.accountId,
-          metadata: { secretsPurged: true },
-        });
+        if (options.deleteWechatResource) {
+          await options.deleteWechatResource({ account, confirmation });
+        } else {
+          await options.onboardingStore.softDeleteWechatResource({
+            tenantId: account.tenantId,
+            resourceId: account.accountId,
+            confirmation,
+          });
+        }
+        if (!options.deleteWechatResource) {
+          await writeAudit(options, context, {
+            tenantId: account.tenantId,
+            accountId: account.accountId,
+            action: 'account.delete',
+            targetType: 'wechat_account',
+            targetId: account.accountId,
+            metadata: { secretsPurged: true },
+          });
+        }
         return textResult('公众号资源已删除', {
           tenantId: account.tenantId,
           accountId: account.accountId,

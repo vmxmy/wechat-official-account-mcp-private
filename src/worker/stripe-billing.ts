@@ -1,6 +1,5 @@
 import { D1UsageQuotaStore } from './usage-store.js';
 import {
-  normalizeSubscriptionPlan,
   type SubscriptionPlan,
 } from './quota-policy.js';
 
@@ -43,7 +42,15 @@ export interface StripeWebhookOptions {
   webhookSecret: string | null;
   usageStore: D1UsageQuotaStore;
   priceIds?: StripePriceIds;
-  reconcileAccountLocks?: (tenantId: string, plan: SubscriptionPlan) => Promise<unknown>;
+  resolveSubscription?: (
+    subscriptionId: string,
+    eventObject: Record<string, unknown>,
+  ) => Promise<Record<string, unknown>>;
+  reconcileAccountLocks?: (
+    tenantId: string,
+    plan: SubscriptionPlan,
+    stripeEventId: string,
+  ) => Promise<unknown>;
   now?: number;
 }
 
@@ -57,6 +64,7 @@ interface StripeEvent {
 }
 
 const STRIPE_CHECKOUT_SESSIONS_URL = 'https://api.stripe.com/v1/checkout/sessions';
+const STRIPE_SUBSCRIPTIONS_URL = 'https://api.stripe.com/v1/subscriptions';
 const STRIPE_WEBHOOK_TOLERANCE_SECONDS = 300;
 
 export function createStripeCheckoutService(options: StripeCheckoutServiceOptions): StripeBillingService {
@@ -137,6 +145,22 @@ export function createStripeCheckoutService(options: StripeCheckoutServiceOption
   };
 }
 
+export function createStripeSubscriptionResolver(
+  secretKey: string,
+  fetchImpl: typeof fetch = fetch,
+): StripeWebhookOptions['resolveSubscription'] {
+  return async subscriptionId => {
+    const response = await fetchImpl(`${STRIPE_SUBSCRIPTIONS_URL}/${encodeURIComponent(subscriptionId)}`, {
+      headers: { authorization: `Bearer ${secretKey}` },
+    });
+    const body = safeJsonObject(await response.text());
+    if (!response.ok || stripeId(body.id) !== subscriptionId) {
+      throw new Error(`Stripe subscription reconciliation failed with HTTP ${response.status}.`);
+    }
+    return body;
+  };
+}
+
 export async function handleStripeWebhookRequest(
   request: Request,
   options: StripeWebhookOptions,
@@ -213,11 +237,9 @@ async function syncStripeEventToEntitlement(
 
   if (type === 'checkout.session.completed') {
     const tenantId = stringField(nestedMetadata(object).tenant_id) || stringField(object.client_reference_id);
-    const plan = paidPlan(nestedMetadata(object).plan);
     const subscriptionId = stripeId(object.subscription);
-    const customerId = stripeId(object.customer);
-    if (!tenantId || !plan) {
-      return { handled: false, type, reason: 'missing_checkout_tenant_or_plan' };
+    if (!tenantId || !subscriptionId) {
+      return { handled: false, type, reason: 'missing_checkout_tenant_or_subscription' };
     }
     if (await options.usageStore.hasStripeBillingEvent(eventId)) {
       return { handled: false, type, duplicate: true, reason: 'duplicate_stripe_event' };
@@ -228,21 +250,26 @@ async function syncStripeEventToEntitlement(
       return stale;
     }
 
-    await options.usageStore.upsertEntitlement({
-      tenantId,
-      plan,
-      status: 'active',
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscriptionId,
-    });
-    await options.reconcileAccountLocks?.(tenantId, plan);
     await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
-    return { handled: true, type, tenantId, plan, status: 'active' };
+    return {
+      handled: false,
+      type,
+      tenantId,
+      stripeSubscriptionId: subscriptionId,
+      reason: 'awaiting_authoritative_subscription_event',
+    };
   }
 
   if (type?.startsWith('customer.subscription.')) {
     const subscriptionId = stripeId(object.id);
-    const tenantId = stringField(nestedMetadata(object).tenant_id)
+    if (!subscriptionId) {
+      return { handled: false, type, reason: 'missing_subscription_id' };
+    }
+    const isDeletion = type === 'customer.subscription.deleted';
+    const subscriptionObject = isDeletion
+      ? object
+      : await requireStripeSubscriptionResolver(options)(subscriptionId, object);
+    const tenantId = stringField(nestedMetadata(subscriptionObject).tenant_id)
       || await findTenantIdForSubscription(options.usageStore, subscriptionId);
     if (!tenantId) {
       return { handled: false, type, reason: 'missing_subscription_tenant' };
@@ -250,49 +277,132 @@ async function syncStripeEventToEntitlement(
     if (await options.usageStore.hasStripeBillingEvent(eventId)) {
       return { handled: false, type, duplicate: true, reason: 'duplicate_stripe_event' };
     }
-
-    const stale = await staleSubscriptionResult(options, type, tenantId, subscriptionId, {
+    const ordering = stripeEntitlementEventOrdering(event);
+    const currentEntitlement = await options.usageStore.getEntitlement(tenantId);
+    const stripeCustomerId = stripeId(subscriptionObject.customer);
+    const subscriptionStatus = stringField(subscriptionObject.status) || (isDeletion ? 'canceled' : 'active');
+    const allowCreatedReplacement = allowsCreatedSubscriptionReplacement(
+      type,
+      subscriptionId,
+      currentEntitlement,
+      stripeCustomerId,
+      subscriptionStatus,
+    );
+    const stale = staleSubscriptionResultForEntitlement(type, tenantId, subscriptionId, currentEntitlement, {
       requireCurrentMatch: type === 'customer.subscription.deleted',
+      allowDifferentSubscription: allowCreatedReplacement,
+      incomingCustomerId: stripeCustomerId,
     });
     if (stale) {
       await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
       return stale;
     }
 
-    const subscriptionStatus = stringField(object.status) || (type === 'customer.subscription.deleted' ? 'canceled' : 'active');
-    const currentEntitlement = await options.usageStore.getEntitlement(tenantId);
-    const periodEnd = stripeTimestampMs(object.current_period_end);
-    const cancelAtPeriodEnd = booleanField(object.cancel_at_period_end);
-    const planFromEvent = paidPlan(nestedMetadata(object).plan)
-      || planFromSubscriptionPrice(object, options.priceIds);
+    const planItem = isDeletion ? null : subscriptionPlanItem(subscriptionObject, options.priceIds);
+    const periodStart = planItem ? subscriptionPeriodTimestampMs(subscriptionObject, planItem.item, 'current_period_start') : null;
+    const periodEnd = planItem ? subscriptionPeriodTimestampMs(subscriptionObject, planItem.item, 'current_period_end') : null;
+    if (!isDeletion) {
+      assertValidSubscriptionPeriod(periodStart, periodEnd);
+    }
+    const cancelAtPeriodEnd = booleanField(subscriptionObject.cancel_at_period_end);
+    if (cancelAtPeriodEnd && periodEnd === null) {
+      throw new Error('Stripe subscription cancellation is missing a verified plan-item period end.');
+    }
+    const planFromEvent = planItem?.plan ?? null;
     const computedPlan = type === 'customer.subscription.deleted'
       ? 'free'
       : entitlementPlanForSubscriptionStatus(subscriptionStatus, planFromEvent);
     const plan = cancelAtPeriodEnd && type !== 'customer.subscription.deleted'
-      ? currentEntitlement.plan
+      ? planFromEvent!
       : computedPlan;
     const status = cancelAtPeriodEnd && type !== 'customer.subscription.deleted'
       ? 'active'
       : type === 'customer.subscription.deleted'
       ? 'cancelled'
       : entitlementStatusForSubscriptionStatus(subscriptionStatus);
-    const pendingPlan = cancelAtPeriodEnd && type !== 'customer.subscription.deleted' ? 'free' : null;
+    const pendingPlan: SubscriptionPlan | null = cancelAtPeriodEnd && type !== 'customer.subscription.deleted'
+      ? 'free'
+      : null;
     const pendingPlanEffectiveAt = pendingPlan ? periodEnd : null;
+    const nextSubscriptionId = plan === 'free' ? null : subscriptionId;
 
-    await options.usageStore.upsertEntitlement({
+    const entitlementUpdate = {
       tenantId,
       plan,
       status,
-      stripeCustomerId: stripeId(object.customer),
-      stripeSubscriptionId: subscriptionId,
-      currentPeriodStart: stripeTimestampMs(object.current_period_start),
+      stripeCustomerId,
+      stripeSubscriptionId: nextSubscriptionId,
+      currentPeriodStart: periodStart,
       currentPeriodEnd: periodEnd,
       pendingPlan,
       pendingPlanEffectiveAt,
+    };
+    let applied = await options.usageStore.upsertEntitlementFromStripeEvent(entitlementUpdate, {
+      ...ordering,
+      enforceExpectedCurrentStripeSubscriptionId: true,
+      expectedCurrentStripeSubscriptionId: currentEntitlement.stripeSubscriptionId ?? null,
     });
-    if (!pendingPlan) {
-      await options.reconcileAccountLocks?.(tenantId, plan);
+    if (!applied) {
+      // 若另一 webhook 恰好在预检查与 UPSERT 之间切换了订阅绑定，基于最新
+      // entitlement 再做一次完整 stale/CAS 判断；第二次仍失败才按乱序收敛。
+      const refreshedEntitlement = await options.usageStore.getEntitlement(tenantId);
+      const refreshedStale = staleSubscriptionResultForEntitlement(
+        type,
+        tenantId,
+        subscriptionId,
+        refreshedEntitlement,
+        {
+          requireCurrentMatch: type === 'customer.subscription.deleted',
+          incomingCustomerId: stripeCustomerId,
+          allowDifferentSubscription: allowsCreatedSubscriptionReplacement(
+            type,
+            subscriptionId,
+            refreshedEntitlement,
+            stripeCustomerId,
+            subscriptionStatus,
+          ),
+        },
+      );
+      if (refreshedStale) {
+        await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
+        return refreshedStale;
+      }
+      applied = await options.usageStore.upsertEntitlementFromStripeEvent(entitlementUpdate, {
+        ...ordering,
+        enforceExpectedCurrentStripeSubscriptionId: true,
+        expectedCurrentStripeSubscriptionId: refreshedEntitlement.stripeSubscriptionId ?? null,
+      });
     }
+    if (!applied) {
+      const finalEntitlement = await options.usageStore.getEntitlement(tenantId);
+      const finalStale = staleSubscriptionResultForEntitlement(
+        type,
+        tenantId,
+        subscriptionId,
+        finalEntitlement,
+        {
+          requireCurrentMatch: type === 'customer.subscription.deleted',
+          incomingCustomerId: stripeCustomerId,
+          allowDifferentSubscription: allowsCreatedSubscriptionReplacement(
+            type,
+            subscriptionId,
+            finalEntitlement,
+            stripeCustomerId,
+            subscriptionStatus,
+          ),
+        },
+      );
+      if (finalStale) {
+        await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
+        return finalStale;
+      }
+      if (stripeEventPrecedesEntitlementWatermark(ordering, finalEntitlement)) {
+        await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
+        return outOfOrderStripeEventResult(type, tenantId, subscriptionId);
+      }
+      throw new Error('Stripe entitlement update remained contended; retry the webhook event.');
+    }
+    await options.reconcileAccountLocks?.(tenantId, plan, ordering.id);
     await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
     return {
       handled: true,
@@ -309,6 +419,59 @@ async function syncStripeEventToEntitlement(
   return { handled: false, type, reason: 'event_type_ignored' };
 }
 
+function stripeEventPrecedesEntitlementWatermark(
+  event: { createdAt: number; priority: number },
+  entitlement: Awaited<ReturnType<D1UsageQuotaStore['getEntitlement']>>,
+): boolean {
+  const currentCreatedAt = entitlement.lastStripeEventCreatedAt;
+  if (currentCreatedAt === null || currentCreatedAt === undefined) return false;
+  if (event.createdAt !== currentCreatedAt) return event.createdAt < currentCreatedAt;
+  return event.priority < (entitlement.lastStripeEventPriority ?? -1);
+}
+
+function allowsCreatedSubscriptionReplacement(
+  type: string,
+  subscriptionId: string,
+  current: Awaited<ReturnType<D1UsageQuotaStore['getEntitlement']>>,
+  incomingCustomerId: string | null,
+  incomingStatus: string,
+): boolean {
+  if (type !== 'customer.subscription.created') return false;
+  if (current.stripeCustomerId && current.stripeCustomerId !== incomingCustomerId) return false;
+  if (!current.stripeSubscriptionId || current.stripeSubscriptionId === subscriptionId) return true;
+  if (['canceled', 'cancelled', 'incomplete_expired', 'unpaid'].includes(incomingStatus)) return false;
+  if (current.plan === 'free' || current.pendingPlan === 'free' || current.status === 'cancelled') return true;
+  throw new Error('Stripe replacement subscription is awaiting authoritative cancellation; retry the webhook event.');
+}
+
+function stripeEntitlementEventOrdering(
+  event: StripeEvent,
+): { id: string; createdAt: number; priority: number } {
+  const id = stringField(event.id);
+  const createdAt = stripeTimestampMs(event.created);
+  if (!id || createdAt === null) {
+    throw new Error('Stripe entitlement event is missing id or created timestamp.');
+  }
+  // 同一秒内的所有订阅事件都从 Stripe 重新读取当前订阅状态，因此类型之间
+  // 不应互相压制；subscription ID 的 CAS 负责阻止旧订阅覆盖新绑定。
+  return { id, createdAt, priority: 40 };
+}
+
+function outOfOrderStripeEventResult(
+  type: string,
+  tenantId: string,
+  subscriptionId: string | null,
+): Record<string, unknown> {
+  return {
+    handled: false,
+    type,
+    stale: true,
+    reason: 'out_of_order_stripe_event',
+    tenantId,
+    stripeSubscriptionId: subscriptionId,
+  };
+}
+
 async function findTenantIdForSubscription(
   usageStore: D1UsageQuotaStore,
   subscriptionId: string | null,
@@ -316,6 +479,15 @@ async function findTenantIdForSubscription(
   if (!subscriptionId) return null;
   const entitlement = await usageStore.findEntitlementByStripeSubscriptionId(subscriptionId);
   return entitlement?.tenantId ?? null;
+}
+
+function requireStripeSubscriptionResolver(
+  options: StripeWebhookOptions,
+): NonNullable<StripeWebhookOptions['resolveSubscription']> {
+  if (!options.resolveSubscription) {
+    throw new Error('Stripe subscription resolver is required for entitlement reconciliation.');
+  }
+  return options.resolveSubscription;
 }
 
 async function staleSubscriptionResult(
@@ -326,6 +498,34 @@ async function staleSubscriptionResult(
   settings: { requireCurrentMatch?: boolean } = {},
 ): Promise<Record<string, unknown> | null> {
   const current = await options.usageStore.getEntitlement(tenantId);
+  return staleSubscriptionResultForEntitlement(type, tenantId, subscriptionId, current, settings);
+}
+
+function staleSubscriptionResultForEntitlement(
+  type: string,
+  tenantId: string,
+  subscriptionId: string | null,
+  current: Awaited<ReturnType<D1UsageQuotaStore['getEntitlement']>>,
+  settings: {
+    requireCurrentMatch?: boolean;
+    allowDifferentSubscription?: boolean;
+    incomingCustomerId?: string | null;
+  } = {},
+): Record<string, unknown> | null {
+  if (
+    settings.incomingCustomerId &&
+    current.stripeCustomerId &&
+    current.stripeCustomerId !== settings.incomingCustomerId
+  ) {
+    return {
+      handled: false,
+      type,
+      stale: true,
+      reason: 'stale_stripe_customer_event',
+      tenantId,
+      stripeSubscriptionId: subscriptionId,
+    };
+  }
   if (settings.requireCurrentMatch && current.stripeSubscriptionId !== subscriptionId) {
     return {
       handled: false,
@@ -340,7 +540,8 @@ async function staleSubscriptionResult(
   if (
     subscriptionId &&
     current.stripeSubscriptionId &&
-    current.stripeSubscriptionId !== subscriptionId
+    current.stripeSubscriptionId !== subscriptionId &&
+    !settings.allowDifferentSubscription
   ) {
     return {
       handled: false,
@@ -377,22 +578,24 @@ function priceIdForPlan(plan: Exclude<SubscriptionPlan, 'free'>, priceIds: Strip
   return plan === 'plus' ? stringField(priceIds.plus) : stringField(priceIds.pro);
 }
 
-function planFromSubscriptionPrice(object: Record<string, unknown>, priceIds?: StripePriceIds): Exclude<SubscriptionPlan, 'free'> | null {
+function subscriptionPlanItem(
+  object: Record<string, unknown>,
+  priceIds?: StripePriceIds,
+): { plan: Exclude<SubscriptionPlan, 'free'>; item: Record<string, unknown> } | null {
   const items = object.items;
   const itemList = isRecord(items) && Array.isArray(items.data) ? items.data : [];
+  const matches: Array<{ plan: Exclude<SubscriptionPlan, 'free'>; item: Record<string, unknown> }> = [];
   for (const item of itemList) {
     if (!isRecord(item)) continue;
     const price = item.price;
     const priceId = isRecord(price) ? stringField(price.id) : null;
-    if (priceId && priceId === priceIds?.plus) return 'plus';
-    if (priceId && priceId === priceIds?.pro) return 'pro';
+    if (priceId && priceId === priceIds?.plus) matches.push({ plan: 'plus', item });
+    if (priceId && priceId === priceIds?.pro) matches.push({ plan: 'pro', item });
   }
-  return null;
-}
-
-function paidPlan(value: unknown): Exclude<SubscriptionPlan, 'free'> | null {
-  const plan = normalizeSubscriptionPlan(value);
-  return plan === 'plus' || plan === 'pro' ? plan : null;
+  if (matches.length !== 1) {
+    throw new Error(`Stripe subscription must contain exactly one configured plan price item; received ${matches.length}.`);
+  }
+  return matches[0];
 }
 
 function entitlementPlanForSubscriptionStatus(
@@ -413,6 +616,35 @@ function stripeTimestampMs(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value * 1000;
   if (typeof value === 'string' && Number.isFinite(Number(value))) return Number(value) * 1000;
   return null;
+}
+
+function subscriptionPeriodTimestampMs(
+  object: Record<string, unknown>,
+  planItem: Record<string, unknown>,
+  field: 'current_period_start' | 'current_period_end',
+): number | null {
+  const itemTimestamp = stripeTimestampMs(planItem[field]);
+  if (itemTimestamp === null) {
+    throw new Error(`Stripe subscription plan item is missing ${field}.`);
+  }
+  const topLevelTimestamp = stripeTimestampMs(object[field]);
+  if (topLevelTimestamp !== null && topLevelTimestamp !== itemTimestamp) {
+    throw new Error(`Stripe subscription ${field} conflicts with the configured plan item.`);
+  }
+  return itemTimestamp;
+}
+
+function assertValidSubscriptionPeriod(periodStart: number | null, periodEnd: number | null): void {
+  if (
+    periodStart === null ||
+    periodEnd === null ||
+    !Number.isInteger(periodStart) ||
+    !Number.isInteger(periodEnd) ||
+    periodStart <= 0 ||
+    periodEnd <= periodStart
+  ) {
+    throw new Error('Stripe subscription plan item has an invalid current period interval.');
+  }
 }
 
 function nestedMetadata(object: Record<string, unknown>): Record<string, unknown> {

@@ -67,6 +67,10 @@ export interface ManagementApiDeps {
     account: AccountContext;
     tokenInfo: { accessToken: string; expiresIn: number; expiresAt: number } | null | undefined;
   }): Promise<WechatResourceRecord>;
+  deleteWechatResource?(input: {
+    account: AccountContext;
+    confirmation: string;
+  }): Promise<void>;
   trustedContext?: TenantRequestContext;
   allowUnsafeHeaderContextForTests?: boolean;
 }
@@ -567,19 +571,26 @@ async function handleAccountRoutes(
     requireTenantScope(context, tenantId, 'woa:account:write');
     const body = await readJsonBody(request) as Record<string, unknown>;
     if (deps.onboardingStore) {
-      await deps.onboardingStore.softDeleteWechatResource({
-        tenantId,
-        resourceId: accountId,
-        confirmation: stringValue(body.confirmation) ?? '',
-      });
-      await writeManagementAudit(deps, context, {
-        tenantId,
-        accountId,
-        action: 'account.delete',
-        targetType: 'wechat_account',
-        targetId: accountId,
-        metadata: { secretsPurged: true },
-      });
+      const confirmation = stringValue(body.confirmation) ?? '';
+      if (deps.deleteWechatResource) {
+        await deps.deleteWechatResource({ account, confirmation });
+      } else {
+        await deps.onboardingStore.softDeleteWechatResource({
+          tenantId,
+          resourceId: accountId,
+          confirmation,
+        });
+      }
+      if (!deps.deleteWechatResource) {
+        await writeManagementAudit(deps, context, {
+          tenantId,
+          accountId,
+          action: 'account.delete',
+          targetType: 'wechat_account',
+          targetId: accountId,
+          metadata: { secretsPurged: true },
+        });
+      }
       return jsonResponse({
         success: true,
         data: { accountId, deleted: true, secretsPurged: true },
@@ -635,18 +646,20 @@ async function handleAccountRoutes(
         hasEncodingAESKey: !!body.encodingAESKey,
       };
     });
-    await writeManagementAudit(deps, context, {
-      tenantId,
-      accountId,
-      action: 'account.credentials_configured',
-      targetType: 'wechat_account',
-      targetId: accountId,
-      metadata: {
-        appId,
-        hasWebhookToken: typeof body.token === 'string' && body.token.length > 0,
-        hasEncodingAESKey: typeof body.encodingAESKey === 'string' && body.encodingAESKey.length > 0,
-      },
-    });
+    if (!deps.persistValidatedWechatCredentials) {
+      await writeManagementAudit(deps, context, {
+        tenantId,
+        accountId,
+        action: 'account.credentials_configured',
+        targetType: 'wechat_account',
+        targetId: accountId,
+        metadata: {
+          appId,
+          hasWebhookToken: typeof body.token === 'string' && body.token.length > 0,
+          hasEncodingAESKey: typeof body.encodingAESKey === 'string' && body.encodingAESKey.length > 0,
+        },
+      });
+    }
     return apiSuccess(data, context, quota);
   }
 

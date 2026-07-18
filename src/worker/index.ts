@@ -33,6 +33,7 @@ import { handleManagementApiRequest } from './management-api.js';
 import { executeMcpToolWithQuota } from './mcp-quota.js';
 import {
   createStripeCheckoutService,
+  createStripeSubscriptionResolver,
   handleStripeWebhookRequest,
   type StripeBillingService,
   type StripePriceIds,
@@ -69,7 +70,9 @@ import { verifyTurnstile } from './turnstile.js';
 import { canUseLegacyGlobalWechatSecrets } from './account-config-policy.js';
 import { D1AgentInitStore } from './agent-init-store.js';
 import {
+  deleteWechatResourceWithAudit,
   handleCredentialHandoffRequest,
+  persistCredentialConfigurationWithAudit,
   resolveAgentInitEgressContext,
   testCoverFilename,
   testDraftTitle,
@@ -127,8 +130,11 @@ type TokenOwnerStub = {
   refreshAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
   clearAccessToken(options?: { accountContext?: AccountContext }): Promise<void>;
   replaceAccessToken(tokenInfo: AccessTokenInfo, options?: { accountContext?: AccountContext }): Promise<void>;
+  acquireCredentialConfigurationLease(input: { leaseId: string; ttlMs?: number }): Promise<boolean>;
+  releaseCredentialConfigurationLease(input: { leaseId: string }): Promise<void>;
   getDebugStatus(): Promise<Record<string, unknown>>;
   runCoalescingSelfTest(): Promise<Record<string, unknown>>;
+  runCredentialLeaseSelfTest(): Promise<Record<string, unknown>>;
 };
 
 type WechatMcpAgentStub = {
@@ -337,23 +343,198 @@ async function persistValidatedWechatCredentialsForAccount(
     config: WechatConfig;
     account: import('./tenant-context.js').AccountContext;
     tokenInfo: AccessTokenInfo | null | undefined;
+    finalize?: () => Promise<void>;
+    audit?: {
+      userId?: string | null;
+      oauthClientId?: string | null;
+      successAction?: string;
+      metadata?: Record<string, unknown>;
+    };
   },
 ) {
   const accountContext = toStorageAccountContext(input.account);
   const tokenOwner = await getTokenOwner(env, accountContext);
-  // 先让旧 DO token 失效，再提交新配置；任一步失败都不会让旧 AppID token
-  // 在新配置名下继续被复用。
-  await tokenOwner.clearAccessToken({ accountContext });
-  const resource = await onboardingStore.configureValidatedWechatCredentials({
-    tenantId: input.account.tenantId,
-    resourceId: input.account.accountId,
-    config: input.config,
-    tokenInfo: input.tokenInfo,
-  });
-  if (input.tokenInfo) {
-    await tokenOwner.replaceAccessToken(input.tokenInfo, { accountContext });
+  const leaseId = `credential-config-${crypto.randomUUID()}`;
+  if (!(await tokenOwner.acquireCredentialConfigurationLease({ leaseId }))) {
+    throw new ApiError(
+      'credential_configuration_busy',
+      'Another credential configuration is already in progress for this account.',
+      409,
+    );
   }
-  return resource;
+  try {
+    const currentResource = await onboardingStore.getWechatResource(
+      input.account.tenantId,
+      input.account.accountId,
+    );
+    if (!currentResource || currentResource.status === 'disabled' || currentResource.status === 'locked') {
+      throw new ApiError('account_not_configurable', 'The WeChat account is not configurable.', 409);
+    }
+    const snapshotStorage = await createD1Storage(env);
+    const previousConfig = await snapshotStorage.getAccountConfig(accountContext);
+    const previousToken = await snapshotStorage.getAccountAccessToken(accountContext);
+    return await persistCredentialConfigurationWithAudit({
+      writeStartedAudit: async () => await writeRequiredAudit(env, {
+        userId: input.audit?.userId,
+        oauthClientId: input.audit?.oauthClientId,
+        tenantId: input.account.tenantId,
+        accountId: input.account.accountId,
+        action: 'account.credentials_configuration_started',
+        targetType: 'wechat_account',
+        targetId: input.account.accountId,
+        metadata: input.audit?.metadata ?? {},
+      }),
+      persist: async () => {
+        // 先让旧 DO token 失效，再提交新配置；任一步失败都不会让旧 AppID token
+        // 在新配置名下继续被复用。
+        await tokenOwner.clearAccessToken({ accountContext });
+        const resource = await onboardingStore.configureValidatedWechatCredentials({
+          tenantId: input.account.tenantId,
+          resourceId: input.account.accountId,
+          config: input.config,
+          tokenInfo: input.tokenInfo,
+        });
+        if (input.tokenInfo) {
+          await tokenOwner.replaceAccessToken(input.tokenInfo, { accountContext });
+        }
+        return resource;
+      },
+      writeSucceededAudit: async () => await writeRequiredAudit(env, {
+        userId: input.audit?.userId,
+        oauthClientId: input.audit?.oauthClientId,
+        tenantId: input.account.tenantId,
+        accountId: input.account.accountId,
+        action: input.audit?.successAction ?? 'account.credentials_persisted',
+        targetType: 'wechat_account',
+        targetId: input.account.accountId,
+        metadata: input.audit?.metadata ?? {},
+      }),
+      finalize: input.finalize,
+      rollback: async () => await restoreWechatCredentialsForAccount(env, onboardingStore, {
+        account: input.account,
+        previousConfig,
+        previousToken,
+        previousStatus: currentResource.status,
+      }),
+      writeRollbackAudit: async () => await writeRequiredAudit(env, {
+        userId: input.audit?.userId,
+        oauthClientId: input.audit?.oauthClientId,
+        tenantId: input.account.tenantId,
+        accountId: input.account.accountId,
+        action: 'account.credentials_configuration_rolled_back',
+        targetType: 'wechat_account',
+        targetId: input.account.accountId,
+        metadata: input.audit?.metadata ?? {},
+      }),
+    });
+  } finally {
+    await tokenOwner.releaseCredentialConfigurationLease({ leaseId });
+  }
+}
+
+async function softDeleteWechatResourceForAccount(
+  env: WorkerEnv,
+  onboardingStore: D1SaasOnboardingStore,
+  input: {
+    account: import('./tenant-context.js').AccountContext;
+    confirmation: string;
+    userId?: string | null;
+    oauthClientId?: string | null;
+  },
+): Promise<void> {
+  if (input.confirmation !== `DELETE ${input.account.accountId}`) {
+    throw new Error(`Resource deletion requires confirmation marker: DELETE ${input.account.accountId}`);
+  }
+  const accountContext = toStorageAccountContext(input.account);
+  const tokenOwner = await getTokenOwner(env, accountContext);
+  const leaseId = `credential-delete-${crypto.randomUUID()}`;
+  if (!(await tokenOwner.acquireCredentialConfigurationLease({ leaseId }))) {
+    throw new ApiError(
+      'credential_configuration_busy',
+      'Another credential operation is already in progress for this account.',
+      409,
+    );
+  }
+  try {
+    const storage = await createD1Storage(env);
+    const previousToken = await storage.getAccountAccessToken(accountContext);
+    const succeededAuditStatement = await new D1AuditLogWriter(env.DB).prepareWriteStatement({
+      userId: input.userId,
+      oauthClientId: input.oauthClientId,
+      tenantId: input.account.tenantId,
+      accountId: input.account.accountId,
+      action: 'account.delete',
+      targetType: 'wechat_account',
+      targetId: input.account.accountId,
+      metadata: { secretsPurged: true, tokenOwnerCleared: true },
+    });
+    await deleteWechatResourceWithAudit({
+      writeStartedAudit: async () => await writeRequiredAudit(env, {
+        userId: input.userId,
+        oauthClientId: input.oauthClientId,
+        tenantId: input.account.tenantId,
+        accountId: input.account.accountId,
+        action: 'account.deletion_started',
+        targetType: 'wechat_account',
+        targetId: input.account.accountId,
+      }),
+      clearToken: async () => await tokenOwner.clearAccessToken({ accountContext }),
+      deleteWithSucceededAudit: async () => await onboardingStore.softDeleteWechatResourceAtomically({
+        tenantId: input.account.tenantId,
+        resourceId: input.account.accountId,
+        confirmation: input.confirmation,
+      }, [succeededAuditStatement]),
+      restoreToken: async () => {
+        if (previousToken) {
+          await tokenOwner.replaceAccessToken(previousToken, { accountContext });
+        }
+      },
+    });
+  } finally {
+    await tokenOwner.releaseCredentialConfigurationLease({ leaseId });
+  }
+}
+
+async function restoreWechatCredentialsForAccount(
+  env: WorkerEnv,
+  onboardingStore: D1SaasOnboardingStore,
+  input: {
+    account: import('./tenant-context.js').AccountContext;
+    previousConfig: WechatConfig | null;
+    previousToken: AccessTokenInfo | null;
+    previousStatus: string;
+  },
+): Promise<void> {
+  const accountContext = toStorageAccountContext(input.account);
+  const storage = await createD1Storage(env);
+  const tokenOwner = await getTokenOwner(env, accountContext);
+  await tokenOwner.clearAccessToken({ accountContext });
+  await storage.clearAccountAccessToken(accountContext);
+  if (input.previousConfig) {
+    await onboardingStore.configureValidatedWechatCredentials({
+      tenantId: input.account.tenantId,
+      resourceId: input.account.accountId,
+      config: input.previousConfig,
+      tokenInfo: null,
+    });
+  } else {
+    await storage.clearAccountConfig(accountContext);
+  }
+  await env.DB.prepare(
+    `UPDATE wechat_accounts
+     SET status = CASE WHEN status = 'locked' THEN status ELSE ? END,
+         updated_at = ?
+     WHERE tenant_id = ? AND id = ? AND status != 'disabled'`,
+  ).bind(
+    input.previousStatus || (input.previousConfig ? 'active' : 'unconfigured'),
+    Date.now(),
+    input.account.tenantId,
+    input.account.accountId,
+  ).run();
+  if (input.previousToken) {
+    await storage.saveAccountAccessToken(accountContext, input.previousToken);
+    await tokenOwner.replaceAccessToken(input.previousToken, { accountContext });
+  }
 }
 
 function createAgentInitDeps(env: WorkerEnv) {
@@ -1133,7 +1314,24 @@ async function handleWebSessionManagementApiRequest(request: Request, env: Worke
     persistValidatedWechatCredentials: async input => await persistValidatedWechatCredentialsForAccount(
       env,
       onboardingStore,
-      input,
+      {
+        ...input,
+        audit: {
+          userId: trustedContext.userId,
+          oauthClientId: trustedContext.oauthClientId,
+          successAction: 'account.credentials_configured',
+        },
+      },
+    ),
+    deleteWechatResource: async ({ account, confirmation }) => await softDeleteWechatResourceForAccount(
+      env,
+      onboardingStore,
+      {
+        account,
+        confirmation,
+        userId: trustedContext.userId,
+        oauthClientId: trustedContext.oauthClientId,
+      },
     ),
     trustedContext,
     createApiClient: async account => (await createWorkerToolContext(
@@ -1636,6 +1834,10 @@ async function safeWriteAudit(env: WorkerEnv, event: Parameters<D1AuditLogWriter
   }
 }
 
+async function writeRequiredAudit(env: WorkerEnv, event: Parameters<D1AuditLogWriter['write']>[0]): Promise<void> {
+  await new D1AuditLogWriter(env.DB).write(event);
+}
+
 export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number }, McpAuthorizationProps> {
   server = new McpServer({
     name: 'wechat-official-account-mcp',
@@ -1668,7 +1870,24 @@ export class WechatMcpAgent extends McpAgent<WorkerEnv, { initializedAt: number 
       persistValidatedWechatCredentials: async input => await persistValidatedWechatCredentialsForAccount(
         env,
         onboardingStore,
-        input,
+        {
+          ...input,
+          audit: {
+            userId: this.props?.userId,
+            oauthClientId: this.props?.oauthClientId,
+            successAction: 'account.credentials_configured',
+          },
+        },
+      ),
+      deleteWechatResource: async ({ account, confirmation }) => await softDeleteWechatResourceForAccount(
+        env,
+        onboardingStore,
+        {
+          account,
+          confirmation,
+          userId: this.props?.userId,
+          oauthClientId: this.props?.oauthClientId,
+        },
       ),
     });
     const mediaTools = createWorkerMediaTools({
@@ -1779,6 +1998,34 @@ export class TokenOwner extends Agent<WorkerEnv> {
     await this.schedulePreExpiryRefresh(tokenInfo, accountContext);
   }
 
+  async acquireCredentialConfigurationLease(input: { leaseId: string; ttlMs?: number }): Promise<boolean> {
+    await this.ensureTokenTables();
+    const now = Date.now();
+    const ttlMs = Math.min(10 * 60_000, Math.max(30_000, input.ttlMs ?? 5 * 60_000));
+    void this.sql`DELETE FROM credential_configuration_lease WHERE expires_at <= ${now}`;
+    const current = this.sql<{ lease_id: string }>`
+      SELECT lease_id FROM credential_configuration_lease WHERE id = 1 LIMIT 1
+    `[0];
+    if (current && current.lease_id !== input.leaseId) return false;
+    void this.sql`
+      INSERT INTO credential_configuration_lease (id, lease_id, expires_at)
+      VALUES (1, ${input.leaseId}, ${now + ttlMs})
+      ON CONFLICT(id) DO UPDATE SET
+        lease_id = excluded.lease_id,
+        expires_at = excluded.expires_at
+      WHERE credential_configuration_lease.lease_id = excluded.lease_id
+    `;
+    return true;
+  }
+
+  async releaseCredentialConfigurationLease(input: { leaseId: string }): Promise<void> {
+    await this.ensureTokenTables();
+    void this.sql`
+      DELETE FROM credential_configuration_lease
+      WHERE id = 1 AND lease_id = ${input.leaseId}
+    `;
+  }
+
   async getDebugStatus(): Promise<Record<string, unknown>> {
     await this.ensureTokenTables();
     const token = await this.readStoredToken();
@@ -1827,6 +2074,25 @@ export class TokenOwner extends Agent<WorkerEnv> {
     } finally {
       this.refreshPromise = previousRefreshPromise;
     }
+  }
+
+  async runCredentialLeaseSelfTest(): Promise<Record<string, unknown>> {
+    const firstLeaseId = `credential-lease-a-${Date.now()}`;
+    const secondLeaseId = `credential-lease-b-${Date.now()}`;
+    const first = await this.acquireCredentialConfigurationLease({ leaseId: firstLeaseId });
+    const concurrent = await this.acquireCredentialConfigurationLease({ leaseId: secondLeaseId });
+    await this.releaseCredentialConfigurationLease({ leaseId: secondLeaseId });
+    const stillHeld = !(await this.acquireCredentialConfigurationLease({ leaseId: secondLeaseId }));
+    await this.releaseCredentialConfigurationLease({ leaseId: firstLeaseId });
+    const afterRelease = await this.acquireCredentialConfigurationLease({ leaseId: secondLeaseId });
+    await this.releaseCredentialConfigurationLease({ leaseId: secondLeaseId });
+    return {
+      first,
+      concurrentRejected: concurrent === false,
+      wrongOwnerReleaseRejected: stillHeld,
+      afterRelease,
+      singleWriter: first && concurrent === false && stillHeld && afterRelease,
+    };
   }
 
   async refreshBeforeExpiry(payload?: { expiresAt?: number; accountContext?: AccountContext }): Promise<void> {
@@ -1982,6 +2248,13 @@ export class TokenOwner extends Agent<WorkerEnv> {
         value INTEGER NOT NULL
       )
     `;
+    void this.sql`
+      CREATE TABLE IF NOT EXISTS credential_configuration_lease (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        lease_id TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+      )
+    `;
     this.tokenTableReady = true;
   }
 
@@ -2119,7 +2392,24 @@ const managementApiHandler = {
       persistValidatedWechatCredentials: async input => await persistValidatedWechatCredentialsForAccount(
         env,
         onboardingStore,
-        input,
+        {
+          ...input,
+          audit: {
+            userId: trustedContext.userId,
+            oauthClientId: trustedContext.oauthClientId,
+            successAction: 'account.credentials_configured',
+          },
+        },
+      ),
+      deleteWechatResource: async ({ account, confirmation }) => await softDeleteWechatResourceForAccount(
+        env,
+        onboardingStore,
+        {
+          account,
+          confirmation,
+          userId: trustedContext.userId,
+          oauthClientId: trustedContext.oauthClientId,
+        },
       ),
       trustedContext,
       createApiClient: async account => (await createWorkerToolContext(
@@ -2140,6 +2430,52 @@ const defaultHandler = {
 
     const removedTransportResponse = removedMcpTransportResponseForRequest(request);
     if (removedTransportResponse) return removedTransportResponse;
+
+    if (url.pathname === '/init/credentials') {
+      const onboardingStore = await createSaasOnboardingStore(env);
+      const sessionToken = getSessionCookie(request);
+      const session = sessionToken ? await onboardingStore.getWebSession(sessionToken) : null;
+      const agentInit = createAgentInitDeps(env);
+      return await handleCredentialHandoffRequest(request, {
+        ...agentInit,
+        operatorId: session?.operatorId,
+        assertAuthority: async handoff => {
+          await assertCredentialHandoffAuthority(
+            env,
+            onboardingStore,
+            agentInit.store,
+            session?.operatorId ?? '',
+            handoff,
+          );
+        },
+        validatePersistAndComplete: async ({ handoff, config, complete }) => {
+          const tokenInfo = await validateWechatCredentialsForAccount(env, config);
+
+          // The WeChat probe is a network boundary. Re-check the membership,
+          // account lock, and initiating OAuth grant immediately before persist
+          // so an administrator can revoke authority while the probe is pending.
+          const account = await assertCredentialHandoffAuthority(
+            env,
+            onboardingStore,
+            agentInit.store,
+            session?.operatorId ?? '',
+            handoff,
+          );
+          await persistValidatedWechatCredentialsForAccount(env, onboardingStore, {
+            config,
+            account,
+            tokenInfo,
+            finalize: complete,
+            audit: {
+              userId: session?.operatorId,
+              successAction: 'account.credentials_configured_via_handoff',
+              metadata: { handoffId: handoff.handoffId, relayProbe: true },
+            },
+          });
+          return tokenInfo;
+        },
+      });
+    }
 
     if (url.pathname === '/health' || url.pathname === '/api/health') {
       return json({
@@ -2330,55 +2666,6 @@ export default {
     const removedTransportResponse = removedMcpTransportResponseForRequest(request);
     if (removedTransportResponse) return removedTransportResponse;
 
-    if (url.pathname === '/init/credentials') {
-      const onboardingStore = await createSaasOnboardingStore(env);
-      const sessionToken = getSessionCookie(request);
-      const session = sessionToken ? await onboardingStore.getWebSession(sessionToken) : null;
-      const agentInit = createAgentInitDeps(env);
-      return await handleCredentialHandoffRequest(request, {
-        ...agentInit,
-        operatorId: session?.operatorId,
-        assertAuthority: async handoff => {
-          await assertCredentialHandoffAuthority(
-            env,
-            onboardingStore,
-            agentInit.store,
-            session?.operatorId ?? '',
-            handoff,
-          );
-        },
-        validateAndPersist: async ({ handoff, config }) => {
-          const tokenInfo = await validateWechatCredentialsForAccount(env, config);
-
-          // The WeChat probe is a network boundary. Re-check the membership,
-          // account lock, and initiating OAuth grant immediately before persist
-          // so an administrator can revoke authority while the probe is pending.
-          const account = await assertCredentialHandoffAuthority(
-            env,
-            onboardingStore,
-            agentInit.store,
-            session?.operatorId ?? '',
-            handoff,
-          );
-          await persistValidatedWechatCredentialsForAccount(env, onboardingStore, {
-            config,
-            account,
-            tokenInfo,
-          });
-          await safeWriteAudit(env, {
-            userId: session?.operatorId,
-            tenantId: handoff.tenantId,
-            accountId: handoff.accountId,
-            action: 'account.credentials_configured_via_handoff',
-            targetType: 'wechat_account',
-            targetId: handoff.accountId,
-            metadata: { handoffId: handoff.handoffId, relayProbe: true },
-          });
-          return tokenInfo;
-        },
-      });
-    }
-
     if (
       url.pathname === '/api/v1/auth/email-code/request' ||
       url.pathname === '/api/v1/auth/email-code/verify' ||
@@ -2390,13 +2677,24 @@ export default {
 
     if (isStripeWebhookPath(url.pathname)) {
       const onboardingStore = await createSaasOnboardingStore(env);
+      const usageStore = new D1UsageQuotaStore(env.DB);
+      const stripeSecretKey = await resolveSecret(env.STRIPE_SECRET_KEY);
       try {
         const response = await handleStripeWebhookRequest(request, {
           webhookSecret: await resolveSecret(env.STRIPE_WEBHOOK_SECRET),
-          usageStore: new D1UsageQuotaStore(env.DB),
+          usageStore,
           priceIds: await resolveStripePriceIds(env),
-          reconcileAccountLocks: async (tenantId, plan) => {
-            await onboardingStore.reconcileAccountAllowanceLocks({ tenantId, plan });
+          resolveSubscription: stripeSecretKey
+            ? createStripeSubscriptionResolver(stripeSecretKey)
+            : undefined,
+          reconcileAccountLocks: async (tenantId, _plan, stripeEventId) => {
+            const current = await usageStore.getEntitlement(tenantId);
+            if (current.lastStripeEventId !== stripeEventId) return;
+            await onboardingStore.reconcileAccountAllowanceLocks({
+              tenantId,
+              plan: current.plan,
+              expectedStripeEventId: stripeEventId,
+            });
           },
         });
         const result = await response.clone().json().catch(() => ({})) as Record<string, unknown>;
@@ -2451,6 +2749,11 @@ export default {
     if (url.pathname === '/__debug/token-owner/coalescing' && isLocalhost(url.hostname)) {
       const tokenOwner = await getTokenOwner(env);
       return json(await tokenOwner.runCoalescingSelfTest());
+    }
+
+    if (url.pathname === '/api/__debug/token-owner/credential-lease' && !isProductionEnv(env)) {
+      const tokenOwner = await getTokenOwner(env);
+      return json(await tokenOwner.runCredentialLeaseSelfTest());
     }
 
     if (url.pathname === '/__debug/mcp-event-store/replay' && isLocalhost(url.hostname)) {

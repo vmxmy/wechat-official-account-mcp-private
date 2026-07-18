@@ -143,5 +143,5 @@ This review locks the implementation constraints for the current SaaS onboarding
 ## Follow-up blockers preserved
 
 - Remove legacy shared-password authorization only after the email/GitHub identity flow and consent pages are actually wired end-to-end.
-- Do not mark production smoke, live Stripe, or production WeChat verification tasks complete until dated logs are captured.
+- Production smoke, live Stripe, and production WeChat verification remained blocked until the dated 2026-07-18 closure record and `saas-onboarding-production-verification-20260718.json` redacted evidence were captured.
 - Do not mark screenshot/visual review complete until screenshot artifacts are stored or linked.
