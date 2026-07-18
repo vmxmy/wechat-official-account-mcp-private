@@ -1,6 +1,6 @@
 {
   "evidenceVersion": 1,
-  "capturedAt": "2026-07-18T07:23:42.798Z",
+  "capturedAt": "2026-07-18T08:20:15.635Z",
   "environment": "production",
   "release": {
     "repositoryPublic": true,
@@ -31,11 +31,63 @@
         "conclusion": "success",
         "headSha": "cf198a234f6e2514ac02cafec2b7fdea85b16bc4",
         "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/actions/runs/29621921891"
+      },
+      {
+        "runId": 29636316709,
+        "name": "Deploy production Worker",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "df4017d3bc7a88627d394a9044fc70277cc2120c",
+        "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/actions/runs/29636316709"
+      },
+      {
+        "runId": 29636671290,
+        "name": "Deploy production Worker",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "d7a5c01b3ad55a3ec7c3f16dfb1ebcb2d59327d5",
+        "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/actions/runs/29636671290"
+      },
+      {
+        "runId": 29637182782,
+        "name": "Deploy production Worker",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "03c10c86fdd535b4698cc0976f411ab3cfe9a8b6",
+        "url": "https://github.com/vmxmy/wechat-official-account-mcp-private/actions/runs/29637182782"
       }
     ],
     "finalWorkerDeployment": {
-      "status": "pending",
+      "status": "completed",
+      "conclusion": "success",
+      "commitSha": "03c10c86fdd535b4698cc0976f411ab3cfe9a8b6",
+      "workflowRunId": 29637182782,
+      "workflowUrl": "https://github.com/vmxmy/wechat-official-account-mcp-private/actions/runs/29637182782",
+      "workflowCreatedAt": "2026-07-18T08:16:35Z",
+      "migrationCheckStartedAt": "2026-07-18T08:18:02Z",
+      "deploymentStartedAt": "2026-07-18T08:18:03Z",
+      "deploymentCompletedAt": "2026-07-18T08:18:12Z",
+      "healthVerificationCompletedAt": "2026-07-18T08:18:13Z",
+      "migration0011AppliedAt": "2026-07-18T07:15:19Z",
       "migration0011AppliedBeforeDeploy": true
+    },
+    "postDeployVerification": {
+      "health": {
+        "status": 200,
+        "success": true,
+        "runtime": "cloudflare-workers",
+        "mcpEndpoint": "/mcp"
+      },
+      "mcp": {
+        "unauthenticatedStatus": 401,
+        "bearerChallenge": true
+      },
+      "removedTransports": {
+        "sseStatus": 404,
+        "messagesStatus": 404
+      },
+      "remoteD1Pending": 0,
+      "passed": true
     }
   },
   "oauthAndMcp": {
