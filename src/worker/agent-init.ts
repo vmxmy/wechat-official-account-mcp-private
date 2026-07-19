@@ -1,4 +1,5 @@
 import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
+import type { D1PreparedStatement } from '../storage/d1-storage-manager.js';
 import {
   ApiError,
   requireConfigurableAccount,
@@ -83,15 +84,26 @@ export interface CredentialHandoffDeps {
   validatePersistAndComplete(input: {
     handoff: AgentCredentialHandoffRecord;
     config: WechatConfig;
-    complete(): Promise<void>;
+    complete(trailingStatements?: D1PreparedStatement[]): Promise<void>;
   }): Promise<AccessTokenInfo>;
+}
+
+export type CommitReconciliationState = 'committed' | 'not_committed' | 'unknown';
+
+export class CredentialOperationIndeterminateError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = 'CredentialOperationIndeterminateError';
+  }
 }
 
 export async function persistCredentialConfigurationWithAudit<T>(deps: {
   writeStartedAudit(): Promise<void>;
+  assertLeaseHeld?(): Promise<void>;
   persist(): Promise<T>;
   writeSucceededAudit(): Promise<void>;
-  finalize?(): Promise<void>;
+  finalizeWithSucceededAudit?(): Promise<void>;
+  reconcileFinalization?(error: unknown): Promise<CommitReconciliationState>;
   rollback(): Promise<void>;
   writeRollbackAudit?(): Promise<void>;
 }): Promise<T> {
@@ -99,18 +111,58 @@ export async function persistCredentialConfigurationWithAudit<T>(deps: {
   // audit fails after persistence, restore the prior credential/token state so
   // the caller never observes an unaudited successful configuration.
   await deps.writeStartedAudit();
+  let mutationStarted = false;
   try {
+    await deps.assertLeaseHeld?.();
+    mutationStarted = true;
     const result = await deps.persist();
-    await deps.writeSucceededAudit();
-    await deps.finalize?.();
+    await deps.assertLeaseHeld?.();
+    if (deps.finalizeWithSucceededAudit) {
+      await deps.assertLeaseHeld?.();
+      try {
+        await deps.finalizeWithSucceededAudit();
+      } catch (error) {
+        let state: CommitReconciliationState = 'not_committed';
+        if (deps.reconcileFinalization) {
+          try {
+            state = await deps.reconcileFinalization(error);
+          } catch (reconciliationError) {
+            throw new CredentialOperationIndeterminateError(
+              'Credential finalization outcome could not be reconciled safely.',
+              reconciliationError,
+            );
+          }
+        }
+        if (state === 'committed') return result;
+        if (state === 'unknown') {
+          throw new CredentialOperationIndeterminateError(
+            'Credential finalization outcome is indeterminate; credentials were not rolled back.',
+            error,
+          );
+        }
+        throw error;
+      }
+    } else {
+      await deps.writeSucceededAudit();
+    }
     return result;
   } catch (error) {
+    if (error instanceof CredentialOperationIndeterminateError || !mutationStarted) throw error;
     const rollbackFailures: unknown[] = [];
     let rollbackSucceeded = false;
     try {
+      try {
+        await deps.assertLeaseHeld?.();
+      } catch (leaseError) {
+        throw new CredentialOperationIndeterminateError(
+          'Credential operation lease was lost; stale credentials were not restored.',
+          leaseError,
+        );
+      }
       await deps.rollback();
       rollbackSucceeded = true;
     } catch (rollbackError) {
+      if (rollbackError instanceof CredentialOperationIndeterminateError) throw rollbackError;
       rollbackFailures.push(rollbackError);
     }
     if (rollbackSucceeded) {
@@ -131,18 +183,46 @@ export async function persistCredentialConfigurationWithAudit<T>(deps: {
 
 export async function deleteWechatResourceWithAudit(deps: {
   writeStartedAudit(): Promise<void>;
+  assertLeaseHeld?(): Promise<void>;
   clearToken(): Promise<void>;
   deleteWithSucceededAudit(): Promise<void>;
+  isDeleted?(error: unknown): Promise<boolean>;
   restoreToken(): Promise<void>;
 }): Promise<void> {
   await deps.writeStartedAudit();
+  let mutationStarted = false;
+  let deleteAttempted = false;
   try {
+    await deps.assertLeaseHeld?.();
+    mutationStarted = true;
     await deps.clearToken();
+    await deps.assertLeaseHeld?.();
+    deleteAttempted = true;
     await deps.deleteWithSucceededAudit();
   } catch (error) {
+    if (!mutationStarted) throw error;
+    if (deleteAttempted && deps.isDeleted) {
+      try {
+        if (await deps.isDeleted(error)) return;
+      } catch (reconciliationError) {
+        throw new CredentialOperationIndeterminateError(
+          'WeChat resource deletion outcome could not be reconciled safely; token was not restored.',
+          reconciliationError,
+        );
+      }
+    }
     try {
+      try {
+        await deps.assertLeaseHeld?.();
+      } catch (leaseError) {
+        throw new CredentialOperationIndeterminateError(
+          'Credential operation lease was lost; the previous token was not restored.',
+          leaseError,
+        );
+      }
       await deps.restoreToken();
     } catch (rollbackError) {
+      if (rollbackError instanceof CredentialOperationIndeterminateError) throw rollbackError;
       const combined = new Error('WeChat resource deletion failed and token rollback did not complete.');
       (combined as Error & { causes?: unknown[] }).causes = [error, rollbackError];
       throw combined;
@@ -656,12 +736,12 @@ export async function handleCredentialHandoffRequest(
       await deps.validatePersistAndComplete({
         handoff,
         config: { appId, appSecret },
-        complete: async () => {
+        complete: async trailingStatements => {
           await deps.store.completeCredentialHandoff({
             operatorId: deps.operatorId!,
             handoffId: handoff.handoffId,
             leaseOwner: handoff.leaseOwner,
-          });
+          }, trailingStatements);
         },
       });
       return credentialPage(
@@ -672,6 +752,15 @@ export async function handleCredentialHandoffRequest(
         { 'set-cookie': clearCredentialCookie(request) },
       );
     } catch (error) {
+      if (error instanceof CredentialOperationIndeterminateError) {
+        return credentialPage(
+          'credential_handoff_commit_indeterminate',
+          '凭据提交结果正在核对，请回到 CLI 查询初始化状态；为避免覆盖已提交数据，本次未执行回滚。',
+          503,
+          request,
+          { 'set-cookie': clearCredentialCookie(request) },
+        );
+      }
       const probeError = normalizeProbeError(error);
       await deps.store.failCredentialHandoff({
         operatorId: deps.operatorId,

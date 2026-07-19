@@ -13,6 +13,7 @@ const port = await reservePort();
 const origin = `http://127.0.0.1:${port}`;
 const persistDir = mkdtempSync(path.join(tmpdir(), 'woa-worker-oauth-smoke-'));
 const logs = [];
+const debugSelfTestToken = randomBytes(32).toString('hex');
 
 applyLocalMigrations(persistDir);
 
@@ -30,6 +31,8 @@ const child = spawn(process.execPath, [
   'ENVIRONMENT:development',
   '--var',
   'WECHAT_EGRESS_IPS:8.8.8.8',
+  '--var',
+  `DEBUG_SELF_TEST_TOKEN:${debugSelfTestToken}`,
 ], {
   cwd: projectRoot,
   env: {
@@ -85,7 +88,30 @@ try {
   assert.deepEqual(authorizationServer.code_challenge_methods_supported, ['S256']);
   assert.ok(authorizationServer.revocation_endpoint);
 
-  const credentialLeaseResponse = await fetch(`${origin}/api/__debug/token-owner/credential-lease`, { redirect: 'manual' });
+  const unauthenticatedCredentialLeaseResponse = await fetch(
+    `${origin}/api/__debug/token-owner/credential-lease`,
+    { redirect: 'manual' },
+  );
+  await assertResponseStatus(
+    unauthenticatedCredentialLeaseResponse,
+    404,
+    'credential lease without debug token',
+    logs,
+  );
+  const invalidCredentialLeaseResponse = await fetch(`${origin}/api/__debug/token-owner/credential-lease`, {
+    redirect: 'manual',
+    headers: { 'x-woa-debug-token': `${debugSelfTestToken}-invalid` },
+  });
+  await assertResponseStatus(
+    invalidCredentialLeaseResponse,
+    404,
+    'credential lease with invalid debug token',
+    logs,
+  );
+  const credentialLeaseResponse = await fetch(`${origin}/api/__debug/token-owner/credential-lease`, {
+    redirect: 'manual',
+    headers: { 'x-woa-debug-token': debugSelfTestToken },
+  });
   await assertResponseStatus(credentialLeaseResponse, 200, 'credential lease self-test', logs);
   const credentialLease = await credentialLeaseResponse.json();
   assert.equal(credentialLease.singleWriter, true);
@@ -349,6 +375,67 @@ try {
   const credentialRouteBody = await credentialRouteResponse.text();
   assert.match(credentialRouteBody, /oauth_revoked/);
   assert.doesNotMatch(credentialRouteBody, /wechat_relay_unavailable/);
+  assert.doesNotMatch(credentialRouteBody, /credential-route-smoke-secret/);
+
+  const rejectedCredentialStatus = await fetch(
+    `${origin}/api/v1/tenants/${tenantId}/accounts/${accountId}/status`,
+    { headers: { cookie: sessionCookie } },
+  );
+  await assertResponseStatus(rejectedCredentialStatus, 200, 'rejected credential status', logs);
+  assert.equal((await rejectedCredentialStatus.json()).data.configured, false);
+
+  const failedRunResponse = await fetch(`${origin}/api/v1/init/runs/${initRun.runId}`, {
+    headers: { cookie: sessionCookie },
+  });
+  await assertResponseStatus(failedRunResponse, 200, 'failed credential handoff run', logs);
+  const failedRun = (await failedRunResponse.json()).data.run;
+  assert.equal(failedRun.phase, 'credential_handoff_failed');
+  const replacementHandoffResponse = await fetch(
+    `${origin}/api/v1/init/runs/${initRun.runId}/credential-handoffs`,
+    {
+      method: 'POST',
+      headers: {
+        cookie: sessionCookie,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ expectedVersion: failedRun.version }),
+    },
+  );
+  await assertResponseStatus(replacementHandoffResponse, 201, 'replacement credential handoff', logs);
+  const replacementHandoff = (await replacementHandoffResponse.json()).data;
+  assert.ok(replacementHandoff.handoffUrl);
+  const advertisedReplacementUrl = new URL(replacementHandoff.handoffUrl);
+  const localReplacementUrl = new URL(
+    `${advertisedReplacementUrl.pathname}${advertisedReplacementUrl.search}`,
+    origin,
+  );
+  const replacementClaim = await fetch(localReplacementUrl, {
+    headers: { cookie: sessionCookie },
+    redirect: 'manual',
+  });
+  await assertResponseStatus(replacementClaim, 303, 'replacement credential handoff claim', logs);
+  assert.ok(cookieFromResponse(replacementClaim));
+  const staleHandoffRetry = await fetch(`${origin}/init/credentials`, {
+    method: 'POST',
+    headers: {
+      cookie: `${sessionCookie}; ${handoffCookie}`,
+      origin,
+      'sec-fetch-mode': 'navigate',
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      appId: 'wx1234567890abcdef',
+      appSecret: 'credential-route-smoke-secret',
+    }),
+  });
+  await assertResponseStatus(staleHandoffRetry, 410, 'rejected handoff retry', logs);
+  const replacementRunResponse = await fetch(`${origin}/api/v1/init/runs/${initRun.runId}`, {
+    headers: { cookie: sessionCookie },
+  });
+  await assertResponseStatus(replacementRunResponse, 200, 'replacement handoff run state', logs);
+  assert.equal((await replacementRunResponse.json()).data.run.phase, 'credential_handoff_pending');
+  assert.doesNotMatch(logs.join('\n'), /credential-route-smoke-secret/);
 
   const revoked = await fetch(`${origin}/api/v1/sessions/${webSessionId}`, {
     method: 'DELETE',
@@ -378,7 +465,11 @@ try {
   })}\n`);
 } finally {
   await stopChild(child);
-  rmSync(persistDir, { recursive: true, force: true });
+  try {
+    assert.doesNotMatch(logs.join('\n'), /credential-route-smoke-secret/);
+  } finally {
+    rmSync(persistDir, { recursive: true, force: true });
+  }
 }
 
 function applyLocalMigrations(persistenceDirectory) {

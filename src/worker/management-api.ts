@@ -570,27 +570,29 @@ async function handleAccountRoutes(
   if (request.method === 'POST' && segments.length === 5 && segments[4] === 'disable') {
     requireTenantScope(context, tenantId, 'woa:account:write');
     const body = await readJsonBody(request) as Record<string, unknown>;
+    const confirmation = stringValue(body.confirmation) ?? '';
+    if (deps.deleteWechatResource) {
+      await deps.deleteWechatResource({ account, confirmation });
+      return jsonResponse({
+        success: true,
+        data: { accountId, deleted: true, secretsPurged: true },
+        requestId: context.requestId,
+      });
+    }
     if (deps.onboardingStore) {
-      const confirmation = stringValue(body.confirmation) ?? '';
-      if (deps.deleteWechatResource) {
-        await deps.deleteWechatResource({ account, confirmation });
-      } else {
         await deps.onboardingStore.softDeleteWechatResource({
           tenantId,
           resourceId: accountId,
           confirmation,
         });
-      }
-      if (!deps.deleteWechatResource) {
-        await writeManagementAudit(deps, context, {
-          tenantId,
-          accountId,
-          action: 'account.delete',
-          targetType: 'wechat_account',
-          targetId: accountId,
-          metadata: { secretsPurged: true },
-        });
-      }
+      await writeManagementAudit(deps, context, {
+        tenantId,
+        accountId,
+        action: 'account.delete',
+        targetType: 'wechat_account',
+        targetId: accountId,
+        metadata: { secretsPurged: true },
+      });
       return jsonResponse({
         success: true,
         data: { accountId, deleted: true, secretsPurged: true },
@@ -609,6 +611,7 @@ async function handleAccountRoutes(
     if (typeof appId !== 'string' || typeof appSecret !== 'string' || !appId || !appSecret) {
       throw new ApiError('validation_error', 'appId and appSecret are required.', 400);
     }
+    let delegatedPersistenceUsed = false;
     const { data, quota } = await runWithOptionalQuota(deps, context, account, {
       toolName: 'woa_account',
       action: 'configure',
@@ -626,7 +629,10 @@ async function handleAccountRoutes(
         }
         const tokenInfo = await deps.validateWechatCredentials(config, account);
         const resource = deps.persistValidatedWechatCredentials
-          ? await deps.persistValidatedWechatCredentials({ config, account, tokenInfo })
+          ? await (async () => {
+              delegatedPersistenceUsed = true;
+              return await deps.persistValidatedWechatCredentials!({ config, account, tokenInfo });
+            })()
           : await deps.onboardingStore.configureValidatedWechatCredentials({
             tenantId,
             resourceId: accountId,
@@ -646,7 +652,7 @@ async function handleAccountRoutes(
         hasEncodingAESKey: !!body.encodingAESKey,
       };
     });
-    if (!deps.persistValidatedWechatCredentials) {
+    if (!delegatedPersistenceUsed) {
       await writeManagementAudit(deps, context, {
         tenantId,
         accountId,

@@ -85,7 +85,7 @@ export class D1AuditLogWriter implements AuditLogWriter {
         request_id,
         metadata_json,
         ${this.timeColumn}
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CAST(strftime('%s', 'now') AS INTEGER) * 1000))`,
     ).bind(
       event.userId ?? null,
       event.oauthClientId ?? null,
@@ -96,7 +96,7 @@ export class D1AuditLogWriter implements AuditLogWriter {
       event.targetId ?? null,
       event.requestId ?? null,
       JSON.stringify(sanitizeAuditMetadata(event.metadata ?? {})),
-      event.occurredAt ?? Date.now(),
+      event.occurredAt ?? null,
     );
   }
 

@@ -74,6 +74,11 @@ export interface TenantManagementMcpToolOptions {
     config: WechatConfig;
     account: AccountContext;
     tokenInfo: AccessTokenInfo | null | undefined;
+    auditMetadata: {
+      appId: string;
+      hasWebhookToken: boolean;
+      hasEncodingAESKey: boolean;
+    };
   }) => Promise<WechatResourceRecord>;
   deleteWechatResource?: (input: {
     account: AccountContext;
@@ -304,7 +309,16 @@ function createAccountTool(options: TenantManagementMcpToolOptions): McpTool {
           };
           const tokenInfo = await options.validateWechatCredentials(config, account);
           const configured = options.persistValidatedWechatCredentials
-            ? await options.persistValidatedWechatCredentials({ config, account, tokenInfo })
+            ? await options.persistValidatedWechatCredentials({
+                config,
+                account,
+                tokenInfo,
+                auditMetadata: {
+                  appId: config.appId,
+                  hasWebhookToken: !!config.token,
+                  hasEncodingAESKey: !!config.encodingAESKey,
+                },
+              })
             : await options.onboardingStore.configureValidatedWechatCredentials({
               tenantId: account.tenantId,
               resourceId: account.accountId,

@@ -1,4 +1,4 @@
-import type { D1DatabaseLike } from '../storage/d1-storage-manager.js';
+import type { D1DatabaseLike, D1PreparedStatement } from '../storage/d1-storage-manager.js';
 
 export type AgentInitRunStatus = 'active' | 'completed' | 'failed' | 'expired';
 export type AgentCredentialHandoffStatus = 'pending' | 'claimed' | 'processing' | 'verified' | 'failed' | 'expired';
@@ -509,7 +509,7 @@ export class D1AgentInitStore {
     handoffId: string;
     leaseOwner: string;
     now?: number;
-  }): Promise<void> {
+  }, trailingStatements: D1PreparedStatement[] = []): Promise<void> {
     const now = input.now ?? Date.now();
     const row = await this.db.prepare(
       `SELECT h.run_id FROM agent_credential_handoffs h
@@ -528,37 +528,145 @@ export class D1AgentInitStore {
       leaseOwner: input.leaseOwner,
       now,
     });
-    const updateRun = await this.db.prepare(
-      `UPDATE agent_init_runs
-       SET credentials_verified_at = ?, relay_probe_at = ?, phase = 'credentials_verified',
-           last_error_code = NULL, run_version = run_version + 1,
-           lease_owner_hash = NULL, lease_expires_at = NULL, updated_at = ?
-       WHERE id = ? AND operator_id = ? AND status = 'active'
-         AND active_handoff_id = ? AND run_version = ? AND lease_owner_hash = ?`,
-    ).bind(
-      now,
-      now,
-      now,
-      runId,
-      input.operatorId,
-      input.handoffId,
-      run.version,
-      await sha256Text(input.leaseOwner),
-    ).run();
-    if (changes(updateRun) === 0) {
-      await this.releaseRunActionLease({ operatorId: input.operatorId, runId, leaseOwner: input.leaseOwner, now });
-      await this.throwRunMutationError(input.operatorId, runId, run.version, now);
-    }
-    // run 是权威提交记录；若此投影写失败，getHandoff 会根据 run 状态自动修复。
+    const leaseOwnerHash = await sha256Text(input.leaseOwner);
+    const operationId = `credential-handoff-complete-${crypto.randomUUID()}`;
     try {
-      await this.db.prepare(
-        `UPDATE agent_credential_handoffs
-         SET status = 'verified', error_code = NULL, verified_at = ?, updated_at = ?
-         WHERE id = ? AND operator_id = ? AND status = 'processing'`,
-      ).bind(now, now, input.handoffId, input.operatorId).run();
-    } catch {
-      // 可恢复投影，不回滚已经验证并持久化的凭据事实。
+      if (!this.db.batch) {
+        throw new Error('Atomic D1 batch support is required for credential handoff completion.');
+      }
+      const [, updateRun, updateHandoff] = await this.db.batch([
+        this.db.prepare(
+          `INSERT INTO account_operation_guards (operation_id, tenant_id, account_id, created_at)
+           VALUES (
+             ?,
+             (
+               SELECT tenant_id FROM agent_init_runs
+               WHERE id = ? AND operator_id = ? AND status = 'active'
+                 AND active_handoff_id = ? AND run_version = ?
+                 AND lease_owner_hash = ? AND lease_expires_at > ?
+                 AND EXISTS (
+                   SELECT 1 FROM agent_credential_handoffs
+                   WHERE id = ? AND operator_id = ? AND status = 'processing'
+                 )
+               LIMIT 1
+             ),
+             (
+               SELECT account_id FROM agent_init_runs
+               WHERE id = ? AND operator_id = ? AND status = 'active'
+                 AND active_handoff_id = ? AND run_version = ?
+                 AND lease_owner_hash = ? AND lease_expires_at > ?
+                 AND EXISTS (
+                   SELECT 1 FROM agent_credential_handoffs
+                   WHERE id = ? AND operator_id = ? AND status = 'processing'
+                 )
+               LIMIT 1
+             ),
+             ?
+           )`,
+        ).bind(
+          operationId,
+          runId,
+          input.operatorId,
+          input.handoffId,
+          run.version,
+          leaseOwnerHash,
+          now,
+          input.handoffId,
+          input.operatorId,
+          runId,
+          input.operatorId,
+          input.handoffId,
+          run.version,
+          leaseOwnerHash,
+          now,
+          input.handoffId,
+          input.operatorId,
+          now,
+        ),
+        this.db.prepare(
+          `UPDATE agent_init_runs
+           SET credentials_verified_at = ?, relay_probe_at = ?, phase = 'credentials_verified',
+               last_error_code = NULL, run_version = run_version + 1,
+               lease_owner_hash = NULL, lease_expires_at = NULL, updated_at = ?
+           WHERE id = ? AND operator_id = ? AND status = 'active'
+             AND active_handoff_id = ? AND run_version = ? AND lease_owner_hash = ?
+             AND lease_expires_at > ?
+             AND EXISTS (
+               SELECT 1 FROM agent_credential_handoffs
+               WHERE id = ? AND operator_id = ? AND status = 'processing'
+             )`,
+        ).bind(
+          now,
+          now,
+          now,
+          runId,
+          input.operatorId,
+          input.handoffId,
+          run.version,
+          leaseOwnerHash,
+          now,
+          input.handoffId,
+          input.operatorId,
+        ),
+        this.db.prepare(
+          `UPDATE agent_credential_handoffs
+           SET status = 'verified', error_code = NULL, verified_at = ?, updated_at = ?
+           WHERE id = ? AND operator_id = ? AND status = 'processing'
+             AND EXISTS (
+               SELECT 1 FROM agent_init_runs
+               WHERE id = ? AND operator_id = ? AND status = 'active'
+                 AND active_handoff_id = ? AND run_version = ?
+                 AND credentials_verified_at = ? AND phase = 'credentials_verified'
+             )`,
+        ).bind(
+          now,
+          now,
+          input.handoffId,
+          input.operatorId,
+          runId,
+          input.operatorId,
+          input.handoffId,
+          run.version + 1,
+          now,
+        ),
+        ...trailingStatements,
+        this.db.prepare('DELETE FROM account_operation_guards WHERE operation_id = ?').bind(operationId),
+      ]);
+      if (changes(updateRun) === 0 || changes(updateHandoff) === 0) {
+        await this.throwRunMutationError(input.operatorId, runId, run.version, now);
+      }
+    } finally {
+      await this.releaseRunActionLease({ operatorId: input.operatorId, runId, leaseOwner: input.leaseOwner, now });
     }
+  }
+
+  async getCredentialHandoffCompletionState(input: {
+    operatorId: string;
+    handoffId: string;
+  }): Promise<'committed' | 'not_committed' | 'unknown'> {
+    const row = await this.db.prepare(
+      `SELECT h.status AS handoff_status, r.status AS run_status, r.phase,
+              r.credentials_verified_at, r.active_handoff_id
+       FROM agent_credential_handoffs h
+       INNER JOIN agent_init_runs r ON r.id = h.run_id AND r.operator_id = h.operator_id
+       WHERE h.id = ? AND h.operator_id = ? LIMIT 1`,
+    ).bind(input.handoffId, input.operatorId).first<Record<string, unknown>>();
+    if (!row) return 'unknown';
+    if (
+      numberValue(row.credentials_verified_at) !== null &&
+      stringValue(row.handoff_status) === 'verified' &&
+      stringValue(row.active_handoff_id) === input.handoffId
+    ) {
+      return 'committed';
+    }
+    if (
+      stringValue(row.handoff_status) === 'processing' &&
+      stringValue(row.run_status) === 'active' &&
+      stringValue(row.active_handoff_id) === input.handoffId
+    ) {
+      return 'not_committed';
+    }
+    return 'unknown';
   }
 
   async failCredentialHandoff(input: {
@@ -574,29 +682,116 @@ export class D1AgentInitStore {
        WHERE id = ? AND operator_id = ? AND status = 'processing' LIMIT 1`,
     ).bind(input.handoffId, input.operatorId).first<Record<string, unknown>>();
     const runId = stringValue(row?.run_id);
-    await this.db.prepare(
-      `UPDATE agent_credential_handoffs
-       SET status = 'failed', error_code = ?, updated_at = ?
-       WHERE id = ? AND operator_id = ? AND status = 'processing'`,
-    ).bind(input.errorCode, now, input.handoffId, input.operatorId).run();
     if (runId) {
-      await this.db.prepare(
-        `UPDATE agent_init_runs
-         SET relay_probe_at = ?, phase = 'credential_handoff_failed', last_error_code = ?,
-             active_handoff_id = NULL, run_version = run_version + 1,
-             lease_owner_hash = NULL, lease_expires_at = NULL, updated_at = ?
-         WHERE id = ? AND operator_id = ? AND status = 'active'
-           AND active_handoff_id = ? AND lease_owner_hash = ?`,
-      ).bind(
-        now,
-        input.errorCode,
-        now,
-        runId,
-        input.operatorId,
-        input.handoffId,
-        await sha256Text(input.leaseOwner),
-      ).run();
-      await this.releaseRunActionLease({ operatorId: input.operatorId, runId, leaseOwner: input.leaseOwner, now });
+      const run = await this.requireActiveRun(input.operatorId, runId, now);
+      const leaseOwnerHash = await sha256Text(input.leaseOwner);
+      const operationId = `credential-handoff-fail-${crypto.randomUUID()}`;
+      try {
+        if (!this.db.batch) {
+          throw new Error('Atomic D1 batch support is required for credential handoff failure.');
+        }
+        const [, updateRun, updateHandoff] = await this.db.batch([
+          this.db.prepare(
+            `INSERT INTO account_operation_guards (operation_id, tenant_id, account_id, created_at)
+             VALUES (
+               ?,
+               (
+                 SELECT tenant_id FROM agent_init_runs
+                 WHERE id = ? AND operator_id = ? AND status = 'active'
+                   AND active_handoff_id = ? AND run_version = ?
+                   AND lease_owner_hash = ? AND lease_expires_at > ?
+                   AND EXISTS (
+                     SELECT 1 FROM agent_credential_handoffs
+                     WHERE id = ? AND operator_id = ? AND status = 'processing'
+                   )
+                 LIMIT 1
+               ),
+               (
+                 SELECT account_id FROM agent_init_runs
+                 WHERE id = ? AND operator_id = ? AND status = 'active'
+                   AND active_handoff_id = ? AND run_version = ?
+                   AND lease_owner_hash = ? AND lease_expires_at > ?
+                   AND EXISTS (
+                     SELECT 1 FROM agent_credential_handoffs
+                     WHERE id = ? AND operator_id = ? AND status = 'processing'
+                   )
+                 LIMIT 1
+               ),
+               ?
+             )`,
+          ).bind(
+            operationId,
+            runId,
+            input.operatorId,
+            input.handoffId,
+            run.version,
+            leaseOwnerHash,
+            now,
+            input.handoffId,
+            input.operatorId,
+            runId,
+            input.operatorId,
+            input.handoffId,
+            run.version,
+            leaseOwnerHash,
+            now,
+            input.handoffId,
+            input.operatorId,
+            now,
+          ),
+          this.db.prepare(
+            `UPDATE agent_init_runs
+             SET relay_probe_at = ?, phase = 'credential_handoff_failed', last_error_code = ?,
+                 active_handoff_id = NULL, run_version = run_version + 1,
+                 lease_owner_hash = NULL, lease_expires_at = NULL, updated_at = ?
+             WHERE id = ? AND operator_id = ? AND status = 'active'
+               AND active_handoff_id = ? AND run_version = ? AND lease_owner_hash = ?
+               AND lease_expires_at > ?
+               AND EXISTS (
+                 SELECT 1 FROM agent_credential_handoffs
+                 WHERE id = ? AND operator_id = ? AND status = 'processing'
+               )`,
+          ).bind(
+            now,
+            input.errorCode,
+            now,
+            runId,
+            input.operatorId,
+            input.handoffId,
+            run.version,
+            leaseOwnerHash,
+            now,
+            input.handoffId,
+            input.operatorId,
+          ),
+          this.db.prepare(
+            `UPDATE agent_credential_handoffs
+             SET status = 'failed', error_code = ?, updated_at = ?
+             WHERE id = ? AND operator_id = ? AND status = 'processing'
+               AND EXISTS (
+                 SELECT 1 FROM agent_init_runs
+                 WHERE id = ? AND operator_id = ? AND status = 'active'
+                   AND active_handoff_id IS NULL AND run_version = ?
+                   AND phase = 'credential_handoff_failed' AND last_error_code = ?
+               )`,
+          ).bind(
+            input.errorCode,
+            now,
+            input.handoffId,
+            input.operatorId,
+            runId,
+            input.operatorId,
+            run.version + 1,
+            input.errorCode,
+          ),
+          this.db.prepare('DELETE FROM account_operation_guards WHERE operation_id = ?').bind(operationId),
+        ]);
+        if (changes(updateRun) === 0 || changes(updateHandoff) === 0) {
+          await this.throwRunMutationError(input.operatorId, runId, run.version, now);
+        }
+      } finally {
+        await this.releaseRunActionLease({ operatorId: input.operatorId, runId, leaseOwner: input.leaseOwner, now });
+      }
     }
   }
 

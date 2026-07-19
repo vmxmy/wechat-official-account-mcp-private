@@ -320,6 +320,8 @@ export class D1UsageQuotaStore {
       priority: number;
       enforceExpectedCurrentStripeSubscriptionId?: boolean;
       expectedCurrentStripeSubscriptionId?: string | null;
+      enforceExpectedCurrentStripeEventId?: boolean;
+      expectedCurrentStripeEventId?: string | null;
     },
   ): Promise<boolean> {
     await this.ensureSchema();
@@ -360,7 +362,10 @@ export class D1UsageQuotaStore {
          last_stripe_event_created_at = excluded.last_stripe_event_created_at,
          last_stripe_event_priority = excluded.last_stripe_event_priority,
          last_stripe_event_id = excluded.last_stripe_event_id,
-         limits_json = excluded.limits_json,
+         limits_json = CASE
+           WHEN ? = 1 THEN excluded.limits_json
+           ELSE tenant_entitlements.limits_json
+         END,
          updated_at = excluded.updated_at
        WHERE (
             tenant_entitlements.last_stripe_event_created_at IS NULL
@@ -374,6 +379,11 @@ export class D1UsageQuotaStore {
             ? = 0
             OR (? IS NULL AND tenant_entitlements.stripe_subscription_id IS NULL)
             OR tenant_entitlements.stripe_subscription_id = ?
+          )
+          AND (
+            ? = 0
+            OR (? IS NULL AND tenant_entitlements.last_stripe_event_id IS NULL)
+            OR tenant_entitlements.last_stripe_event_id = ?
           )
           `,
     ).bind(
@@ -393,9 +403,13 @@ export class D1UsageQuotaStore {
       JSON.stringify(input.limitOverrides ?? {}),
       now,
       now,
+      input.limitOverrides === undefined ? 0 : 1,
       event.enforceExpectedCurrentStripeSubscriptionId ? 1 : 0,
       event.expectedCurrentStripeSubscriptionId ?? null,
       event.expectedCurrentStripeSubscriptionId ?? null,
+      event.enforceExpectedCurrentStripeEventId ? 1 : 0,
+      event.expectedCurrentStripeEventId ?? null,
+      event.expectedCurrentStripeEventId ?? null,
     ).run();
     return (result.meta?.changes ?? 0) > 0;
   }
@@ -410,6 +424,21 @@ export class D1UsageQuotaStore {
     ).bind(eventId).first<Record<string, unknown>>();
 
     return !!row;
+  }
+
+  async findEntitlementByLastStripeEventId(eventId: string): Promise<TenantEntitlement | null> {
+    await this.ensureSchema();
+    const row = await this.db.prepare(
+      `SELECT tenant_id, plan, status, limits_json, stripe_customer_id, stripe_subscription_id,
+              current_period_start, current_period_end, period_anchor_at,
+              pending_plan, pending_plan_effective_at,
+              last_stripe_event_created_at, last_stripe_event_priority, last_stripe_event_id
+       FROM tenant_entitlements
+       WHERE last_stripe_event_id = ?
+       LIMIT 1`,
+    ).bind(eventId).first<Record<string, unknown>>();
+    const tenantId = stringValue(row?.tenant_id);
+    return tenantId ? rowToTenantEntitlement(tenantId, row) : null;
   }
 
   async recordStripeBillingEvent(input: {

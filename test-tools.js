@@ -1472,12 +1472,22 @@ class MemoryUsageD1Statement {
       const createdAt = this.values[stripeOrdered ? 14 : 11];
       const updatedAt = this.values[stripeOrdered ? 15 : 12];
       const existing = this.db.entitlements.get(tenantId);
-      const enforceExpectedCurrentStripeSubscriptionId = stripeOrdered && this.values[16] === 1;
-      const expectedCurrentStripeSubscriptionId = stripeOrdered ? this.values[17] : null;
+      const applyLimitOverrides = stripeOrdered ? this.values[16] === 1 : true;
+      const enforceExpectedCurrentStripeSubscriptionId = stripeOrdered && this.values[17] === 1;
+      const expectedCurrentStripeSubscriptionId = stripeOrdered ? this.values[18] : null;
+      const enforceExpectedCurrentStripeEventId = stripeOrdered && this.values[20] === 1;
+      const expectedCurrentStripeEventId = stripeOrdered ? this.values[21] : null;
       if (
         existing &&
         enforceExpectedCurrentStripeSubscriptionId &&
         (existing.stripe_subscription_id ?? null) !== expectedCurrentStripeSubscriptionId
+      ) {
+        return { success: true, meta: { changes: 0 } };
+      }
+      if (
+        existing &&
+        enforceExpectedCurrentStripeEventId &&
+        (existing.last_stripe_event_id ?? null) !== expectedCurrentStripeEventId
       ) {
         return { success: true, meta: { changes: 0 } };
       }
@@ -1514,7 +1524,7 @@ class MemoryUsageD1Statement {
         last_stripe_event_id: stripeOrdered
           ? lastStripeEventId
           : existing?.last_stripe_event_id ?? null,
-        limits_json: limitsJson,
+        limits_json: applyLimitOverrides ? limitsJson : existing?.limits_json ?? limitsJson,
         created_at: existing?.created_at ?? createdAt,
         updated_at: updatedAt,
       });
@@ -1621,8 +1631,11 @@ class MemoryUsageD1Statement {
     }
 
     if (q.startsWith('SELECT tenant_id, plan, status, limits_json')) {
-      const subscriptionId = this.values[0];
-      return [...this.db.entitlements.values()].find(row => row.stripe_subscription_id === subscriptionId) ?? null;
+      const lookup = this.values[0];
+      if (q.includes('WHERE last_stripe_event_id = ?')) {
+        return [...this.db.entitlements.values()].find(row => row.last_stripe_event_id === lookup) ?? null;
+      }
+      return [...this.db.entitlements.values()].find(row => row.stripe_subscription_id === lookup) ?? null;
     }
 
     if (q.startsWith('SELECT event_id FROM stripe_billing_events')) {
@@ -2375,16 +2388,16 @@ check(
     workerIndexSource.includes("action: 'account.credentials_configuration_started'") &&
     workerIndexSource.includes('persistCredentialConfigurationWithAudit({') &&
     workerIndexSource.includes('restoreWechatCredentialsForAccount') &&
-    workerIndexSource.includes("CASE WHEN status = 'locked' THEN status ELSE ? END") &&
+    workerIndexSource.includes('clearWechatCredentialsFenced({') &&
     workerIndexSource.includes('acquireCredentialConfigurationLease({ leaseId }') &&
     workerIndexSource.includes('const leaseId = `credential-config-${crypto.randomUUID()}`') &&
-    workerIndexSource.includes('finalize: complete') &&
+    workerIndexSource.includes('finalizeWithSucceededAudit: async auditStatement => await complete([auditStatement])') &&
     workerIndexSource.includes("action: 'account.credentials_configuration_rolled_back'") &&
     (workerIndexSource.match(/releaseCredentialOperationLeaseBestEffort\(/g) ?? []).length === 2 &&
     !workerIndexSource.includes('credentialLeaseId: handoff.handoffId') &&
     agentInitStoreSource.includes('return `credential-handoff-submit:${crypto.randomUUID()}`') &&
     agentInitStoreSource.includes('async completeCredentialHandoff(input:') &&
-    agentInitStoreSource.includes('}): Promise<void> {') &&
+    agentInitStoreSource.includes('trailingStatements: D1PreparedStatement[] = []') &&
     !agentInitStoreSource.includes('return await this.requireRun(input.operatorId, runId, now);') &&
     workerIndexSource.includes('softDeleteWechatResourceForAccount') &&
     workerIndexSource.includes('deleteWechatResourceWithAudit({') &&
@@ -2430,9 +2443,9 @@ try {
   await persistCredentialConfigurationWithAudit({
     writeStartedAudit: async () => credentialFinalizeFailureSteps.push('audit_started'),
     persist: async () => { credentialFinalizeFailureSteps.push('persisted'); return 'saved'; },
-    writeSucceededAudit: async () => credentialFinalizeFailureSteps.push('audit_succeeded'),
-    finalize: async () => {
-      credentialFinalizeFailureSteps.push('finalize_failed');
+    writeSucceededAudit: async () => credentialFinalizeFailureSteps.push('unexpected_standalone_success_audit'),
+    finalizeWithSucceededAudit: async () => {
+      credentialFinalizeFailureSteps.push('finalize_with_audit_failed');
       throw new Error('handoff completion failure fixture');
     },
     rollback: async () => credentialFinalizeFailureSteps.push('rolled_back'),
@@ -2450,7 +2463,7 @@ check(
     credentialAuditStartFailureSteps.length === 0 &&
     credentialFinalizeFailureRejected &&
     credentialFinalizeFailureSteps.join(',') ===
-      'audit_started,persisted,audit_succeeded,finalize_failed,rolled_back,rollback_audited',
+      'audit_started,persisted,finalize_with_audit_failed,rolled_back,rollback_audited',
   '凭证安全审计编排行为级覆盖：前置审计失败不持久化，成功审计或 handoff 提交失败均执行回滚',
 );
 
@@ -2496,8 +2509,8 @@ const handoffCompletionFailureResponse = await handleCredentialHandoffRequest(
         handoffCompletionFailureSteps.push('persisted');
         return { accessToken: 'fixture', expiresIn: 7200, expiresAt: Date.now() + 7_200_000 };
       },
-      writeSucceededAudit: async () => handoffCompletionFailureSteps.push('audit_succeeded'),
-      finalize: complete,
+      writeSucceededAudit: async () => handoffCompletionFailureSteps.push('unexpected_standalone_success_audit'),
+      finalizeWithSucceededAudit: async () => await complete([]),
       rollback: async () => {
         handoffCredentialsActive = false;
         handoffCompletionFailureSteps.push('rolled_back');
@@ -2512,7 +2525,7 @@ check(
     handoffCompletionFailureBody.includes('wechat_relay_unavailable') &&
     !handoffCredentialsActive &&
     handoffCompletionFailureSteps.join(',') ===
-      'audit_started,persisted,audit_succeeded,handoff_complete_failed,rolled_back,rollback_audited,handoff_failed',
+      'audit_started,persisted,handoff_complete_failed,rolled_back,rollback_audited,handoff_failed',
   'handoff 最终提交失败时在账号 lease 内恢复旧凭据并记录补偿审计，再把一次性链接标记失败',
 );
 
@@ -3761,6 +3774,104 @@ check(
   'Stripe CAS 持续竞争不会把有效事件标记 processed；请求失败以便 Stripe 后续重试',
 );
 
+const stripeEventCasStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+await stripeEventCasStore.upsertEntitlement({
+  tenantId: 'tenant_event_cas',
+  plan: 'plus',
+  status: 'active',
+  stripeCustomerId: 'cus_event_cas',
+  stripeSubscriptionId: 'sub_event_cas',
+});
+const eventCasInitial = await stripeEventCasStore.getEntitlement('tenant_event_cas');
+const eventCasWinner = await stripeEventCasStore.upsertEntitlementFromStripeEvent({
+  tenantId: 'tenant_event_cas',
+  plan: 'pro',
+  status: 'active',
+  stripeCustomerId: 'cus_event_cas',
+  stripeSubscriptionId: 'sub_event_cas',
+}, {
+  id: 'evt_event_cas_winner',
+  createdAt: (stripeFixtureCreatedSeconds + 200) * 1000,
+  priority: 40,
+  enforceExpectedCurrentStripeSubscriptionId: true,
+  expectedCurrentStripeSubscriptionId: eventCasInitial.stripeSubscriptionId ?? null,
+  enforceExpectedCurrentStripeEventId: true,
+  expectedCurrentStripeEventId: eventCasInitial.lastStripeEventId ?? null,
+});
+const eventCasLoser = await stripeEventCasStore.upsertEntitlementFromStripeEvent({
+  tenantId: 'tenant_event_cas',
+  plan: 'free',
+  status: 'cancelled',
+  stripeCustomerId: 'cus_event_cas',
+  stripeSubscriptionId: null,
+}, {
+  id: 'evt_event_cas_stale_snapshot',
+  createdAt: (stripeFixtureCreatedSeconds + 200) * 1000,
+  priority: 40,
+  enforceExpectedCurrentStripeSubscriptionId: true,
+  expectedCurrentStripeSubscriptionId: eventCasInitial.stripeSubscriptionId ?? null,
+  enforceExpectedCurrentStripeEventId: true,
+  expectedCurrentStripeEventId: eventCasInitial.lastStripeEventId ?? null,
+});
+const eventCasFinal = await stripeEventCasStore.getEntitlement('tenant_event_cas');
+check(
+  eventCasWinner && !eventCasLoser && eventCasFinal.plan === 'pro' &&
+    eventCasFinal.lastStripeEventId === 'evt_event_cas_winner',
+  'Stripe 同秒同优先级并发事件使用 event-watermark CAS，旧快照不能后写覆盖',
+);
+
+const stripeLimitOverrideStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+await stripeLimitOverrideStore.upsertEntitlement({
+  tenantId: 'tenant_limit_override',
+  plan: 'plus',
+  status: 'active',
+  limitOverrides: { custom_monthly_limit: 77 },
+  stripeCustomerId: 'cus_limit_override',
+  stripeSubscriptionId: 'sub_limit_override',
+});
+const stripeLimitOverridePayload = subscriptionReplacementPayload({
+  eventId: 'evt_limit_override_preserved',
+  type: 'customer.subscription.updated',
+  created: stripeFixtureCreatedSeconds + 210,
+  tenantId: 'tenant_limit_override',
+  subscriptionId: 'sub_limit_override',
+  customerId: 'cus_limit_override',
+});
+await sendSubscriptionReplacementEvent(stripeLimitOverrideStore, stripeLimitOverridePayload);
+const stripeLimitOverrideEntitlement = await stripeLimitOverrideStore.getEntitlement('tenant_limit_override');
+check(
+  stripeLimitOverrideEntitlement.limitOverrides?.custom_monthly_limit === 77,
+  'Stripe webhook 未显式提供 limitOverrides 时保留租户自定义 quota overrides',
+);
+
+const migrationDelayedEventStore = new D1UsageQuotaStore(new MemoryUsageD1Database());
+await migrationDelayedEventStore.upsertEntitlementFromStripeEvent({
+  tenantId: 'tenant_migration_delayed',
+  plan: 'plus',
+  status: 'active',
+  stripeCustomerId: 'cus_migration_delayed',
+  stripeSubscriptionId: 'sub_migration_delayed',
+}, {
+  id: 'migration:0012',
+  createdAt: (stripeFixtureCreatedSeconds + 500) * 1000,
+  priority: 100,
+});
+const migrationDelayedPayload = subscriptionReplacementPayload({
+  eventId: 'evt_migration_delayed_authoritative',
+  type: 'customer.subscription.updated',
+  created: stripeFixtureCreatedSeconds + 100,
+  tenantId: 'tenant_migration_delayed',
+  subscriptionId: 'sub_migration_delayed',
+  customerId: 'cus_migration_delayed',
+});
+await sendSubscriptionReplacementEvent(migrationDelayedEventStore, migrationDelayedPayload);
+const migrationDelayedEntitlement = await migrationDelayedEventStore.getEntitlement('tenant_migration_delayed');
+check(
+  migrationDelayedEntitlement.plan === 'plus' &&
+    migrationDelayedEntitlement.lastStripeEventId === 'evt_migration_delayed_authoritative',
+  '0012 migration sentinel 不永久丢弃延迟 webhook，而是用 Stripe 权威快照替换基线',
+);
+
 const stripeInvalidSignatureResponse = await handleStripeWebhookRequest(
   new Request('https://worker.example.test/api/stripe/webhook', {
     method: 'POST',
@@ -4344,6 +4455,7 @@ class MemorySaasD1Database {
   monitoringEvents = new Map();
   deletionRequests = new Map();
   mediaRetention = new Map();
+  accountOperationGuards = new Map();
   batchCalls = 0;
 
   prepare(query) {
@@ -4352,7 +4464,35 @@ class MemorySaasD1Database {
 
   async batch(statements) {
     this.batchCalls += 1;
-    return await Promise.all(statements.map(statement => statement.run()));
+    const snapshot = {
+      operators: structuredClone(this.operators),
+      users: structuredClone(this.users),
+      identities: structuredClone(this.identities),
+      emailCodes: structuredClone(this.emailCodes),
+      webSessions: structuredClone(this.webSessions),
+      oauthClients: structuredClone(this.oauthClients),
+      oauthConsents: structuredClone(this.oauthConsents),
+      oauthTokenSessions: structuredClone(this.oauthTokenSessions),
+      rateLimits: structuredClone(this.rateLimits),
+      tenants: structuredClone(this.tenants),
+      tenantOwners: structuredClone(this.tenantOwners),
+      memberships: structuredClone(this.memberships),
+      accounts: structuredClone(this.accounts),
+      entitlements: structuredClone(this.entitlements),
+      accountTokens: structuredClone(this.accountTokens),
+      monitoringEvents: structuredClone(this.monitoringEvents),
+      deletionRequests: structuredClone(this.deletionRequests),
+      mediaRetention: structuredClone(this.mediaRetention),
+      accountOperationGuards: structuredClone(this.accountOperationGuards),
+    };
+    try {
+      const results = [];
+      for (const statement of statements) results.push(await statement.run());
+      return results;
+    } catch (error) {
+      Object.assign(this, snapshot);
+      throw error;
+    }
   }
 }
 
@@ -4372,6 +4512,39 @@ class MemorySaasD1Statement {
   async run() {
     const q = this.query;
     if (/^(CREATE|CREATE INDEX)/.test(q)) return { success: true, meta: { changes: 0 } };
+
+    if (q.startsWith('INSERT INTO account_operation_guards')) {
+      const usesCredentialRevision = q.includes('credential_revision = ?');
+      const [operationId, tenantId, lookupTenantId, accountId] = this.values;
+      const expectedRevision = usesCredentialRevision ? this.values[4] : null;
+      const createdAt = usesCredentialRevision ? this.values[5] : this.values[4];
+      const account = this.db.accounts.get(accountId);
+      if (
+        !account ||
+        account.tenant_id !== lookupTenantId ||
+        account.status === 'disabled' ||
+        (usesCredentialRevision && (account.credential_revision ?? 0) !== expectedRevision)
+      ) {
+        throw new Error('NOT NULL constraint failed: account_operation_guards.account_id');
+      }
+      if (this.db.accountOperationGuards.has(operationId)) {
+        throw new Error('UNIQUE constraint failed: account_operation_guards.operation_id');
+      }
+      this.db.accountOperationGuards.set(operationId, {
+        operation_id: operationId,
+        tenant_id: tenantId,
+        account_id: accountId,
+        created_at: createdAt,
+      });
+      return { success: true, meta: { changes: 1 } };
+    }
+
+    if (q.startsWith('DELETE FROM account_operation_guards')) {
+      return {
+        success: true,
+        meta: { changes: this.db.accountOperationGuards.delete(this.values[0]) ? 1 : 0 },
+      };
+    }
 
     if (q.startsWith('INSERT INTO operators')) {
       const [id, verifiedEmail, displayName, createdAt, updatedAt] = this.values;
@@ -4555,7 +4728,7 @@ class MemorySaasD1Statement {
 
     if (q.startsWith('INSERT INTO wechat_accounts')) {
       const [id, tenantId, slug, name, status, isDefault, createdAt, updatedAt] = this.values;
-      this.db.accounts.set(id, { id, tenant_id: tenantId, slug, name, app_id: null, app_secret: null, webhook_token: null, encoding_aes_key: null, status, is_default: isDefault, created_at: createdAt, updated_at: updatedAt });
+      this.db.accounts.set(id, { id, tenant_id: tenantId, slug, name, app_id: null, app_secret: null, webhook_token: null, encoding_aes_key: null, credential_revision: 0, status, is_default: isDefault, created_at: createdAt, updated_at: updatedAt });
       return { success: true, meta: { changes: 1 } };
     }
 
@@ -4584,7 +4757,7 @@ class MemorySaasD1Statement {
     if (q.startsWith('UPDATE wechat_accounts SET is_default = 1')) {
       const [updatedAt, tenantId, resourceId] = this.values;
       const row = this.db.accounts.get(resourceId);
-      if (row && row.tenant_id === tenantId) {
+      if (row && row.tenant_id === tenantId && row.status !== 'disabled') {
         row.is_default = 1;
         row.updated_at = updatedAt;
         return { success: true, meta: { changes: 1 } };
@@ -4642,6 +4815,29 @@ class MemorySaasD1Statement {
     }
 
     if (q.startsWith('UPDATE wechat_accounts SET app_id = NULL')) {
+      if (q.includes('credential_revision = credential_revision + 1')) {
+        const [status, updatedAt, tenantId, resourceId, expectedRevision] = this.values;
+        const row = this.db.accounts.get(resourceId);
+        const currentRevision = row?.credential_revision ?? 0;
+        if (
+          row &&
+          row.tenant_id === tenantId &&
+          row.status !== 'disabled' &&
+          currentRevision === expectedRevision
+        ) {
+          Object.assign(row, {
+            app_id: null,
+            app_secret: null,
+            webhook_token: null,
+            encoding_aes_key: null,
+            status: row.status === 'locked' ? 'locked' : status,
+            credential_revision: currentRevision + 1,
+            updated_at: updatedAt,
+          });
+          return { success: true, meta: { changes: 1 } };
+        }
+        return { success: true, meta: { changes: 0 } };
+      }
       if (!q.includes('AND id = ?')) {
         const [updatedAt, tenantId] = this.values;
         let changes = 0;
@@ -4724,20 +4920,41 @@ class MemorySaasD1Statement {
         return { success: true, meta: { changes } };
       }
       const [tenantId, accountId] = this.values;
+      if (q.includes('account_operation_guards')) {
+        const operationId = this.values[2];
+        const guard = this.db.accountOperationGuards.get(operationId);
+        if (!guard || guard.tenant_id !== tenantId || guard.account_id !== accountId) {
+          return { success: true, meta: { changes: 0 } };
+        }
+      }
+      if (q.includes('credential_revision = ?')) {
+        const expectedRevision = this.values[4];
+        if ((this.db.accounts.get(accountId)?.credential_revision ?? 0) !== expectedRevision) {
+          return { success: true, meta: { changes: 0 } };
+        }
+      }
       const changed = this.db.accountTokens.delete(`${tenantId}:${accountId}`) ? 1 : 0;
       return { success: true, meta: { changes: changed } };
     }
 
     if (q.startsWith('UPDATE wechat_accounts SET app_id = ?')) {
-      const [appId, appSecret, updateWebhookToken, webhookToken, updateEncodingAESKey, encodingAESKey, updatedAt, tenantId, resourceId] = this.values;
+      const [appId, appSecret, updateWebhookToken, webhookToken, updateEncodingAESKey, encodingAESKey,
+        updatedAt, tenantId, resourceId, enforceRevision, expectedRevision] = this.values;
       const row = this.db.accounts.get(resourceId);
-      if (row && row.tenant_id === tenantId && row.status !== 'disabled') {
+      const currentRevision = row?.credential_revision ?? 0;
+      if (
+        row &&
+        row.tenant_id === tenantId &&
+        row.status !== 'disabled' &&
+        (enforceRevision !== 1 || currentRevision === expectedRevision)
+      ) {
         Object.assign(row, {
           app_id: appId,
           app_secret: appSecret,
           webhook_token: updateWebhookToken === 1 ? webhookToken : row.webhook_token,
           encoding_aes_key: updateEncodingAESKey === 1 ? encodingAESKey : row.encoding_aes_key,
           status: 'active',
+          credential_revision: currentRevision + 1,
           updated_at: updatedAt,
         });
         return { success: true, meta: { changes: 1 } };
@@ -4747,6 +4964,15 @@ class MemorySaasD1Statement {
 
     if (q.startsWith('INSERT INTO wechat_access_tokens')) {
       const [tenantId, accountId, accessToken, expiresIn, expiresAt, createdAt, updatedAt] = this.values;
+      const enforceRevision = this.values[7];
+      const operationId = this.values[8];
+      const operationGuard = this.db.accountOperationGuards.get(operationId);
+      if (
+        enforceRevision === 1 &&
+        (!operationGuard || operationGuard.tenant_id !== tenantId || operationGuard.account_id !== accountId)
+      ) {
+        return { success: true, meta: { changes: 0 } };
+      }
       const key = `${tenantId}:${accountId}`;
       const existing = this.db.accountTokens.get(key);
       this.db.accountTokens.set(key, { tenant_id: tenantId, account_id: accountId, access_token: accessToken, expires_in: expiresIn, expires_at: expiresAt, created_at: existing?.created_at ?? createdAt, updated_at: updatedAt });
@@ -4967,6 +5193,14 @@ class MemorySaasD1Statement {
       return [...this.db.accounts.values()].find(row => row.app_id === appId && row.status !== 'disabled' && !(row.tenant_id === tenantId && row.id === resourceId)) ?? null;
     }
 
+    if (q.startsWith('SELECT credential_revision FROM wechat_accounts')) {
+      const [tenantId, resourceId] = this.values;
+      const row = this.db.accounts.get(resourceId);
+      return row && row.tenant_id === tenantId && row.status !== 'disabled'
+        ? { credential_revision: row.credential_revision ?? 0 }
+        : null;
+    }
+
     if (q.startsWith('SELECT COUNT(*) AS count')) {
       const [tenantId] = this.values;
       return { count: [...this.db.accounts.values()].filter(row => row.tenant_id === tenantId && row.status !== 'disabled').length };
@@ -5004,6 +5238,41 @@ class MemorySaasD1Statement {
 
   async all() {
     const q = this.query;
+
+    if (q.startsWith('WITH ranked AS')) {
+      const [tenantId, limit, _limitForTimestamp, now, _limitForReason, reason,
+        updatedAt, _whereTenantId, expectedStripeEventId] = this.values;
+      if (
+        expectedStripeEventId != null &&
+        this.db.entitlements.get(tenantId)?.last_stripe_event_id !== expectedStripeEventId
+      ) {
+        return { success: true, results: [] };
+      }
+      const accounts = [...this.db.accounts.values()]
+        .filter(row => row.tenant_id === tenantId && row.status !== 'disabled')
+        .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.created_at - b.created_at || a.id.localeCompare(b.id));
+      const changed = [];
+      for (const [index, row] of accounts.entries()) {
+        if (index < limit && row.status === 'locked') {
+          Object.assign(row, {
+            status: row.app_secret === null ? 'unconfigured' : 'active',
+            plan_locked_at: null,
+            plan_lock_reason: null,
+            updated_at: updatedAt,
+          });
+          changed.push({ id: row.id, status: row.status });
+        } else if (index >= limit && row.status !== 'locked') {
+          Object.assign(row, {
+            status: 'locked',
+            plan_locked_at: now,
+            plan_lock_reason: reason,
+            updated_at: updatedAt,
+          });
+          changed.push({ id: row.id, status: row.status });
+        }
+      }
+      return { success: true, results: changed };
+    }
 
     if (q.startsWith('SELECT t.id AS tenant_id')) {
       const [operatorId] = this.values;
@@ -5415,6 +5684,32 @@ const configuredRawAfterUpdate = saasDb.accounts.get('acct_second');
 const optionalCredentialsPreserved =
   configuredRawAfterUpdate.webhook_token === configuredRawBeforeUpdate.webhook_token &&
   configuredRawAfterUpdate.encoding_aes_key === configuredRawBeforeUpdate.encoding_aes_key;
+const fencedCredentialRevision = await saasStore.getWechatCredentialRevision('ten_owner', 'acct_second');
+await saasStore.configureValidatedWechatCredentials({
+  tenantId: 'ten_owner',
+  resourceId: 'acct_second',
+  config: { appId: 'wx_valid', appSecret: 'FENCED_APP_SECRET' },
+  tokenInfo: { accessToken: 'FENCED_ACCESS_TOKEN', expiresIn: 7200, expiresAt: 100_000 },
+  expectedCredentialRevision: fencedCredentialRevision,
+  now: 58_750,
+});
+const fencedCredentialState = structuredClone(saasDb.accounts.get('acct_second'));
+const fencedTokenState = structuredClone(saasDb.accountTokens.get('ten_owner:acct_second'));
+let staleCredentialRevisionRejected = false;
+try {
+  await saasStore.configureValidatedWechatCredentials({
+    tenantId: 'ten_owner',
+    resourceId: 'acct_second',
+    config: { appId: 'wx_valid', appSecret: 'STALE_APP_SECRET' },
+    tokenInfo: { accessToken: 'STALE_ACCESS_TOKEN', expiresIn: 7200, expiresAt: 100_001 },
+    expectedCredentialRevision: fencedCredentialRevision,
+    now: 58_800,
+  });
+} catch {
+  staleCredentialRevisionRejected =
+    JSON.stringify(saasDb.accounts.get('acct_second')) === JSON.stringify(fencedCredentialState) &&
+    JSON.stringify(saasDb.accountTokens.get('ten_owner:acct_second')) === JSON.stringify(fencedTokenState);
+}
 const thirdResource = await saasStore.createWechatResource({ tenantId: 'ten_owner', name: '第三个资源', resourceId: 'acct_third', now: 59_000 });
 let duplicateDenied = false;
 try {
@@ -5427,10 +5722,31 @@ try {
 } catch (error) {
   duplicateDenied = error instanceof DuplicateAppIdError;
 }
+const thirdBeforeAtomicFailure = structuredClone(saasDb.accounts.get('acct_third'));
+let atomicDeleteFailureRolledBack = false;
+try {
+  await saasStore.softDeleteWechatResourceAtomically(
+    { tenantId: 'ten_owner', resourceId: 'acct_third', confirmation: 'DELETE acct_third', now: 60_500 },
+    [saasDb.prepare('INSERT INTO unsupported_atomic_audit_fixture VALUES (1)')],
+  );
+} catch {
+  atomicDeleteFailureRolledBack =
+    JSON.stringify(saasDb.accounts.get('acct_third')) === JSON.stringify(thirdBeforeAtomicFailure) &&
+    saasDb.accountOperationGuards.size === 0;
+}
 await saasStore.softDeleteWechatResourceAtomically(
   { tenantId: 'ten_owner', resourceId: 'acct_second', confirmation: 'DELETE acct_second', now: 61_000 },
   [saasDb.prepare('CREATE TABLE IF NOT EXISTS atomic_delete_audit_fixture (id INTEGER)')],
 );
+let repeatedAtomicDeleteRejected = false;
+try {
+  await saasStore.softDeleteWechatResourceAtomically(
+    { tenantId: 'ten_owner', resourceId: 'acct_second', confirmation: 'DELETE acct_second', now: 61_500 },
+    [saasDb.prepare('CREATE TABLE IF NOT EXISTS must_not_commit_delete_audit_fixture (id INTEGER)')],
+  );
+} catch {
+  repeatedAtomicDeleteRejected = saasDb.accountOperationGuards.size === 0;
+}
 const released = await saasStore.configureValidatedWechatCredentials({
   tenantId: 'ten_owner',
   resourceId: thirdResource.accountId,
@@ -5446,7 +5762,8 @@ check(
     defaultSwitchedContext.defaultAccountId === 'acct_second' && failedValidationDidNotPersist &&
     configured.status === 'active' && configured.hasAppSecret && configured.hasWebhookToken && configured.hasEncodingAESKey &&
     reconfigured.hasWebhookToken && reconfigured.hasEncodingAESKey && optionalCredentialsPreserved &&
-    duplicateDenied && saasDb.batchCalls === 1 && rawStoredSecond.app_secret === null && rawStoredSecond.status === 'disabled' &&
+    staleCredentialRevisionRejected && duplicateDenied && atomicDeleteFailureRolledBack && repeatedAtomicDeleteRejected && saasDb.batchCalls === 5 &&
+    rawStoredSecond.app_secret === null && rawStoredSecond.status === 'disabled' &&
     released.appId === 'wx_valid' && rawStoredThird.app_secret.startsWith('enc:'),
   'D1SaasOnboardingStore 首登 bootstrap、Free 账号上限、Plus 创建、重命名/默认切换、凭据验证非持久化、AppID 唯一与删除释放正确',
 );

@@ -11,7 +11,11 @@ import type { AccessTokenInfo, WechatConfig } from '../mcp-tool/types.js';
 import type { McpTool } from '../mcp-tool/types.js';
 import { workerSharedMcpTools, withOptionalAccountId } from '../mcp-tool/tools/index.js';
 import { createTenantManagementMcpTools } from '../mcp-tool/tools/tenant-management-tools.js';
-import { D1StorageManager, type D1DatabaseLike } from '../storage/d1-storage-manager.js';
+import {
+  D1StorageManager,
+  type D1DatabaseLike,
+  type D1PreparedStatement,
+} from '../storage/d1-storage-manager.js';
 import {
   DEFAULT_ACCOUNT_ID,
   DEFAULT_ACCOUNT_SLUG,
@@ -115,6 +119,7 @@ export interface WorkerEnv {
   TURNSTILE_SECRET_KEY?: SecretBinding;
   GITHUB_CLIENT_ID?: SecretBinding;
   GITHUB_CLIENT_SECRET?: SecretBinding;
+  DEBUG_SELF_TEST_TOKEN?: SecretBinding;
   ENVIRONMENT?: string;
   WECHAT_EGRESS_IPS?: string;
   WECHAT_EGRESS_CONFIG_VERSION?: string;
@@ -129,9 +134,18 @@ type TokenOwnerRequestOptions = {
 type TokenOwnerStub = {
   getAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
   refreshAccessToken(options?: TokenOwnerRequestOptions): Promise<AccessTokenInfo>;
-  clearAccessToken(options?: { accountContext?: AccountContext }): Promise<void>;
-  replaceAccessToken(tokenInfo: AccessTokenInfo, options?: { accountContext?: AccountContext }): Promise<void>;
+  clearAccessToken(options?: {
+    accountContext?: AccountContext;
+    operationLeaseId?: string;
+    preserveD1?: boolean;
+  }): Promise<void>;
+  replaceAccessToken(tokenInfo: AccessTokenInfo, options?: {
+    accountContext?: AccountContext;
+    operationLeaseId?: string;
+    preserveD1?: boolean;
+  }): Promise<void>;
   acquireCredentialConfigurationLease(input: { leaseId: string; ttlMs?: number }): Promise<boolean>;
+  renewCredentialConfigurationLease(input: { leaseId: string; ttlMs?: number }): Promise<boolean>;
   releaseCredentialConfigurationLease(input: { leaseId: string }): Promise<void>;
   getDebugStatus(): Promise<Record<string, unknown>>;
   runCoalescingSelfTest(): Promise<Record<string, unknown>>;
@@ -344,7 +358,13 @@ async function persistValidatedWechatCredentialsForAccount(
     config: WechatConfig;
     account: import('./tenant-context.js').AccountContext;
     tokenInfo: AccessTokenInfo | null | undefined;
-    finalize?: () => Promise<void>;
+    finalizeWithSucceededAudit?: (auditStatement: D1PreparedStatement) => Promise<void>;
+    reconcileFinalization?(error: unknown): Promise<import('./agent-init.js').CommitReconciliationState>;
+    auditMetadata?: {
+      appId: string;
+      hasWebhookToken: boolean;
+      hasEncodingAESKey: boolean;
+    };
     audit?: {
       userId?: string | null;
       oauthClientId?: string | null;
@@ -354,6 +374,13 @@ async function persistValidatedWechatCredentialsForAccount(
   },
 ) {
   const accountContext = toStorageAccountContext(input.account);
+  const credentialAuditMetadata = {
+    ...(input.auditMetadata ?? {}),
+    ...(input.audit?.metadata ?? {}),
+    appId: input.config.appId,
+    hasWebhookToken: !!input.config.token,
+    hasEncodingAESKey: !!input.config.encodingAESKey,
+  };
   const tokenOwner = await getTokenOwner(env, accountContext);
   const leaseId = `credential-config-${crypto.randomUUID()}`;
   if (!(await tokenOwner.acquireCredentialConfigurationLease({ leaseId }))) {
@@ -371,9 +398,22 @@ async function persistValidatedWechatCredentialsForAccount(
     if (!currentResource || currentResource.status === 'disabled' || currentResource.status === 'locked') {
       throw new ApiError('account_not_configurable', 'The WeChat account is not configurable.', 409);
     }
+    const credentialRevision = await onboardingStore.getWechatCredentialRevision(
+      input.account.tenantId,
+      input.account.accountId,
+    );
     const snapshotStorage = await createD1Storage(env);
     const previousConfig = await snapshotStorage.getAccountConfig(accountContext);
     const previousToken = await snapshotStorage.getAccountAccessToken(accountContext);
+    const assertLeaseHeld = async () => {
+      if (!(await tokenOwner.renewCredentialConfigurationLease({ leaseId }))) {
+        throw new ApiError(
+          'credential_configuration_lease_lost',
+          'Credential configuration lease expired or changed owner.',
+          409,
+        );
+      }
+    };
     return await persistCredentialConfigurationWithAudit({
       writeStartedAudit: async () => await writeRequiredAudit(env, {
         userId: input.audit?.userId,
@@ -383,20 +423,32 @@ async function persistValidatedWechatCredentialsForAccount(
         action: 'account.credentials_configuration_started',
         targetType: 'wechat_account',
         targetId: input.account.accountId,
-        metadata: input.audit?.metadata ?? {},
+        metadata: credentialAuditMetadata,
       }),
+      assertLeaseHeld,
       persist: async () => {
         // 先让旧 DO token 失效，再提交新配置；任一步失败都不会让旧 AppID token
         // 在新配置名下继续被复用。
-        await tokenOwner.clearAccessToken({ accountContext });
+        await tokenOwner.clearAccessToken({
+          accountContext,
+          operationLeaseId: leaseId,
+          preserveD1: true,
+        });
+        await assertLeaseHeld();
         const resource = await onboardingStore.configureValidatedWechatCredentials({
           tenantId: input.account.tenantId,
           resourceId: input.account.accountId,
           config: input.config,
           tokenInfo: input.tokenInfo,
+          expectedCredentialRevision: credentialRevision,
         });
         if (input.tokenInfo) {
-          await tokenOwner.replaceAccessToken(input.tokenInfo, { accountContext });
+          await assertLeaseHeld();
+          await tokenOwner.replaceAccessToken(input.tokenInfo, {
+            accountContext,
+            operationLeaseId: leaseId,
+            preserveD1: true,
+          });
         }
         return resource;
       },
@@ -408,14 +460,31 @@ async function persistValidatedWechatCredentialsForAccount(
         action: input.audit?.successAction ?? 'account.credentials_persisted',
         targetType: 'wechat_account',
         targetId: input.account.accountId,
-        metadata: input.audit?.metadata ?? {},
+        metadata: credentialAuditMetadata,
       }),
-      finalize: input.finalize,
+      finalizeWithSucceededAudit: input.finalizeWithSucceededAudit
+        ? async () => {
+            const auditStatement = await new D1AuditLogWriter(env.DB).prepareWriteStatement({
+              userId: input.audit?.userId,
+              oauthClientId: input.audit?.oauthClientId,
+              tenantId: input.account.tenantId,
+              accountId: input.account.accountId,
+              action: input.audit?.successAction ?? 'account.credentials_persisted',
+              targetType: 'wechat_account',
+              targetId: input.account.accountId,
+              metadata: credentialAuditMetadata,
+            });
+            await input.finalizeWithSucceededAudit!(auditStatement);
+          }
+        : undefined,
+      reconcileFinalization: input.reconcileFinalization,
       rollback: async () => await restoreWechatCredentialsForAccount(env, onboardingStore, {
         account: input.account,
         previousConfig,
         previousToken,
         previousStatus: currentResource.status,
+        expectedCredentialRevision: credentialRevision + 1,
+        leaseId,
       }),
       writeRollbackAudit: async () => await writeRequiredAudit(env, {
         userId: input.audit?.userId,
@@ -425,7 +494,7 @@ async function persistValidatedWechatCredentialsForAccount(
         action: 'account.credentials_configuration_rolled_back',
         targetType: 'wechat_account',
         targetId: input.account.accountId,
-        metadata: input.audit?.metadata ?? {},
+        metadata: credentialAuditMetadata,
       }),
     });
   } finally {
@@ -465,6 +534,15 @@ async function softDeleteWechatResourceForAccount(
   try {
     const storage = await createD1Storage(env);
     const previousToken = await storage.getAccountAccessToken(accountContext);
+    const assertLeaseHeld = async () => {
+      if (!(await tokenOwner.renewCredentialConfigurationLease({ leaseId }))) {
+        throw new ApiError(
+          'credential_configuration_lease_lost',
+          'Credential deletion lease expired or changed owner.',
+          409,
+        );
+      }
+    };
     const succeededAuditStatement = await new D1AuditLogWriter(env.DB).prepareWriteStatement({
       userId: input.userId,
       oauthClientId: input.oauthClientId,
@@ -485,15 +563,31 @@ async function softDeleteWechatResourceForAccount(
         targetType: 'wechat_account',
         targetId: input.account.accountId,
       }),
-      clearToken: async () => await tokenOwner.clearAccessToken({ accountContext }),
+      assertLeaseHeld,
+      clearToken: async () => await tokenOwner.clearAccessToken({
+        accountContext,
+        operationLeaseId: leaseId,
+        preserveD1: true,
+      }),
       deleteWithSucceededAudit: async () => await onboardingStore.softDeleteWechatResourceAtomically({
         tenantId: input.account.tenantId,
         resourceId: input.account.accountId,
         confirmation: input.confirmation,
       }, [succeededAuditStatement]),
+      isDeleted: async () => {
+        const resource = await onboardingStore.getWechatResource(
+          input.account.tenantId,
+          input.account.accountId,
+        );
+        return !resource || resource.status === 'disabled';
+      },
       restoreToken: async () => {
         if (previousToken) {
-          await tokenOwner.replaceAccessToken(previousToken, { accountContext });
+          await tokenOwner.replaceAccessToken(previousToken, {
+            accountContext,
+            operationLeaseId: leaseId,
+            preserveD1: true,
+          });
         }
       },
     });
@@ -516,37 +610,39 @@ async function restoreWechatCredentialsForAccount(
     previousConfig: WechatConfig | null;
     previousToken: AccessTokenInfo | null;
     previousStatus: string;
+    expectedCredentialRevision: number;
+    leaseId: string;
   },
 ): Promise<void> {
   const accountContext = toStorageAccountContext(input.account);
-  const storage = await createD1Storage(env);
   const tokenOwner = await getTokenOwner(env, accountContext);
-  await tokenOwner.clearAccessToken({ accountContext });
-  await storage.clearAccountAccessToken(accountContext);
+  await tokenOwner.clearAccessToken({
+    accountContext,
+    operationLeaseId: input.leaseId,
+    preserveD1: true,
+  });
   if (input.previousConfig) {
     await onboardingStore.configureValidatedWechatCredentials({
       tenantId: input.account.tenantId,
       resourceId: input.account.accountId,
       config: input.previousConfig,
-      tokenInfo: null,
+      tokenInfo: input.previousToken,
+      expectedCredentialRevision: input.expectedCredentialRevision,
     });
   } else {
-    await storage.clearAccountConfig(accountContext);
+    await onboardingStore.clearWechatCredentialsFenced({
+      tenantId: input.account.tenantId,
+      resourceId: input.account.accountId,
+      expectedCredentialRevision: input.expectedCredentialRevision,
+      status: input.previousStatus || 'unconfigured',
+    });
   }
-  await env.DB.prepare(
-    `UPDATE wechat_accounts
-     SET status = CASE WHEN status = 'locked' THEN status ELSE ? END,
-         updated_at = ?
-     WHERE tenant_id = ? AND id = ? AND status != 'disabled'`,
-  ).bind(
-    input.previousStatus || (input.previousConfig ? 'active' : 'unconfigured'),
-    Date.now(),
-    input.account.tenantId,
-    input.account.accountId,
-  ).run();
   if (input.previousToken) {
-    await storage.saveAccountAccessToken(accountContext, input.previousToken);
-    await tokenOwner.replaceAccessToken(input.previousToken, { accountContext });
+    await tokenOwner.replaceAccessToken(input.previousToken, {
+      accountContext,
+      operationLeaseId: input.leaseId,
+      preserveD1: true,
+    });
   }
 }
 
@@ -1987,27 +2083,55 @@ export class TokenOwner extends Agent<WorkerEnv> {
     return await this.getAccessToken({ ...options, forceRefresh: true });
   }
 
-  async clearAccessToken(options: { accountContext?: AccountContext } = {}): Promise<void> {
+  async clearAccessToken(options: {
+    accountContext?: AccountContext;
+    operationLeaseId?: string;
+    preserveD1?: boolean;
+  } = {}): Promise<void> {
     await this.ensureTokenTables();
     const accountContext = await this.resolveAccountContext(options.accountContext);
+    this.assertCredentialConfigurationLease(options.operationLeaseId);
     this.tokenGeneration += 1;
     this.refreshPromise = null;
-    void this.sql`DELETE FROM wechat_access_token`;
-    const storage = await createD1Storage(getAgentEnv(this));
-    await storage.clearAccountAccessToken(accountContext);
+    if (options.operationLeaseId) {
+      void this.sql`
+        DELETE FROM wechat_access_token
+        WHERE EXISTS (
+          SELECT 1 FROM credential_configuration_lease
+          WHERE id = 1 AND lease_id = ${options.operationLeaseId} AND expires_at > ${Date.now()}
+        )
+      `;
+    } else {
+      void this.sql`DELETE FROM wechat_access_token`;
+    }
+    if (!options.preserveD1) {
+      const storage = await createD1Storage(getAgentEnv(this));
+      await storage.clearAccountAccessToken(accountContext);
+    }
   }
 
   async replaceAccessToken(
     tokenInfo: AccessTokenInfo,
-    options: { accountContext?: AccountContext } = {},
+    options: {
+      accountContext?: AccountContext;
+      operationLeaseId?: string;
+      preserveD1?: boolean;
+    } = {},
   ): Promise<void> {
     await this.ensureTokenTables();
     const accountContext = await this.resolveAccountContext(options.accountContext);
+    this.assertCredentialConfigurationLease(options.operationLeaseId);
     this.tokenGeneration += 1;
     this.refreshPromise = null;
-    await this.writeStoredToken(tokenInfo);
-    const storage = await createD1Storage(getAgentEnv(this));
-    await storage.saveAccountAccessToken(accountContext, tokenInfo);
+    if (options.operationLeaseId) {
+      await this.writeStoredTokenWithLease(tokenInfo, options.operationLeaseId);
+    } else {
+      await this.writeStoredToken(tokenInfo);
+    }
+    if (!options.preserveD1) {
+      const storage = await createD1Storage(getAgentEnv(this));
+      await storage.saveAccountAccessToken(accountContext, tokenInfo);
+    }
     await this.schedulePreExpiryRefresh(tokenInfo, accountContext);
   }
 
@@ -2027,6 +2151,22 @@ export class TokenOwner extends Agent<WorkerEnv> {
         lease_id = excluded.lease_id,
         expires_at = excluded.expires_at
       WHERE credential_configuration_lease.lease_id = excluded.lease_id
+    `;
+    return true;
+  }
+
+  async renewCredentialConfigurationLease(input: { leaseId: string; ttlMs?: number }): Promise<boolean> {
+    await this.ensureTokenTables();
+    const now = Date.now();
+    const ttlMs = Math.min(10 * 60_000, Math.max(30_000, input.ttlMs ?? 5 * 60_000));
+    const current = this.sql<{ lease_id: string; expires_at: number }>`
+      SELECT lease_id, expires_at FROM credential_configuration_lease WHERE id = 1 LIMIT 1
+    `[0];
+    if (!current || current.lease_id !== input.leaseId || current.expires_at <= now) return false;
+    void this.sql`
+      UPDATE credential_configuration_lease
+      SET expires_at = ${now + ttlMs}
+      WHERE id = 1 AND lease_id = ${input.leaseId} AND expires_at > ${now}
     `;
     return true;
   }
@@ -2296,6 +2436,42 @@ export class TokenOwner extends Agent<WorkerEnv> {
     `;
   }
 
+  private async writeStoredTokenWithLease(tokenInfo: AccessTokenInfo, leaseId: string): Promise<void> {
+    const encryptedToken = await this.encryptValue(tokenInfo.accessToken);
+    this.assertCredentialConfigurationLease(leaseId);
+    const now = Date.now();
+    void this.sql`
+      DELETE FROM wechat_access_token
+      WHERE EXISTS (
+        SELECT 1 FROM credential_configuration_lease
+        WHERE id = 1 AND lease_id = ${leaseId} AND expires_at > ${now}
+      )
+    `;
+    void this.sql`
+      INSERT INTO wechat_access_token (id, access_token, expires_in, expires_at, updated_at)
+      SELECT 1, ${encryptedToken}, ${tokenInfo.expiresIn}, ${tokenInfo.expiresAt}, ${now}
+      WHERE EXISTS (
+        SELECT 1 FROM credential_configuration_lease
+        WHERE id = 1 AND lease_id = ${leaseId} AND expires_at > ${now}
+      )
+    `;
+  }
+
+  private assertCredentialConfigurationLease(leaseId?: string): void {
+    if (!leaseId) return;
+    const now = Date.now();
+    const current = this.sql<{ lease_id: string; expires_at: number }>`
+      SELECT lease_id, expires_at FROM credential_configuration_lease WHERE id = 1 LIMIT 1
+    `[0];
+    if (!current || current.lease_id !== leaseId || current.expires_at <= now) {
+      throw new ApiError(
+        'credential_configuration_lease_lost',
+        'Credential operation lease expired or changed owner.',
+        409,
+      );
+    }
+  }
+
   private isUsable(token: AccessTokenInfo | null): token is AccessTokenInfo {
     return !!token && token.expiresAt > Date.now() + REFRESH_BEFORE_EXPIRY_MS;
   }
@@ -2478,7 +2654,11 @@ const defaultHandler = {
             config,
             account,
             tokenInfo,
-            finalize: complete,
+            finalizeWithSucceededAudit: async auditStatement => await complete([auditStatement]),
+            reconcileFinalization: async () => await agentInit.store.getCredentialHandoffCompletionState({
+              operatorId: session?.operatorId ?? '',
+              handoffId: handoff.handoffId,
+            }),
             audit: {
               userId: session?.operatorId,
               successAction: 'account.credentials_configured_via_handoff',
@@ -2691,8 +2871,8 @@ export default {
     if (isStripeWebhookPath(url.pathname)) {
       const onboardingStore = await createSaasOnboardingStore(env);
       const usageStore = new D1UsageQuotaStore(env.DB);
-      const stripeSecretKey = await resolveSecret(env.STRIPE_SECRET_KEY);
       try {
+        const stripeSecretKey = await resolveSecret(env.STRIPE_SECRET_KEY);
         const response = await handleStripeWebhookRequest(request, {
           webhookSecret: await resolveSecret(env.STRIPE_WEBHOOK_SECRET),
           usageStore,
@@ -2764,7 +2944,16 @@ export default {
       return json(await tokenOwner.runCoalescingSelfTest());
     }
 
-    if (url.pathname === '/api/__debug/token-owner/credential-lease' && !isProductionEnv(env)) {
+    if (url.pathname === '/api/__debug/token-owner/credential-lease') {
+      const expectedDebugToken = !isProductionEnv(env)
+        ? await resolveSecret(env.DEBUG_SELF_TEST_TOKEN)
+        : null;
+      if (
+        !expectedDebugToken ||
+        request.headers.get('x-woa-debug-token') !== expectedDebugToken
+      ) {
+        return new Response('Not Found', { status: 404 });
+      }
       const tokenOwner = await getTokenOwner(env);
       return json(await tokenOwner.runCredentialLeaseSelfTest());
     }

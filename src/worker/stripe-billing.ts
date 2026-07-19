@@ -265,87 +265,97 @@ async function syncStripeEventToEntitlement(
     if (!subscriptionId) {
       return { handled: false, type, reason: 'missing_subscription_id' };
     }
-    const isDeletion = type === 'customer.subscription.deleted';
-    const subscriptionObject = isDeletion
-      ? object
-      : await requireStripeSubscriptionResolver(options)(subscriptionId, object);
-    const tenantId = stringField(nestedMetadata(subscriptionObject).tenant_id)
-      || await findTenantIdForSubscription(options.usageStore, subscriptionId);
-    if (!tenantId) {
-      return { handled: false, type, reason: 'missing_subscription_tenant' };
-    }
     if (await options.usageStore.hasStripeBillingEvent(eventId)) {
       return { handled: false, type, duplicate: true, reason: 'duplicate_stripe_event' };
     }
+    const alreadyCommitted = await options.usageStore.findEntitlementByLastStripeEventId(eventId);
+    if (alreadyCommitted) {
+      await options.reconcileAccountLocks?.(alreadyCommitted.tenantId, alreadyCommitted.plan, eventId);
+      await recordProcessedStripeEvent(options, event, type, alreadyCommitted.tenantId, subscriptionId);
+      return {
+        handled: true,
+        type,
+        tenantId: alreadyCommitted.tenantId,
+        stripeSubscriptionId: subscriptionId,
+        reason: 'entitlement_already_committed',
+      };
+    }
+    const isDeletion = type === 'customer.subscription.deleted';
+    let subscriptionObject = isDeletion
+      ? object
+      : await requireStripeSubscriptionResolver(options)(subscriptionId, object);
+    const boundEntitlement = await options.usageStore.findEntitlementByStripeSubscriptionId(subscriptionId);
+    const metadataTenantId = stringField(nestedMetadata(subscriptionObject).tenant_id);
+    const tenantId = boundEntitlement?.tenantId || metadataTenantId;
+    if (!tenantId) {
+      return { handled: false, type, reason: 'missing_subscription_tenant' };
+    }
     const ordering = stripeEntitlementEventOrdering(event);
-    const currentEntitlement = await options.usageStore.getEntitlement(tenantId);
-    const stripeCustomerId = stripeId(subscriptionObject.customer);
-    const subscriptionStatus = stringField(subscriptionObject.status) || (isDeletion ? 'canceled' : 'active');
+    const currentEntitlement = boundEntitlement ?? await options.usageStore.getEntitlement(tenantId);
+    let transition = subscriptionEntitlementTransition(
+      type,
+      tenantId,
+      subscriptionId,
+      subscriptionObject,
+      options.priceIds,
+    );
+    let effectiveOrdering = orderingForEntitlement(ordering, currentEntitlement, !isDeletion);
     const allowCreatedReplacement = allowsCreatedSubscriptionReplacement(
       type,
       subscriptionId,
       currentEntitlement,
-      stripeCustomerId,
-      subscriptionStatus,
+      transition.stripeCustomerId,
+      transition.subscriptionStatus,
     );
     const stale = staleSubscriptionResultForEntitlement(type, tenantId, subscriptionId, currentEntitlement, {
       requireCurrentMatch: type === 'customer.subscription.deleted',
       allowDifferentSubscription: allowCreatedReplacement,
-      incomingCustomerId: stripeCustomerId,
+      incomingCustomerId: transition.stripeCustomerId,
     });
     if (stale) {
       await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
       return stale;
     }
 
-    const planItem = isDeletion ? null : subscriptionPlanItem(subscriptionObject, options.priceIds);
-    const periodStart = planItem ? subscriptionPeriodTimestampMs(subscriptionObject, planItem.item, 'current_period_start') : null;
-    const periodEnd = planItem ? subscriptionPeriodTimestampMs(subscriptionObject, planItem.item, 'current_period_end') : null;
-    if (!isDeletion) {
-      assertValidSubscriptionPeriod(periodStart, periodEnd);
-    }
-    const cancelAtPeriodEnd = booleanField(subscriptionObject.cancel_at_period_end);
-    if (cancelAtPeriodEnd && periodEnd === null) {
-      throw new Error('Stripe subscription cancellation is missing a verified plan-item period end.');
-    }
-    const planFromEvent = planItem?.plan ?? null;
-    const computedPlan = type === 'customer.subscription.deleted'
-      ? 'free'
-      : entitlementPlanForSubscriptionStatus(subscriptionStatus, planFromEvent);
-    const plan = cancelAtPeriodEnd && type !== 'customer.subscription.deleted'
-      ? planFromEvent!
-      : computedPlan;
-    const status = cancelAtPeriodEnd && type !== 'customer.subscription.deleted'
-      ? 'active'
-      : type === 'customer.subscription.deleted'
-      ? 'cancelled'
-      : entitlementStatusForSubscriptionStatus(subscriptionStatus);
-    const pendingPlan: SubscriptionPlan | null = cancelAtPeriodEnd && type !== 'customer.subscription.deleted'
-      ? 'free'
-      : null;
-    const pendingPlanEffectiveAt = pendingPlan ? periodEnd : null;
-    const nextSubscriptionId = plan === 'free' ? null : subscriptionId;
-
-    const entitlementUpdate = {
-      tenantId,
-      plan,
-      status,
-      stripeCustomerId,
-      stripeSubscriptionId: nextSubscriptionId,
-      currentPeriodStart: periodStart,
-      currentPeriodEnd: periodEnd,
-      pendingPlan,
-      pendingPlanEffectiveAt,
-    };
-    let applied = await options.usageStore.upsertEntitlementFromStripeEvent(entitlementUpdate, {
-      ...ordering,
+    let applied = await options.usageStore.upsertEntitlementFromStripeEvent(transition.entitlementUpdate, {
+      ...effectiveOrdering,
       enforceExpectedCurrentStripeSubscriptionId: true,
       expectedCurrentStripeSubscriptionId: currentEntitlement.stripeSubscriptionId ?? null,
+      enforceExpectedCurrentStripeEventId: true,
+      expectedCurrentStripeEventId: currentEntitlement.lastStripeEventId ?? null,
     });
     if (!applied) {
-      // 若另一 webhook 恰好在预检查与 UPSERT 之间切换了订阅绑定，基于最新
-      // entitlement 再做一次完整 stale/CAS 判断；第二次仍失败才按乱序收敛。
+      // 任何并发 watermark 变化都要求重新读取 Stripe 权威订阅快照，再基于新的
+      // subscription/event 双 CAS 重试；避免同秒事件按数据库完成顺序回写旧快照。
       const refreshedEntitlement = await options.usageStore.getEntitlement(tenantId);
+      if (refreshedEntitlement.lastStripeEventId === eventId) {
+        await options.reconcileAccountLocks?.(tenantId, refreshedEntitlement.plan, eventId);
+        await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
+        return {
+          handled: true,
+          type,
+          tenantId,
+          stripeSubscriptionId: subscriptionId,
+          reason: 'entitlement_already_committed',
+        };
+      }
+      if (!isDeletion) {
+        subscriptionObject = await requireStripeSubscriptionResolver(options)(subscriptionId, subscriptionObject);
+        const refreshedBinding = await options.usageStore.findEntitlementByStripeSubscriptionId(subscriptionId);
+        const refreshedMetadataTenantId = stringField(nestedMetadata(subscriptionObject).tenant_id);
+        const refreshedTenantId = refreshedBinding?.tenantId || refreshedMetadataTenantId;
+        if (refreshedTenantId !== tenantId) {
+          throw new Error('Stripe subscription tenant changed during reconciliation; retry the webhook event.');
+        }
+        transition = subscriptionEntitlementTransition(
+          type,
+          tenantId,
+          subscriptionId,
+          subscriptionObject,
+          options.priceIds,
+        );
+      }
+      effectiveOrdering = orderingForEntitlement(ordering, refreshedEntitlement, !isDeletion);
       const refreshedStale = staleSubscriptionResultForEntitlement(
         type,
         tenantId,
@@ -353,13 +363,13 @@ async function syncStripeEventToEntitlement(
         refreshedEntitlement,
         {
           requireCurrentMatch: type === 'customer.subscription.deleted',
-          incomingCustomerId: stripeCustomerId,
+          incomingCustomerId: transition.stripeCustomerId,
           allowDifferentSubscription: allowsCreatedSubscriptionReplacement(
             type,
             subscriptionId,
             refreshedEntitlement,
-            stripeCustomerId,
-            subscriptionStatus,
+            transition.stripeCustomerId,
+            transition.subscriptionStatus,
           ),
         },
       );
@@ -367,14 +377,27 @@ async function syncStripeEventToEntitlement(
         await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
         return refreshedStale;
       }
-      applied = await options.usageStore.upsertEntitlementFromStripeEvent(entitlementUpdate, {
-        ...ordering,
+      applied = await options.usageStore.upsertEntitlementFromStripeEvent(transition.entitlementUpdate, {
+        ...effectiveOrdering,
         enforceExpectedCurrentStripeSubscriptionId: true,
         expectedCurrentStripeSubscriptionId: refreshedEntitlement.stripeSubscriptionId ?? null,
+        enforceExpectedCurrentStripeEventId: true,
+        expectedCurrentStripeEventId: refreshedEntitlement.lastStripeEventId ?? null,
       });
     }
     if (!applied) {
       const finalEntitlement = await options.usageStore.getEntitlement(tenantId);
+      if (finalEntitlement.lastStripeEventId === eventId) {
+        await options.reconcileAccountLocks?.(tenantId, finalEntitlement.plan, eventId);
+        await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
+        return {
+          handled: true,
+          type,
+          tenantId,
+          stripeSubscriptionId: subscriptionId,
+          reason: 'entitlement_already_committed',
+        };
+      }
       const finalStale = staleSubscriptionResultForEntitlement(
         type,
         tenantId,
@@ -382,13 +405,13 @@ async function syncStripeEventToEntitlement(
         finalEntitlement,
         {
           requireCurrentMatch: type === 'customer.subscription.deleted',
-          incomingCustomerId: stripeCustomerId,
+          incomingCustomerId: transition.stripeCustomerId,
           allowDifferentSubscription: allowsCreatedSubscriptionReplacement(
             type,
             subscriptionId,
             finalEntitlement,
-            stripeCustomerId,
-            subscriptionStatus,
+            transition.stripeCustomerId,
+            transition.subscriptionStatus,
           ),
         },
       );
@@ -402,21 +425,116 @@ async function syncStripeEventToEntitlement(
       }
       throw new Error('Stripe entitlement update remained contended; retry the webhook event.');
     }
-    await options.reconcileAccountLocks?.(tenantId, plan, ordering.id);
+    await options.reconcileAccountLocks?.(tenantId, transition.plan, ordering.id);
     await recordProcessedStripeEvent(options, event, type, tenantId, subscriptionId);
     return {
       handled: true,
       type,
       tenantId,
-      plan,
-      status,
-      pendingPlan,
-      pendingPlanEffectiveAt,
+      plan: transition.plan,
+      status: transition.status,
+      pendingPlan: transition.pendingPlan,
+      pendingPlanEffectiveAt: transition.pendingPlanEffectiveAt,
       stripeSubscriptionId: subscriptionId,
     };
   }
 
   return { handled: false, type, reason: 'event_type_ignored' };
+}
+
+function subscriptionEntitlementTransition(
+  type: string,
+  tenantId: string,
+  subscriptionId: string,
+  subscriptionObject: Record<string, unknown>,
+  priceIds?: StripePriceIds,
+): {
+  stripeCustomerId: string;
+  subscriptionStatus: string;
+  plan: SubscriptionPlan;
+  status: string;
+  pendingPlan: SubscriptionPlan | null;
+  pendingPlanEffectiveAt: number | null;
+  entitlementUpdate: {
+    tenantId: string;
+    plan: SubscriptionPlan;
+    status: string;
+    stripeCustomerId: string;
+    stripeSubscriptionId: string | null;
+    currentPeriodStart: number | null;
+    currentPeriodEnd: number | null;
+    pendingPlan: SubscriptionPlan | null;
+    pendingPlanEffectiveAt: number | null;
+  };
+} {
+  const isDeletion = type === 'customer.subscription.deleted';
+  const stripeCustomerId = stripeId(subscriptionObject.customer);
+  if (!stripeCustomerId) {
+    throw new Error('Stripe subscription is missing a valid customer id.');
+  }
+  const subscriptionStatus = stringField(subscriptionObject.status) || (isDeletion ? 'canceled' : 'active');
+  const planItem = isDeletion ? null : subscriptionPlanItem(subscriptionObject, priceIds);
+  const periodStart = planItem
+    ? subscriptionPeriodTimestampMs(subscriptionObject, planItem.item, 'current_period_start')
+    : null;
+  const periodEnd = planItem
+    ? subscriptionPeriodTimestampMs(subscriptionObject, planItem.item, 'current_period_end')
+    : null;
+  if (!isDeletion) assertValidSubscriptionPeriod(periodStart, periodEnd);
+  const cancelAtPeriodEnd = booleanField(subscriptionObject.cancel_at_period_end);
+  if (cancelAtPeriodEnd && periodEnd === null) {
+    throw new Error('Stripe subscription cancellation is missing a verified plan-item period end.');
+  }
+  const planFromEvent = planItem?.plan ?? null;
+  const computedPlan = isDeletion
+    ? 'free'
+    : entitlementPlanForSubscriptionStatus(subscriptionStatus, planFromEvent);
+  const plan = cancelAtPeriodEnd && !isDeletion ? planFromEvent! : computedPlan;
+  let status = entitlementStatusForSubscriptionStatus(subscriptionStatus);
+  if (cancelAtPeriodEnd && !isDeletion) status = 'active';
+  else if (isDeletion) status = 'cancelled';
+  const pendingPlan: SubscriptionPlan | null = cancelAtPeriodEnd && !isDeletion ? 'free' : null;
+  const pendingPlanEffectiveAt = pendingPlan ? periodEnd : null;
+  return {
+    stripeCustomerId,
+    subscriptionStatus,
+    plan,
+    status,
+    pendingPlan,
+    pendingPlanEffectiveAt,
+    entitlementUpdate: {
+      tenantId,
+      plan,
+      status,
+      stripeCustomerId,
+      stripeSubscriptionId: plan === 'free' ? null : subscriptionId,
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+      pendingPlan,
+      pendingPlanEffectiveAt,
+    },
+  };
+}
+
+function orderingForEntitlement(
+  ordering: { id: string; createdAt: number; priority: number },
+  entitlement: Awaited<ReturnType<D1UsageQuotaStore['getEntitlement']>>,
+  allowMigrationPromotion: boolean,
+): { id: string; createdAt: number; priority: number } {
+  if (
+    allowMigrationPromotion &&
+    entitlement.lastStripeEventId?.startsWith('migration:') &&
+    stripeEventPrecedesEntitlementWatermark(ordering, entitlement) &&
+    entitlement.lastStripeEventCreatedAt !== null &&
+    entitlement.lastStripeEventCreatedAt !== undefined
+  ) {
+    return {
+      ...ordering,
+      createdAt: entitlement.lastStripeEventCreatedAt,
+      priority: (entitlement.lastStripeEventPriority ?? 100) + 1,
+    };
+  }
+  return ordering;
 }
 
 function stripeEventPrecedesEntitlementWatermark(
@@ -470,15 +588,6 @@ function outOfOrderStripeEventResult(
     tenantId,
     stripeSubscriptionId: subscriptionId,
   };
-}
-
-async function findTenantIdForSubscription(
-  usageStore: D1UsageQuotaStore,
-  subscriptionId: string | null,
-): Promise<string | null> {
-  if (!subscriptionId) return null;
-  const entitlement = await usageStore.findEntitlementByStripeSubscriptionId(subscriptionId);
-  return entitlement?.tenantId ?? null;
 }
 
 function requireStripeSubscriptionResolver(

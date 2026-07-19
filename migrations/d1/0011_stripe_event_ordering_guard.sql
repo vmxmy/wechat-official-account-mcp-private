@@ -10,7 +10,7 @@ ALTER TABLE tenant_entitlements ADD COLUMN last_stripe_event_id TEXT;
 -- reconciliation baseline so a delayed pre-deployment webhook cannot become
 -- the first accepted event and regress live state.
 UPDATE tenant_entitlements
-SET last_stripe_event_created_at = (CAST(strftime('%s', 'now') AS INTEGER) - 1) * 1000,
+SET last_stripe_event_created_at = CAST(strftime('%s', 'now') AS INTEGER) * 1000,
     last_stripe_event_priority = 100,
     last_stripe_event_id = 'migration:0011'
 WHERE last_stripe_event_created_at IS NULL;
