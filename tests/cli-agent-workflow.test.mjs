@@ -71,7 +71,7 @@ function runWoa(args, options = {}) {
 async function waitUntil(predicate, timeoutMs = 5_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const result = predicate();
+    const result = await predicate();
     if (result) return result;
     await new Promise(resolve => setTimeout(resolve, 20));
   }
@@ -748,13 +748,27 @@ test('run leases reject concurrent resume and exact-version mismatch fails close
 
 test('runner heartbeats a short file lease throughout a long OAuth-style effect', async () => {
   const tempRoot = mkdtempSync(path.join(tmpdir(), 'woa-init-heartbeat-'));
+  let initialLeaseExpiresAt = 0;
+  let renewedPastInitialExpiry = false;
   class ShortLeaseStore extends FileInitRunStore {
-    async acquireLease(runId, ttlMs = 90) {
-      return await super.acquireLease(runId, ttlMs);
+    async acquireLease(runId, ttlMs = 1_200) {
+      const lease = await super.acquireLease(runId, ttlMs);
+      if (!initialLeaseExpiresAt) initialLeaseExpiresAt = lease.expiresAt;
+      return lease;
+    }
+
+    async renewLease(lease, ttlMs) {
+      const renewed = await super.renewLease(lease, ttlMs);
+      if (Date.now() > initialLeaseExpiresAt) renewedPastInitialExpiry = true;
+      return renewed;
     }
   }
   const store = new ShortLeaseStore(tempRoot);
   let competingLease;
+  let releaseEffect = () => undefined;
+  const effectGate = new Promise(resolve => {
+    releaseEffect = resolve;
+  });
   try {
     const running = runInit({
       mode: 'create',
@@ -763,16 +777,15 @@ test('runner heartbeats a short file lease throughout a long OAuth-style effect'
       installSignalHandlers: false,
       effects: {
         checkEnvironment: async () => {
-          await new Promise(resolve => setTimeout(resolve, 240));
+          await effectGate;
           return { supported: false, reason: 'test stop' };
         },
       },
       renderer: { render: async () => undefined },
     });
-    await new Promise(resolve => setTimeout(resolve, 25));
-    const run = await store.latest();
+    const run = await waitUntil(() => store.latest(), 5_000);
     assert.ok(run);
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await waitUntil(() => renewedPastInitialExpiry, 8_000);
     let conflict;
     try {
       competingLease = await store.acquireLease(run.runId);
@@ -781,12 +794,14 @@ test('runner heartbeats a short file lease throughout a long OAuth-style effect'
       conflict = error instanceof InitRunnerError && error.code === 'init_run_conflict';
     }
     if (competingLease) await store.releaseLease(competingLease);
+    releaseEffect();
     const result = await running.catch(error => error);
 
     assert.equal(conflict, true, 'a second process must not steal a lease during a long effect');
     assert.equal(result instanceof Error, false, result?.message);
     assert.equal(result.event.status, 'unsupported');
   } finally {
+    releaseEffect();
     if (competingLease) await store.releaseLease(competingLease);
     rmSync(tempRoot, { recursive: true, force: true });
   }
