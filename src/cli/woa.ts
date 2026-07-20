@@ -7,8 +7,17 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { ALLOWED_MEDIA_TYPES, FILE_SIZE_LIMITS } from '../utils/validation.js';
 import { ensureFreshOAuthSession } from './oauth-session.js';
+import { cliScopesForProfile, DEFAULT_CLI_SCOPES } from './oauth-scopes.js';
 import { authorizationCodeFromCallback } from './oauth-callback.js';
 import { renderAgentHelp } from './agent-help.js';
+import { loadCliJsonObject, normalizeDraftArticlesInput } from './api-input.js';
+import {
+  assertToolConfirmation,
+  createToolDryRun,
+  filterWechatTools,
+  isWechatToolName,
+  requiredToolConfirmation,
+} from './api-safety.js';
 import { JsonInitRenderer, JsonlInitRenderer } from './init-jsonl.js';
 import { FileInitRunStore, InitRunnerError, runInit } from './init-runner.js';
 import { ProgressiveInitTuiRenderer, PlainInitRenderer } from './init-tui.js';
@@ -20,6 +29,7 @@ import {
   type RemoteInitRunReference,
 } from './init.js';
 import { renderMcpDescriptor } from './mcp-descriptor.js';
+import { CliMcpApiClient, type CliMcpTool } from './mcp-api-client.js';
 import { defaultCliConfigPath, defaultInitDirectory, readSecureJson, writeSecureJson } from './secure-config.js';
 import { readSecureInput } from './secure-input.js';
 import { detectTerminalCapabilities } from './terminal-capabilities.js';
@@ -72,13 +82,6 @@ interface CliRemoteContext {
 }
 
 const DEFAULT_CLIENT_ID = 'woa-cli';
-const DEFAULT_SCOPES = [
-  'woa:context:read',
-  'woa:account:read',
-  'woa:account:write',
-  'woa:content:read',
-  'woa:content:write',
-].join(' ');
 const CONFIG_PATH = defaultCliConfigPath();
 
 interface OAuthServerMetadata {
@@ -181,6 +184,11 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (root === 'api') {
+    await handleMcpApiCommand(sub, leaf, parsed.flags);
+    return;
+  }
+
   if (root === 'account') {
     await handleAccountCommand(sub, leaf, parsed.flags);
     return;
@@ -189,6 +197,11 @@ async function main(argv: string[]): Promise<void> {
   if (root === 'draft' && sub === 'list') {
     const { tenantId, accountId } = await resolveTenantAccount(parsed.flags);
     console.log(JSON.stringify(await apiGet(`/api/v1/tenants/${tenantId}/accounts/${accountId}/drafts${paginationQuery(parsed.flags)}`, parsed.flags), null, 2));
+    return;
+  }
+
+  if (root === 'draft' && ['add', 'update', 'get', 'count'].includes(sub ?? '')) {
+    await handleDraftMcpCommand(sub!, leaf, parsed.flags);
     return;
   }
 
@@ -226,6 +239,12 @@ async function main(argv: string[]): Promise<void> {
 
   if (root === 'mcp' && sub === 'config') {
     await writeMcpConfig(leaf, parsed.flags);
+    return;
+  }
+
+
+  if (root === 'mcp' && ['tools', 'describe', 'call'].includes(sub ?? '')) {
+    await handleMcpApiCommand(sub === 'tools' ? 'list' : sub, leaf, parsed.flags);
     return;
   }
 
@@ -712,7 +731,13 @@ async function login(flags: Record<string, string | boolean>): Promise<void> {
   const requestedClientId = stringFlag(flags, 'client-id') || DEFAULT_CLIENT_ID;
 
   const metadata = await discoverOAuthMetadata(server);
-  const scope = stringFlag(flags, 'scope') || stringFlag(flags, 'scopes') || DEFAULT_SCOPES;
+  const scopeProfile = stringFlag(flags, 'scope-profile');
+  if (scopeProfile && scopeProfile !== 'wechat-full') {
+    throw new CliUsageError('login --scope-profile currently supports only wechat-full.');
+  }
+  const scope = stringFlag(flags, 'scope')
+    || stringFlag(flags, 'scopes')
+    || cliScopesForProfile(scopeProfile);
   const verifier = base64Url(randomBytes(32));
   const challenge = base64Url(createHash('sha256').update(verifier).digest());
   const state = base64Url(randomBytes(16));
@@ -815,7 +840,7 @@ async function completeHeadlessLogin(
     clientId: pendingClientId,
     clientSecret: pendingClientSecret,
   });
-  await saveOAuthTokenResponse(tokenResponse, pending.scope || DEFAULT_SCOPES, {
+  await saveOAuthTokenResponse(tokenResponse, pending.scope || DEFAULT_CLI_SCOPES, {
     server: pendingServer,
     clientId: pendingClientId,
     clientSecret: pendingClientSecret,
@@ -908,7 +933,7 @@ async function prepareInitOAuthAuthorization(
       server,
       redirectUri,
       `${DEFAULT_CLIENT_ID}-init`,
-      DEFAULT_SCOPES,
+      DEFAULT_CLI_SCOPES,
       options.signal,
     );
     const authorizeUrl = new URL(metadata.authorization_endpoint || new URL('/authorize', server).toString());
@@ -918,7 +943,7 @@ async function prepareInitOAuthAuthorization(
     authorizeUrl.searchParams.set('code_challenge', challenge);
     authorizeUrl.searchParams.set('code_challenge_method', 'S256');
     authorizeUrl.searchParams.set('state', state);
-    authorizeUrl.searchParams.set('scope', DEFAULT_SCOPES);
+    authorizeUrl.searchParams.set('scope', DEFAULT_CLI_SCOPES);
     await savePendingOAuth({
       server,
       clientId: registration.client_id,
@@ -927,7 +952,7 @@ async function prepareInitOAuthAuthorization(
       verifier,
       state,
       redirectUri,
-      scope: DEFAULT_SCOPES,
+      scope: DEFAULT_CLI_SCOPES,
     });
     return {
       authorizationUrl: authorizeUrl.toString(),
@@ -944,7 +969,7 @@ async function prepareInitOAuthAuthorization(
           clientId: registration.client_id,
           clientSecret: registration.client_secret,
         }, options.signal);
-        await saveOAuthTokenResponse(tokenResponse, DEFAULT_SCOPES, {
+        await saveOAuthTokenResponse(tokenResponse, DEFAULT_CLI_SCOPES, {
           server,
           clientId: registration.client_id,
           clientSecret: registration.client_secret,
@@ -1193,6 +1218,198 @@ function openBrowser(url: string): void {
 function isLikelyHeadlessEnvironment(): boolean {
   if (process.env.SSH_CONNECTION || process.env.SSH_TTY) return true;
   return process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
+}
+
+async function handleMcpApiCommand(
+  sub: string | undefined,
+  toolName: string | undefined,
+  flags: Record<string, string | boolean>,
+): Promise<void> {
+  if (sub === 'list') {
+    const client = await createCliMcpApiClient(flags);
+    try {
+      const tools = await client.listTools();
+      const selected = flagEnabled(flags, 'all') ? tools : filterWechatTools(tools);
+      console.log(JSON.stringify({
+        success: true,
+        data: {
+          count: selected.length,
+          tools: selected.map(tool => ({
+            name: tool.name,
+            description: tool.description,
+            annotations: tool.annotations,
+          })),
+        },
+      }, null, 2));
+    } finally {
+      await client.close();
+    }
+    return;
+  }
+
+  if (sub === 'describe') {
+    if (!toolName) throw new CliUsageError('api describe requires a tool name.');
+    if (!isWechatToolName(toolName) && !flagEnabled(flags, 'all')) {
+      throw new CliUsageError('api describe defaults to wechat_* tools. Pass --all only when inspecting a management tool.');
+    }
+    const client = await createCliMcpApiClient(flags);
+    try {
+      const tool = (await client.listTools()).find(candidate => candidate.name === toolName);
+      if (!tool) throw new Error(`MCP tool not found: ${toolName}`);
+      console.log(JSON.stringify({ success: true, data: tool }, null, 2));
+    } finally {
+      await client.close();
+    }
+    return;
+  }
+
+  if (sub === 'call') {
+    if (!toolName) throw new CliUsageError('api call requires a wechat_* tool name.');
+    const args = await loadCliJsonObject({
+      input: stringFlag(flags, 'input'),
+      file: stringFlag(flags, 'file'),
+      stdin: flagEnabled(flags, 'stdin'),
+    });
+    await executeWechatMcpCall(toolName, args, flags);
+    return;
+  }
+
+  throw new CliUsageError(`Unknown API command: api ${sub ?? ''}`.trim());
+}
+
+async function handleDraftMcpCommand(
+  action: string,
+  mediaIdArg: string | undefined,
+  flags: Record<string, string | boolean>,
+): Promise<void> {
+  if (action === 'get') {
+    const mediaId = mediaIdArg || stringFlag(flags, 'media-id') || stringFlag(flags, 'mediaId');
+    if (!mediaId) throw new CliUsageError('draft get requires <mediaId> or --media-id <mediaId>.');
+    await executeWechatMcpCall('wechat_draft', { action, mediaId }, flags);
+    return;
+  }
+  if (action === 'count') {
+    await executeWechatMcpCall('wechat_draft', { action }, flags);
+    return;
+  }
+
+  const loaded = normalizeDraftArticlesInput(await loadCliJsonObject({
+    input: stringFlag(flags, 'input'),
+    file: stringFlag(flags, 'file'),
+    stdin: flagEnabled(flags, 'stdin'),
+  }));
+  const articles = loaded.articles;
+  if (!Array.isArray(articles) || articles.length === 0) {
+    throw new CliUsageError(`draft ${action} requires article JSON through --input, --file, or --stdin.`);
+  }
+
+  if (action === 'add') {
+    await executeWechatMcpCall('wechat_draft', { ...loaded, action, articles }, flags);
+    return;
+  }
+
+  const mediaId = mediaIdArg || stringFlag(flags, 'media-id') || stringFlag(flags, 'mediaId');
+  const index = optionalNonNegativeIntFlag(flags, 'index');
+  if (!mediaId) throw new CliUsageError('draft update requires <mediaId> or --media-id <mediaId>.');
+  if (index === undefined) throw new CliUsageError('draft update requires --index <n>.');
+  if (articles.length !== 1) throw new CliUsageError('draft update requires exactly one article.');
+  await executeWechatMcpCall('wechat_draft', {
+    ...loaded,
+    action,
+    mediaId,
+    index,
+    articles,
+  }, flags);
+}
+
+async function executeWechatMcpCall(
+  toolName: string,
+  rawArgs: Record<string, unknown>,
+  flags: Record<string, string | boolean>,
+): Promise<void> {
+  if (!isWechatToolName(toolName)) {
+    throw new CliUsageError('woa api call is limited to wechat_* tools. Use the dedicated woa management commands for SaaS administration.');
+  }
+
+  if (flagEnabled(flags, 'dry-run')) {
+    const args = await injectDryRunAccount(rawArgs, flags);
+    const syntheticTool: CliMcpTool = {
+      name: toolName,
+      inputSchema: { type: 'object' },
+    };
+    console.log(JSON.stringify({
+      ...createToolDryRun(toolName, args),
+      requiredConfirmation: requiredToolConfirmation(syntheticTool, args),
+    }, null, 2));
+    return;
+  }
+
+  const client = await createCliMcpApiClient(flags);
+  try {
+    const tool = (await client.listTools()).find(candidate => candidate.name === toolName);
+    if (!tool || !isWechatToolName(tool.name)) throw new Error(`WeChat MCP tool not found: ${toolName}`);
+    const args = await injectToolAccount(tool, rawArgs, flags);
+    assertToolConfirmation(tool, args, stringFlag(flags, 'confirm'));
+    const result = await client.callTool(tool.name, args);
+    console.log(JSON.stringify(result, null, 2));
+    if (result.isError === true) {
+      printMcpScopeRecovery(result);
+      process.exitCode = 1;
+    }
+  } catch (error) {
+    printMcpScopeRecovery(error);
+    throw error;
+  } finally {
+    await client.close();
+  }
+}
+
+async function createCliMcpApiClient(flags: Record<string, string | boolean>): Promise<CliMcpApiClient> {
+  const config = await loadConfig();
+  const server = normalizeServer(stringFlag(flags, 'server') || config.server || '');
+  if (!server) throw new Error('Missing server. Run `woa login --server <url>` or pass --server.');
+  return new CliMcpApiClient({
+    server,
+    clientVersion: CLI_VERSION,
+    fetch: async (input, init = {}) => await fetchWithOAuth(new URL(input.toString()), init, flags),
+  });
+}
+
+async function injectToolAccount(
+  tool: CliMcpTool,
+  args: Record<string, unknown>,
+  flags: Record<string, string | boolean>,
+): Promise<Record<string, unknown>> {
+  const acceptsAccount = Object.prototype.hasOwnProperty.call(tool.inputSchema.properties ?? {}, 'accountId');
+  if (!acceptsAccount) return args;
+  const argumentAccountId = typeof args.accountId === 'string' && args.accountId.trim() ? args.accountId.trim() : undefined;
+  const flagAccountId = stringFlag(flags, 'account') || stringFlag(flags, 'account-id');
+  if (argumentAccountId && flagAccountId && argumentAccountId !== flagAccountId) {
+    throw new CliUsageError('Tool input accountId conflicts with --account. Choose one target account.');
+  }
+  const selectionFlags = argumentAccountId ? { ...flags, account: argumentAccountId } : flags;
+  const { accountId } = await resolveTenantAccount(selectionFlags);
+  return argumentAccountId ? args : { ...args, accountId };
+}
+
+async function injectDryRunAccount(
+  args: Record<string, unknown>,
+  flags: Record<string, string | boolean>,
+): Promise<Record<string, unknown>> {
+  if (typeof args.accountId === 'string' && args.accountId.trim()) return args;
+  const config = await loadConfig();
+  const accountId = stringFlag(flags, 'account') || stringFlag(flags, 'account-id') || config.activeAccountId;
+  return accountId ? { ...args, accountId } : args;
+}
+
+function printMcpScopeRecovery(value: unknown): void {
+  const text = value instanceof Error ? value.message : JSON.stringify(value);
+  if (!/missing[_ -]?scope|woa:[a-z]+:[a-z]+/i.test(text)) return;
+  const match = text.match(/woa:[a-z]+:[a-z]+/i);
+  console.error(
+    `CLI OAuth grant lacks${match ? ` ${match[0]}` : ' a required scope'}. Reauthorize explicitly with: ` +
+    'woa login --server <url> --scope-profile wechat-full',
+  );
 }
 
 async function apiGet(route: string, flags: Record<string, string | boolean>): Promise<unknown> {
@@ -1685,7 +1902,13 @@ Usage:
   woa init resume <runId> [--plain]
   woa init resume <runId> --agent --format jsonl
   woa mcp descriptor [--server <url>] [--format json]
-  woa login --server <url> [--headless]
+  woa mcp tools
+  woa mcp describe <wechat_tool>
+  woa mcp call <wechat_tool> [--input <json> | --file <path> | --stdin]
+  woa api list [--all]
+  woa api describe <wechat_tool>
+  woa api call <wechat_tool> [--input <json> | --file <path> | --stdin]
+  woa login --server <url> [--headless] [--scope-profile wechat-full]
   woa login complete
   woa whoami [--server <url>]
   woa tenant list
@@ -1700,6 +1923,10 @@ Usage:
   woa account configure --tenant <tenantId> --account <accountId> --app-id <wx...>
   woa account delete <accountId> --confirm-delete [--tenant <tenantId>]
   woa billing checkout --plan plus|pro [--tenant <tenantId>] [--no-open]
+  woa draft add [--input <json> | --file <path> | --stdin] [--tenant <tenantId>] [--account <accountId>]
+  woa draft update <media_id> --index <n> [--input <json> | --file <path> | --stdin]
+  woa draft get <media_id> [--tenant <tenantId>] [--account <accountId>]
+  woa draft count [--tenant <tenantId>] [--account <accountId>]
   woa draft list [--tenant <tenantId>] [--account <accountId>] [--count 20]
   woa draft delete <media_id> --confirm-delete [--tenant <tenantId>] [--account <accountId>]
   woa publish list [--tenant <tenantId>] [--account <accountId>] [--count 20]
@@ -1709,7 +1936,10 @@ Usage:
 
 Runtime posture:
   - First run: use \`woa init\`; command-capable Agents first read \`woa help agent\`.
-  - Remote-only: commands call the OAuth-protected Worker REST API or describe the remote /mcp endpoint.
+  - Remote-only: commands call the OAuth-protected Worker REST API or the standard remote /mcp endpoint.
+  - \`woa api list/describe/call\` exposes the authoritative current wechat_* MCP tool surface without duplicating REST routes.
+  - Prefer --file or --stdin for long or sensitive structured input; do not place secrets in --input or shell history.
+  - Protected MCP actions require exact --confirm <tool>:<action>; --dry-run never opens an MCP connection.
   - No local MCP server, stdio transport, SSE transport, SQLite, or local WeChat runtime.
   - Local files use \`woa media upload <path>\` to stage binary bytes in R2; remote MCP tools receive only r2Key/fileUrl, never a local path or base64 payload.
   - Destructive delete commands require --confirm-delete; use --dry-run first to verify the target.

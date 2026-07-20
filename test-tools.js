@@ -823,11 +823,16 @@ check(
 const woaHelp = execFileSync(process.execPath, ['./dist/src/cli/woa.js', '--help'], { encoding: 'utf8' });
 check(
   woaHelp.includes('remote-only') &&
+    woaHelp.includes('woa api list [--all]') &&
+    woaHelp.includes('woa api call <wechat_tool>') &&
+    woaHelp.includes('woa draft add') &&
+    woaHelp.includes('woa draft update <media_id>') &&
+    woaHelp.includes('--scope-profile wechat-full') &&
     woaHelp.includes('woa billing checkout --plan plus|pro') &&
     woaHelp.includes('woa quota status') &&
     woaHelp.includes('woa account default <accountId>') &&
     !woaHelp.includes('wechat-mcp mcp -a -s'),
-  'woa CLI 帮助只宣传 remote-only 工作流并包含 billing/quota/account onboarding 命令',
+  'woa CLI 帮助只宣传 remote-only 工作流并包含完整 WeChat API gateway、草稿、scope 与管理命令',
 );
 const refreshCliRequests = [];
 const refreshCliServer = createServer(async (req, res) => {

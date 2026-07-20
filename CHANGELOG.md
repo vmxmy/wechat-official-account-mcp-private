@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.4.0 (2026-07-20)
+
+### CLI 微信 API 完备化
+
+- 新增 OAuth 复用的标准 Streamable HTTP MCP client，`woa api list/describe/call` 可动态发现并调用全部 23 个 `wechat_*` 工具。
+- 新增 `woa mcp tools/describe/call` 等价入口，工具 schema 以服务端 `tools/list` 为准，不复制 REST contract。
+- 草稿 CLI 补齐 `add`、`update`、`get`、`count`，保留现有 `list`、`delete` 兼容行为。
+- 支持 `--input`、`--file`、`--stdin` 三种互斥 JSON object 输入；长正文推荐文件或 stdin，避免进入 shell history。
+- 新增 `woa login --scope-profile wechat-full`，默认登录仍保持最小权限。
+- 通用调用增加账号可访问性校验、dry-run 脱敏预览、未知/高影响 action 精确确认和 MCP `isError` 非零退出码。
+- 新增真实本地 Streamable HTTP MCP 集成测试和 23 工具 CLI 可达性契约。
+
 ### 说明
 
 2026-07-01 起，微信公众号 API contract 以 [WECHAT_OFFICIAL_API_CONTRACT.md](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源。早期版本说明中的“完整覆盖”“60+ 方法”等表述是当时的发布描述，不代表已逐项核验的官方覆盖率。

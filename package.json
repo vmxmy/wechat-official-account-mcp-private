@@ -1,6 +1,6 @@
 {
   "name": "@ziikoo/woa",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "description": "WOA remote-only CLI and hosted Web entrypoint for WeChat Official Account MCP SaaS",
   "keywords": [
@@ -51,7 +51,7 @@
     "lint": "eslint .",
     "check": "tsc --noEmit",
     "test": "npm run build:prod && npm run test:contracts && node test-tools.js && node scripts/web-render-smoke.mjs && node scripts/worker-oauth-smoke.mjs",
-    "test:contracts": "node --import tsx --test tests/cli-agent-workflow.test.mjs && node --import tsx --test tests/worker-backend-contracts.test.ts && node --import tsx --test tests/audit-regressions.test.ts",
+    "test:contracts": "node --import tsx --test tests/cli-agent-workflow.test.mjs && node --import tsx --test tests/cli-api-capabilities.test.ts && node --import tsx --test tests/worker-backend-contracts.test.ts && node --import tsx --test tests/audit-regressions.test.ts",
     "test:package-node-lts": "node scripts/package-node-lts-smoke.mjs",
     "clean": "rm -rf dist web/dist",
     "pack:dry": "npm pack --dry-run",

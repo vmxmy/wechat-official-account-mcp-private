@@ -16,7 +16,7 @@
 | 2 | wechat_media_upload | 临时素材上传 | 2个操作 |
 | 3 | wechat_upload_img | 图文图片上传 | 1个操作 |
 | 4 | wechat_permanent_media | 永久素材管理 | 5个操作 |
-| 5 | wechat_draft | 草稿管理 | 5个操作 |
+| 5 | wechat_draft | 草稿管理 | 6个操作（add/update/get/delete/list/count） |
 | 6 | wechat_publish | 发布管理 | 4个操作 |
 | **总计** | **6个工具** | | **21个操作** |
 
@@ -152,6 +152,18 @@ wechat_publish.submit(mediaId)
 // 6. 监控数据
 wechat_statistics.get_article_total(beginDate, endDate)
 ```
+
+同一能力也可通过 v2.4.0 remote-only CLI 的动态 MCP gateway 调用：
+
+```bash
+woa api list
+woa api describe wechat_draft
+woa draft add --file ./draft.json
+woa draft update <mediaId> --index 0 --file ./article.json
+woa api call wechat_statistics --file ./statistics-query.json
+```
+
+CLI 默认只展示和调用 `wechat_*` 工具；高影响 action 要求精确 `--confirm <tool>:<action>`，完整发布/收件箱权限需显式使用 `woa login --scope-profile wechat-full`。
 
 ### 场景4: 菜单配置流程
 

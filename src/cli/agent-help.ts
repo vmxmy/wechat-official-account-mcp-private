@@ -58,6 +58,8 @@ export function createAgentHelpManifest(cliVersion = CLI_VERSION): AgentHelpMani
       'Only report a host capability as complete after the host itself provides verification evidence.',
       'The connection test may create a draft after explicit confirmation, but it must never publish content.',
       'Only a directly operating user may submit allowlist_saved or test-draft confirmation events; an Agent must pause for those actions.',
+      'For direct CLI WeChat API calls, discover schemas with woa api list/describe, prefer JSON files or stdin, and never invent tool arguments.',
+      'Never bypass an exact --confirm <tool>:<action> requirement for a protected MCP operation.',
     ],
     capabilityChecks: [
       'Node.js satisfies the package runtime requirement.',

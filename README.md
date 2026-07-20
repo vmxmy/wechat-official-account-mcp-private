@@ -9,9 +9,9 @@
 
 本项目基于 MCP 协议，为支持远程 Streamable HTTP 与 OAuth 的 AI Agent/宿主提供微信公众号 API 工具集。通过标准化的工具接口，AI 可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计、二维码、评论、黑名单、入站消息收件箱等常用运营能力。
 
-**当前版本**: `v2.3.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
+**当前版本**: `v2.4.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**v2.3.0 Agent-first SaaS onboarding 更新**: 新增 hosted Web 入口（`web/`，Astryx + TanStack Router/Query）、remote-only `@ziikoo/woa` CLI、可恢复的 `woa init` TUI/JSONL 流程、OAuth/安全凭据 handoff，以及二维码、短链接、评论管理、黑名单、客服账号、账号管理、统一内容发布等能力，并保留入站消息收件箱。当前共 27 个 MCP 工具（23 个微信公众号运营工具 + 4 个多租户管理工具）。运行时为 Cloudflare Workers Remote MCP（OAuth 保护的 `/mcp`、D1/R2/Durable Object、Worker assets `web/dist`、微信公众号 `/wx/callback/{accountId}`），本地桌面端 stdio 与 MCP-over-SSE 已移除。API contract 以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源；当前工具覆盖情况和已知偏差以该文档为准。
+**v2.4.0 CLI API 完备化更新**: remote-only `@ziikoo/woa` 现在通过标准 Streamable HTTP MCP 动态发现并调用全部 23 个 `wechat_*` 运营工具，新增 `woa api list/describe/call`、完整草稿 add/update/get/count 命令、JSON 文件/stdin 输入、显式 `wechat-full` OAuth scope profile、dry-run 与高风险 action 精确确认。Hosted Web、可恢复 `woa init`、安全凭据 handoff 和 4 个多租户管理工具保持不变。API contract 仍以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源。
 
 ## 📖 文档导航
 
@@ -634,14 +634,41 @@ woa quota status                   # usage 的别名
 woa tenant usage --tenant <id>     # 指定租户查看用量
 woa account create --name "公众号"
 woa account default <accountId>
-woa account configure --tenant <id> --account <id> --app-id <wx...> --app-secret <secret>
+woa account configure --tenant <id> --account <id> --app-id <wx...>  # AppSecret 在可信 TTY 中无回显输入
 woa billing checkout --plan plus   # 打印并打开 Stripe Checkout URL
+woa api list                       # 动态列出服务端当前全部 wechat_* 工具
+woa api describe wechat_draft      # 查看权威 MCP inputSchema
+woa api call wechat_draft --input '{"action":"count"}'
+woa draft add --file ./draft.json
+woa draft update <mediaId> --index 0 --file ./article.json
+woa draft get <mediaId>
+woa draft count
 woa draft delete <media_id> --dry-run
 woa draft delete <media_id> --confirm-delete
 woa publish delete <article_id> --dry-run
 woa publish delete <article_id> --confirm-delete
 woa media upload ./cover.png --tenant <id> --account <id>
 ```
+
+CLI 的完整微信公众号能力以生产 `/mcp` 的 `tools/list` 为权威目录，不在本地维护第二套静态 API。推荐先查看 schema，再通过 JSON 文件或 stdin 调用：
+
+```bash
+woa api list
+woa api describe wechat_template_msg
+woa api call wechat_template_msg --file ./template-message.json \
+  --confirm wechat_template_msg:send
+cat ./draft.json | woa api call wechat_draft --stdin
+```
+
+`woa api call` 只允许 `wechat_*` 工具；SaaS 租户、账号、计费和审计继续使用专用管理命令。`--dry-run` 不建立 MCP 连接，并会脱敏预览参数；删除、发布、群发、模板/客服消息发送、菜单替换、拉黑等高影响 action 必须提供 CLI 输出要求的精确 `--confirm <tool>:<action>`。
+
+默认 OAuth 登录保持最小权限。需要发布、群发和收件箱等完整微信公众号运营 scope 时，由用户显式重新授权：
+
+```bash
+woa login --server https://<your-worker-domain> --scope-profile wechat-full
+```
+
+该 profile 请求 `context:read`、`account:read/write`、`content:read/write/publish` 和 `inbox:read`；租户角色仍可能拒绝其无权获得的 scope。
 
 `woa` 会在 access token 剩余不足 5 分钟时自动刷新并原子保存轮换后的 refresh token；如果服务端提前撤销了 access token，CLI 会在收到 401 后强制刷新一次并重试。正常使用不再需要手工复制新 token。
 
