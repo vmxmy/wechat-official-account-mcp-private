@@ -270,7 +270,7 @@ test('pseudo-TTY woa ui and interactive init restore alternate screen and print 
   try {
     const address = server.address() as { port: number };
     const init = await runPseudoTty([
-      'init', '--server', `http://127.0.0.1:${address.port}`, '--no-open', '--timeout', '2',
+      'init', '--server', `http://127.0.0.1:${address.port}`, '--no-open', '--timeout', '10',
     ], 'q');
     assert.equal(init.code, 0, init.stderr || init.stdout);
     assert.equal(init.stdout.includes('\u001b[?1049h'), true);
@@ -279,7 +279,7 @@ test('pseudo-TTY woa ui and interactive init restore alternate screen and print 
     assert.doesNotMatch(init.stdout + init.stderr, /access_token|refresh_token|client_secret/i);
 
     const interrupted = await runPseudoTty([
-      'init', '--server', `http://127.0.0.1:${address.port}`, '--no-open', '--timeout', '2',
+      'init', '--server', `http://127.0.0.1:${address.port}`, '--no-open', '--timeout', '10',
     ], '\u0003');
     assert.ok(interrupted.code === 130 || (process.platform === 'darwin' && interrupted.code === 0), interrupted.stderr || interrupted.stdout);
     assert.equal(interrupted.stdout.includes('\u001b[?1049l'), true);
@@ -404,25 +404,50 @@ async function runPseudoTty(args: string[], input: string): Promise<{ code: numb
     `WOA_CLI_CONFIG=${shellQuote(path.join(tempRoot, 'config.json'))}`,
     `WOA_INIT_DIR=${shellQuote(path.join(tempRoot, 'runs'))}`,
   ].join(' ');
-  const delayedInput = `(sleep 1; printf ${shellQuote(input)})`;
+  const delayedInput = input === 'q'
+    ? `(sleep 1; while printf q; do sleep 1; done)`
+    : `(sleep 3; printf ${shellQuote(input)})`;
   const command = process.platform === 'darwin'
     ? `${delayedInput} | script -q /dev/null env ${env} ${cli}`
     : `${delayedInput} | script -q -e -c ${shellQuote(`env ${env} ${cli}`)} /dev/null`;
-  const child = spawn('/bin/sh', ['-c', command], { cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn('/bin/sh', ['-c', command], {
+    cwd: projectRoot,
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   let stdout = '';
   let stderr = '';
+  let timedOut = false;
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
   child.stdout.on('data', chunk => { stdout += chunk; });
   child.stderr.on('data', chunk => { stderr += chunk; });
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    killProcessGroup(child.pid);
+  }, 30_000);
   try {
     const code = await new Promise<number | null>((resolve, reject) => {
       child.once('error', reject);
       child.once('exit', resolve);
     });
+    if (timedOut) {
+      throw new Error(`pseudo-TTY command timed out after 30 seconds\n${stderr || stdout}`);
+    }
     return { code, stdout, stderr };
   } finally {
+    clearTimeout(timeout);
+    if (child.exitCode === null) killProcessGroup(child.pid);
     rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function killProcessGroup(pid: number | undefined): void {
+  if (pid === undefined) return;
+  try {
+    process.kill(-pid, 'SIGKILL');
+  } catch {
+    // The process group may already have exited between the state check and kill.
   }
 }
 
