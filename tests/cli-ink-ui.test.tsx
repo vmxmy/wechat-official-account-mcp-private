@@ -76,6 +76,8 @@ test('Ink keyboard focus returns explicit typed actions', async t => {
   view.stdin.write('\u0003');
   await nextTurn();
   assert.deepEqual(actions.at(-1), { kind: 'interrupt' });
+  view.unmount();
+  view.cleanup();
 
   const navigated: unknown[] = [];
   const navigation = renderInk(<InitScreen event={eventAtAllowlist()} width={80} color={false} onAction={action => navigated.push(action)} />);
@@ -161,8 +163,11 @@ test('WOA UI shell uses compatibility redraws instead of incremental line append
     await nextTurn();
     const initialLength = rendered.stdout.length;
     input.write('s');
-    await new Promise(resolve => setTimeout(resolve, 75));
-    const update = rendered.stdout.slice(initialLength);
+    const update = await waitForOutput(
+      () => rendered.stdout.slice(initialLength),
+      value => value.includes('状态详情'),
+      'WOA UI shell redraw',
+    );
     assert.match(update, /状态详情/);
     assert.equal(update.includes('\u001b[2K'), true);
     assert.equal(update.includes('\u001b[1A'), true);
@@ -183,8 +188,11 @@ test('persistent Ink renderer reuses one alternate screen and resolves one actio
 
   const initialLength = rendered.stdout.length;
   const remoteAction = renderer.render(toInitProtocolEvent(runAtRemoteMcp()));
-  await new Promise(resolve => setTimeout(resolve, 75));
-  const update = rendered.stdout.slice(initialLength);
+  const update = await waitForOutput(
+    () => rendered.stdout.slice(initialLength),
+    value => value.includes('\u001b[2K'),
+    'Ink onboarding redraw',
+  );
   assert.equal(update.includes('\u001b[2K'), true);
   assert.equal(update.includes('\u001b[1A'), true);
   assert.equal(update.includes('\u001b[E'), false);
@@ -490,4 +498,19 @@ function count(value: string, needle: string): number {
 
 function nextTurn(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, 25));
+}
+
+async function waitForOutput(
+  read: () => string,
+  predicate: (value: string) => boolean,
+  label: string,
+  timeoutMs = 2_000,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const value = read();
+    if (predicate(value)) return value;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  throw new Error(`${label} did not render within ${timeoutMs}ms`);
 }
