@@ -1,5 +1,4 @@
 import { createInterface } from 'node:readline/promises';
-import { cancel, intro, isCancel, log, note, outro, select } from '@clack/prompts';
 import type { InitPhase, InitProtocolEvent } from './init.js';
 import type { InitRenderer, InitRendererAction } from './init-runner.js';
 
@@ -13,74 +12,6 @@ const STEP_RAIL: Array<{ phase: InitPhase; label: string }> = [
   { phase: 'tool_verification_required', label: '工具验证' },
   { phase: 'test_draft_required', label: '测试草稿' },
 ];
-
-export interface InitTuiOptions {
-  width?: number;
-  headless?: boolean;
-}
-
-export class ProgressiveInitTuiRenderer implements InitRenderer {
-  private started = false;
-  private ended = false;
-
-  constructor(private readonly options: InitTuiOptions = {}) {}
-
-  async render(event: InitProtocolEvent): Promise<InitRendererAction | void> {
-    if (!this.started) {
-      intro('WOA 微信 MCP 接入');
-      log.info('如需读屏或保留纯文本日志，可随时改用 `woa init --plain`。');
-      this.started = true;
-    }
-
-    note(renderStepRail(event, this.options.width ?? process.stdout.columns ?? 80), '接入进度');
-    if (event.type === 'done') {
-      outro(event.nextAction?.reason || '接入流程已完成。');
-      this.ended = true;
-      return;
-    }
-    if (event.type === 'error' || event.type === 'unsupported') {
-      log.error(`${event.error?.message || '当前环境不支持继续。'}${event.error?.code ? ` (${event.error.code})` : ''}`);
-    }
-    if (event.type === 'paused') {
-      outro(`已保存检查点。恢复：woa init resume ${event.runId}`);
-      this.ended = true;
-      return;
-    }
-
-    const action = event.nextAction;
-    if (!action) return;
-    renderCurrentAction(event);
-    const choice = await select({
-      message: '当前只需完成这一项：',
-      options: tuiOptions(event, this.options.headless === true),
-    });
-    if (isCancel(choice) || choice === 'pause') {
-      if (isCancel(choice)) {
-        cancel('已中断；正在保存检查点。');
-        return { kind: 'interrupt' };
-      }
-      cancel('稍后继续；正在保存检查点。');
-      return { kind: 'pause' };
-    }
-    if (choice === 'open' && action.kind === 'open_url') return { kind: 'open_url', url: action.url };
-    if (choice === 'acknowledge') return { kind: 'acknowledge' };
-    if (choice === 'remote_mcp_added') return { kind: 'remote_mcp_added' };
-    if (choice === 'host_oauth_completed') return { kind: 'host_oauth_completed' };
-    if (choice === 'host_tool_verified' && action.kind === 'call_mcp_tool') {
-      return {
-        kind: 'host_tool_verified',
-        tool: action.tool === 'woa_context' ? 'woa_context' : 'wechat_draft_count',
-      };
-    }
-    if (choice === 'confirm') return { kind: 'confirm' };
-    if (choice === 'decline') return { kind: 'decline' };
-    return { kind: 'pause' };
-  }
-
-  restore(): void {
-    if (this.started && !this.ended && process.stdout.isTTY) process.stdout.write('\u001b[?25h');
-  }
-}
 
 export interface PlainInitRendererOptions {
   input?: NodeJS.ReadStream;
@@ -150,71 +81,6 @@ export function renderStepRail(event: InitProtocolEvent, width = 80, ascii = fal
   });
   if (width < 60) return rows.join('\n');
   return rows.map((row, index) => `${String(index + 1).padStart(2, '0')}. ${row}`).join('\n');
-}
-
-function renderCurrentAction(event: InitProtocolEvent): void {
-  const action = event.nextAction;
-  if (!action) return;
-  if (action.kind === 'update_wechat_ip_allowlist') {
-    note(action.ips.join('\n'), '请加入全部出口 IP');
-  } else if (action.kind === 'open_url') {
-    note(action.url, '用户授权地址');
-  } else if (action.kind === 'add_remote_mcp') {
-    note(
-      `${action.descriptor.transport}\n${action.descriptor.url}\n\n查看标准描述：woa mcp descriptor --server ${event.server}`,
-      '远程 MCP',
-    );
-  } else if (action.kind === 'start_native_oauth') {
-    log.step(`请在宿主中启动原生 OAuth；完成后选择继续。恢复事件：host_oauth_completed`);
-  } else if (action.kind === 'call_mcp_tool') {
-    log.step(`请让宿主调用 ${action.tool}，成功后选择继续。恢复事件：host_tool_verified`);
-  } else {
-    log.step(action.reason);
-  }
-}
-
-function tuiOptions(event: InitProtocolEvent, headless: boolean) {
-  const action = event.nextAction;
-  if (action?.kind === 'open_url') {
-    return headless
-      ? [{ value: 'pause', label: '地址已显示，稍后恢复' }]
-      : [
-          { value: 'open', label: '打开浏览器', hint: '授权完成后自动继续' },
-          { value: 'pause', label: '稍后继续' },
-        ];
-  }
-  if (action?.kind === 'update_wechat_ip_allowlist') {
-    return [
-      { value: 'acknowledge', label: '我已在微信后台保存', hint: '后续仍会通过 relay 实际验证' },
-      { value: 'pause', label: '稍后继续' },
-    ];
-  }
-  if (action?.kind === 'confirm_test_draft') {
-    return [
-      { value: 'confirm', label: '确认只创建未发布测试草稿' },
-      { value: 'decline', label: '不创建测试草稿' },
-      { value: 'pause', label: '稍后继续' },
-    ];
-  }
-  if (action?.kind === 'add_remote_mcp') {
-    return [
-      { value: 'remote_mcp_added', label: '宿主已添加远程 MCP，继续' },
-      { value: 'pause', label: '保存并稍后继续' },
-    ];
-  }
-  if (action?.kind === 'start_native_oauth') {
-    return [
-      { value: 'host_oauth_completed', label: '宿主 OAuth 已完成，继续' },
-      { value: 'pause', label: '保存并稍后继续' },
-    ];
-  }
-  if (action?.kind === 'call_mcp_tool') {
-    return [
-      { value: 'host_tool_verified', label: `宿主调用 ${action.tool} 已成功，继续` },
-      { value: 'pause', label: '保存并稍后继续' },
-    ];
-  }
-  return [{ value: 'pause', label: '保存并稍后继续' }];
 }
 
 function plainActionText(event: InitProtocolEvent): string {

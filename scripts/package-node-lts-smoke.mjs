@@ -29,7 +29,7 @@ try {
 
   const cliPath = path.join(consumerDir, 'node_modules', '@ziikoo', 'woa', 'dist', 'src', 'cli', 'woa.js');
   const results = [];
-  for (const major of [18, 20]) {
+  for (const major of [20]) {
     const node = resolveNodeBinary(major);
     const version = run(node, ['--version']).stdout.trim();
     assert.match(version, new RegExp(`^v${major}\\.`));
@@ -59,6 +59,19 @@ try {
     assert.equal(descriptor.transport, 'streamable-http');
     assert.deepEqual(descriptor.headers, {});
 
+    const ui = run(node, [cliPath, 'ui'], {
+      allowFailure: true,
+      env: smokeEnv(path.join(tempRoot, `node-${major}-ui`), { CI: '1' }),
+    });
+    assert.equal(ui.status, 2);
+    assert.match(ui.stderr, /CI cannot open `woa ui`|requires directly operated TTY/);
+    assert.doesNotMatch(ui.stdout + ui.stderr, /\u001b/);
+
+    const uiPseudoTty = runUiPseudoTty({ major, node, cliPath });
+    assert.equal(uiPseudoTty.status, 0, uiPseudoTty.stderr || uiPseudoTty.stdout);
+    assert.match(uiPseudoTty.stdout, /\u001b\[\?1049h/);
+    assert.match(uiPseudoTty.stdout, /\u001b\[\?1049l/);
+
     const jsonlRoot = path.join(tempRoot, `node-${major}-jsonl`);
     const jsonl = run(node, [
       cliPath,
@@ -85,7 +98,7 @@ try {
     assert.doesNotMatch(plain.stdout, /\u001b/);
 
     await runSignalSmoke({ major, node, cliPath });
-    results.push({ node: version, import: true, plainPseudoTty: true, jsonl: true, signalExit: 143 });
+    results.push({ node: version, import: true, uiGate: true, uiPseudoTty: true, plainPseudoTty: true, jsonl: true, signalExit: 143 });
   }
 
   process.stdout.write(`${JSON.stringify({ tarball: path.basename(tarball), results })}\n`);
@@ -112,6 +125,23 @@ function runPlainPseudoTty({ major, node, cliPath }) {
     ? `printf 'q\\n' | script -q /dev/null env ${environment} ${shellQuote(wrapper)}`
     : `printf 'q\\n' | script -q -e -c ${shellQuote(`env ${environment} ${shellQuote(wrapper)}`)} /dev/null`;
   return run('/bin/sh', ['-c', command], { allowFailure: true });
+}
+
+function runUiPseudoTty({ major, node, cliPath }) {
+  const root = path.join(tempRoot, `node-${major}-ui-pty`);
+  const wrapper = path.join(tempRoot, `node-${major}-ui-pty.sh`);
+  writeFileSync(wrapper, [
+    '#!/bin/sh',
+    `exec ${shellQuote(node)} ${shellQuote(cliPath)} ui`,
+    '',
+  ].join('\n'));
+  chmodSync(wrapper, 0o700);
+  const environment = envAssignments(smokeEnv(root, { CI: '', TERM: 'xterm-256color' })).map(shellQuote).join(' ');
+  const delayedInput = `(sleep 1; printf q; sleep 1; printf q; sleep 1; printf q)`;
+  const command = process.platform === 'darwin'
+    ? `${delayedInput} | script -q /dev/null env ${environment} ${shellQuote(wrapper)}`
+    : `${delayedInput} | script -q -e -c ${shellQuote(`env ${environment} ${shellQuote(wrapper)}`)} /dev/null`;
+  return run('/bin/sh', ['-c', command], { allowFailure: true, timeout: 30_000 });
 }
 
 async function runSignalSmoke({ major, node, cliPath }) {
@@ -170,11 +200,14 @@ function smokeEnv(root, extra = {}) {
 }
 
 function envAssignments(env) {
-  return [
+  const assignments = [
     `NO_COLOR=${env.NO_COLOR}`,
     `WOA_CLI_CONFIG=${env.WOA_CLI_CONFIG}`,
     `WOA_INIT_DIR=${env.WOA_INIT_DIR}`,
   ];
+  if (env.CI !== undefined) assignments.push(`CI=${env.CI}`);
+  if (env.TERM !== undefined) assignments.push(`TERM=${env.TERM}`);
+  return assignments;
 }
 
 function shellQuote(value) {
@@ -187,6 +220,7 @@ function run(command, args, options = {}) {
     env: options.env ?? process.env,
     encoding: 'utf8',
     input: options.input,
+    timeout: options.timeout,
   });
   if (result.error) throw result.error;
   const normalized = {

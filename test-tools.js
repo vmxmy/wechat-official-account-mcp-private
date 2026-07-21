@@ -816,13 +816,18 @@ check(
 const packageManifest = JSON.parse(readFileSync('./package.json', 'utf8'));
 check(
   packageManifest.name === '@ziikoo/woa' &&
-    packageManifest.bin?.woa === 'dist/src/cli/woa.js',
-  'npm 包元数据已切换为 @ziikoo/woa 且保留 woa bin',
+    packageManifest.bin?.woa === 'dist/src/cli/woa.js' &&
+    packageManifest.engines?.node === '>=20.0.0' &&
+    /^\^6\./.test(packageManifest.dependencies?.ink || '') &&
+    !packageManifest.dependencies?.['@clack/prompts'],
+  'npm 包保留 woa bin，最低 Node 为 20，并使用 Ink 6 交互层',
 );
 
 const woaHelp = execFileSync(process.execPath, ['./dist/src/cli/woa.js', '--help'], { encoding: 'utf8' });
 check(
   woaHelp.includes('remote-only') &&
+    woaHelp.includes('woa ui') &&
+    woaHelp.includes('Node.js 20 or newer') &&
     woaHelp.includes('woa api list [--all]') &&
     woaHelp.includes('woa api call <wechat_tool>') &&
     woaHelp.includes('woa draft add') &&

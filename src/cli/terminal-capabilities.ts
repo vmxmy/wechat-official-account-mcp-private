@@ -6,6 +6,7 @@ export interface TerminalCapabilities {
   stdoutIsTTY: boolean;
   stderrIsTTY: boolean;
   interactive: boolean;
+  directlyOperated: boolean;
   ci: boolean;
   agent: boolean;
   plainRequested: boolean;
@@ -37,6 +38,7 @@ export function detectTerminalCapabilities(options: TerminalCapabilityOptions = 
   const agent = options.agent === true;
   const plainRequested = options.plain === true || envFlag(env.WOA_PLAIN) || env.TERM === 'dumb';
   const interactive = stdinIsTTY && stdoutIsTTY && !ci && !agent;
+  const directlyOperated = interactive && !plainRequested;
   const width = Number.isFinite(stdout.columns) && (stdout.columns ?? 0) > 0 ? stdout.columns! : 80;
   const mode: InitOutputMode = agent || !interactive
     ? 'jsonl'
@@ -52,6 +54,7 @@ export function detectTerminalCapabilities(options: TerminalCapabilityOptions = 
     stdoutIsTTY,
     stderrIsTTY,
     interactive,
+    directlyOperated,
     ci,
     agent,
     plainRequested,
@@ -60,6 +63,18 @@ export function detectTerminalCapabilities(options: TerminalCapabilityOptions = 
     width,
     narrow: width < 60,
   };
+}
+
+export function interactiveConsoleUnavailableReason(capabilities: TerminalCapabilities): string | null {
+  if (capabilities.agent) return 'Agent mode cannot open `woa ui`; use `woa init --agent --format jsonl`.';
+  if (capabilities.ci) return 'CI cannot open `woa ui`; use ordinary JSON commands or Agent JSONL mode.';
+  if (!capabilities.stdinIsTTY || !capabilities.stdoutIsTTY) {
+    return '`woa ui` requires directly operated TTY stdin/stdout; use ordinary commands or `woa init --plain`.';
+  }
+  if (capabilities.plainRequested) {
+    return '`woa ui` is disabled by plain terminal mode; use `woa init --plain`.';
+  }
+  return null;
 }
 
 function envFlag(value: string | undefined): boolean {

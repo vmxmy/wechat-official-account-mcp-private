@@ -26,7 +26,7 @@ import {
   InitRunnerError,
   runInit,
 } from '../src/cli/init-runner.js';
-import { PlainInitRenderer, ProgressiveInitTuiRenderer } from '../src/cli/init-tui.js';
+import { PlainInitRenderer } from '../src/cli/init-tui.js';
 import {
   createInitRun,
   toInitProtocolEvent,
@@ -39,7 +39,7 @@ import {
   readSecureJson,
   writeSecureJson,
 } from '../src/cli/secure-config.js';
-import { detectTerminalCapabilities } from '../src/cli/terminal-capabilities.js';
+import { detectTerminalCapabilities, interactiveConsoleUnavailableReason } from '../src/cli/terminal-capabilities.js';
 import { readSecureInput } from '../src/cli/secure-input.js';
 import { CLI_VERSION } from '../src/cli/version.js';
 
@@ -203,16 +203,21 @@ test('pure init machine emits a secret-free exact-version OAuth resume action', 
 test('terminal detection selects TUI, plain, and strict JSONL modes from observable capabilities', () => {
   const tty = { isTTY: true };
   const wideTty = { isTTY: true, columns: 100 };
-  assert.equal(detectTerminalCapabilities({ stdin: tty, stdout: wideTty, stderr: tty, env: {} }).mode, 'tui');
+  const interactive = detectTerminalCapabilities({ stdin: tty, stdout: wideTty, stderr: tty, env: {} });
+  assert.equal(interactive.mode, 'tui');
+  assert.equal(interactive.directlyOperated, true);
+  assert.equal(interactiveConsoleUnavailableReason(interactive), null);
   assert.equal(detectTerminalCapabilities({ plain: true, stdin: tty, stdout: wideTty, stderr: tty, env: {} }).mode, 'plain');
   assert.equal(detectTerminalCapabilities({ agent: true, stdin: tty, stdout: wideTty, stderr: tty, env: {} }).mode, 'jsonl');
   assert.equal(detectTerminalCapabilities({ stdin: tty, stdout: wideTty, stderr: tty, env: { CI: '1' } }).mode, 'jsonl');
-  assert.equal(detectTerminalCapabilities({
+  const piped = detectTerminalCapabilities({
     stdin: { isTTY: false },
     stdout: { isTTY: false, columns: undefined },
     stderr: { isTTY: false },
     env: {},
-  }).mode, 'jsonl');
+  });
+  assert.equal(piped.mode, 'jsonl');
+  assert.match(interactiveConsoleUnavailableReason(piped), /requires directly operated TTY/);
 });
 
 test('JSONL validates discriminants, refuses secret/control fields, and treats EPIPE as a clean stop', async () => {
@@ -288,27 +293,6 @@ test('plain renderer contains no ANSI/control sequences and presents one current
   assert.equal(rendered.includes('\u001b'), false);
   assert.match(rendered, /101\.34\.57\.185/);
   assert.match(rendered, /\[x\]|\[>\]|\[ \]/);
-});
-
-test('TUI restore makes the cursor visible after an interrupted active session', () => {
-  const renderer = new ProgressiveInitTuiRenderer();
-  renderer.started = true;
-  const originalWrite = process.stdout.write;
-  const originalIsTty = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
-  let restored = '';
-  Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
-  process.stdout.write = chunk => {
-    restored += String(chunk);
-    return true;
-  };
-  try {
-    renderer.restore();
-    assert.equal(restored, '\u001b[?25h');
-  } finally {
-    process.stdout.write = originalWrite;
-    if (originalIsTty) Object.defineProperty(process.stdout, 'isTTY', originalIsTty);
-    else delete process.stdout.isTTY;
-  }
 });
 
 test('plain host steps expose executable continuation actions for MCP, OAuth, and tool evidence', async () => {

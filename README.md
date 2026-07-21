@@ -3,15 +3,17 @@
 一个为 AI 应用提供微信公众号 API 集成的 MCP (Model Context Protocol) 服务项目。
 
 **作者**: xwang152-jack <xwang152@163.com>
-**更新日期**: 2026年07月18日
+**更新日期**: 2026年07月21日
 
 ## 🚀 项目概述
 
 本项目基于 MCP 协议，为支持远程 Streamable HTTP 与 OAuth 的 AI Agent/宿主提供微信公众号 API 工具集。通过标准化的工具接口，AI 可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计、二维码、评论、黑名单、入站消息收件箱等常用运营能力。
 
-**当前版本**: `v2.4.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
+**当前版本**: `v3.0.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**v2.4.0 CLI API 完备化更新**: remote-only `@ziikoo/woa` 现在通过标准 Streamable HTTP MCP 动态发现并调用全部 23 个 `wechat_*` 运营工具，新增 `woa api list/describe/call`、完整草稿 add/update/get/count 命令、JSON 文件/stdin 输入、显式 `wechat-full` OAuth scope profile、dry-run 与高风险 action 精确确认。Hosted Web、可恢复 `woa init`、安全凭据 handoff 和 4 个多租户管理工具保持不变。API contract 仍以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源。
+**v3.0.0 Ink TUI 更新**: 新增 Ink 6 驱动的 `woa ui` 接入控制台，交互式 `woa init` 复用同一套界面与流程。CLI 最低运行时提升为 Node.js 20；Node.js 18 不再受支持。`--plain`、严格 JSONL、Agent、pipe 与 CI 行为保持兼容，Worker、远程 MCP、OAuth/REST API 与已有接入检查点不需要数据迁移。
+
+**CLI API 能力**: remote-only `@ziikoo/woa` 通过标准 Streamable HTTP MCP 动态发现并调用全部 23 个 `wechat_*` 运营工具，提供 `woa api list/describe/call`、完整草稿 add/update/get/count 命令、JSON 文件/stdin 输入、显式 `wechat-full` OAuth scope profile、dry-run 与高风险 action 精确确认。API contract 仍以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源。
 
 ## 📖 文档导航
 
@@ -40,7 +42,7 @@
 
 ## 🛠️ 技术栈
 
-- **运行时**: Cloudflare Workers + Node.js 18+ tooling
+- **运行时**: Cloudflare Workers + Node.js 20+ tooling
 - **语言**: TypeScript
 - **协议**: MCP (Model Context Protocol)
 - **数据库**: Cloudflare D1、R2、Durable Objects
@@ -64,9 +66,10 @@
 请运行 npx -y --registry=https://registry.npmjs.org --package @ziikoo/woa@latest woa help agent，完整阅读输出，并严格按其中规范用 woa init 帮我完成微信公众号 MCP 接入；需要登录授权、把固定出口 IP 加入微信白名单、输入 AppSecret 或确认创建只保存不发布的测试草稿时暂停让我操作，不要在聊天、参数、环境变量或日志中索取或回显任何凭据。
 ```
 
-直接操作终端时使用渐进式 TUI；读屏、日志或不支持控制字符的终端可用 `--plain`。Agent、pipe 与 CI 必须使用严格非交互 JSONL：
+直接操作终端时可使用 `woa ui` 打开接入控制台，也可直接运行 `woa init`。读屏、日志或不支持控制字符的终端使用 `--plain`。Agent、pipe 与 CI 必须使用严格非交互 JSONL，且不会加载 Ink：
 
 ```bash
+woa ui
 woa init
 woa init --plain
 woa init --agent --format jsonl

@@ -533,7 +533,7 @@ async function advanceAutomatic(
         kind: 'unsupported',
         error: {
           code: 'node_runtime_missing',
-          message: result.reason || 'Node.js 18 or newer is required.',
+          message: result.reason || 'Node.js 20 or newer is required.',
           recoverable: false,
         },
       });
@@ -618,9 +618,9 @@ async function checkpointTransition(
 
 function defaultEnvironmentCheck(): EnvironmentCheckResult {
   const major = Number.parseInt(process.versions.node.split('.')[0] || '0', 10);
-  return major >= 18
+  return major >= 20
     ? { supported: true }
-    : { supported: false, reason: `Node.js ${process.versions.node} is unsupported; install Node.js 18 or newer.` };
+    : { supported: false, reason: `Node.js ${process.versions.node} is unsupported; install Node.js 20 or newer.` };
 }
 
 function assertExactVersion(run: InitRun, version: string): void {

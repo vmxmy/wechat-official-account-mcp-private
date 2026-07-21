@@ -18,21 +18,18 @@ import {
   isWechatToolName,
   requiredToolConfirmation,
 } from './api-safety.js';
-import { JsonInitRenderer, JsonlInitRenderer } from './init-jsonl.js';
-import { FileInitRunStore, InitRunnerError, runInit } from './init-runner.js';
-import { ProgressiveInitTuiRenderer, PlainInitRenderer } from './init-tui.js';
+import { CliUsageError } from './cli-errors.js';
 import {
-  createInitRun,
-  InitStateError,
-  toInitProtocolEvent,
-  transitionInitRun,
-  type RemoteInitRunReference,
-} from './init.js';
+  executeInitCommand,
+  loadInitConsoleSnapshot,
+  type InitCommandServices,
+} from './init-command.js';
+import { InitRunnerError } from './init-runner.js';
 import { renderMcpDescriptor } from './mcp-descriptor.js';
 import { CliMcpApiClient, type CliMcpTool } from './mcp-api-client.js';
-import { defaultCliConfigPath, defaultInitDirectory, readSecureJson, writeSecureJson } from './secure-config.js';
+import { defaultCliConfigPath, readSecureJson, writeSecureJson } from './secure-config.js';
 import { readSecureInput } from './secure-input.js';
-import { detectTerminalCapabilities } from './terminal-capabilities.js';
+import { detectTerminalCapabilities, interactiveConsoleUnavailableReason } from './terminal-capabilities.js';
 import { CLI_VERSION } from './version.js';
 
 interface CliConfig {
@@ -148,6 +145,11 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (root === 'ui') {
+    await handleUiCommand(parsed.flags);
+    return;
+  }
+
   if (root === 'login') {
     if (sub === 'complete') {
       await completeHeadlessLogin(parsed.flags);
@@ -251,292 +253,46 @@ async function main(argv: string[]): Promise<void> {
   throw new Error(`Unknown command: ${parsed.command.join(' ')}`);
 }
 
-class CliUsageError extends Error {}
-
 async function handleInitCommand(
   sub: string | undefined,
   leaf: string | undefined,
   flags: Record<string, string | boolean>,
 ): Promise<void> {
-  const agent = flags.agent === true || flags.agent === 'true';
-  const plain = flags.plain === true || flags.plain === 'true';
-  const format = stringFlag(flags, 'format');
-  if (agent && format && format !== 'jsonl') {
-    throw new CliUsageError('woa init --agent only supports --format jsonl.');
-  }
-  if (format && !['jsonl', 'json'].includes(format)) {
-    throw new CliUsageError('woa init --format must be jsonl or json.');
-  }
-  if (format === 'json' && sub !== 'status') {
-    throw new CliUsageError('--format json is only supported by woa init status.');
-  }
-
-  const mode = sub === 'resume' ? 'resume' : sub === 'status' ? 'status' : 'create';
-  if (sub && sub !== 'resume' && sub !== 'status') {
-    throw new CliUsageError(`Unknown init command: init ${sub}`);
-  }
-  const runId = mode === 'resume'
-    ? leaf
-    : mode === 'status'
-      ? stringFlag(flags, 'run')
-      : undefined;
-  if (mode === 'resume' && !runId) throw new CliUsageError('woa init resume requires a runId.');
-
-  const capabilities = detectTerminalCapabilities({ agent: agent || format === 'jsonl', plain });
-  const resumeEvent = mode === 'resume'
-    ? parseInitResumeEvent(flags, capabilities.interactive && capabilities.mode !== 'jsonl')
-    : undefined;
-  if (mode !== 'resume' && stringFlag(flags, 'event')) {
-    throw new CliUsageError('--event is only valid with woa init resume.');
-  }
-  const renderer = mode === 'status' && format === 'json'
-    ? new JsonInitRenderer()
-    : capabilities.mode === 'jsonl'
-      ? new JsonlInitRenderer()
-      : capabilities.mode === 'plain'
-        ? new PlainInitRenderer({ width: capabilities.width, headless: flagEnabled(flags, 'headless') })
-        : new ProgressiveInitTuiRenderer({ width: capabilities.width, headless: flagEnabled(flags, 'headless') });
-  const store = new FileInitRunStore(defaultInitDirectory(CONFIG_PATH));
-  const config = await loadConfig();
-  const server = normalizeServer(stringFlag(flags, 'server') || config.server || 'https://woa.ziikoo.app');
-  const initHeadless = flagEnabled(flags, 'headless') || !capabilities.interactive || isLikelyHeadlessEnvironment();
-  const initOAuthState: { prepared: PreparedInitOAuthAuthorization | null } = { prepared: null };
-
-  try {
-    const result = await runInit({
-      mode,
-      runId,
-      server,
-      store,
-      renderer,
-      packageVersion: CLI_VERSION,
-      cliVersion: CLI_VERSION,
-      resumeEvent,
-      effects: {
-        isCliAuthenticated: async run => {
-          const session = await loadConfig();
-          if ((!session.accessToken && !session.refreshToken) || !session.server) return false;
-          if (new URL(session.server).origin !== new URL(run.server).origin) return false;
-          try {
-            await apiGet('/api/v1/me', { server: run.server });
-            return true;
-          } catch {
-            return false;
-          }
-        },
-        prepareCliOAuth: async (run, signal) => {
-          await initOAuthState.prepared?.close();
-          initOAuthState.prepared = await prepareInitOAuthAuthorization(run.server, {
-            headless: initHeadless,
-            callbackPort: Number(stringFlag(flags, 'callback-port') || (initHeadless ? '8787' : '0')),
-            timeoutMs: Number(stringFlag(flags, 'timeout') || '300') * 1000,
-            signal,
-          });
-          return { authorizationUrl: initOAuthState.prepared.authorizationUrl };
-        },
-        ...(capabilities.interactive ? {
-          completeCliOAuth: async () => {
-            if (initOAuthState.prepared) await initOAuthState.prepared.complete();
-            else await completeHeadlessLogin({}, { quiet: true });
-          },
-        } : {}),
-        loadWechatEgress: async (run, signal) => {
-          const response = await initApiRequest('GET', run.server, '/api/v1/init/context', undefined, flags, undefined, signal);
-          const root = asRecord(response);
-          const data = asRecord(root?.data) ?? root;
-          const egress = asRecord(data?.egress);
-          const ips = Array.isArray(egress?.ips)
-            ? egress.ips.filter((value): value is string => typeof value === 'string')
-            : [];
-          const configVersion = stringValue(egress?.configVersion);
-          if (!configVersion || ips.length === 0) {
-            throw new InitRunnerError('wechat_egress_ip_unavailable', 'The server did not return a trusted egress configuration.');
-          }
-          const target = await selectInitTarget({ ...flags, server: run.server });
-          const serverRunResponse = await initApiRequest(
-            'POST',
-            run.server,
-            '/api/v1/init/runs',
-            target,
-            flags,
-            `woa-init:${run.runId}`,
-            signal,
-          );
-          const remote = parseRemoteInitRun(serverRunResponse);
-          return { ips, configVersion, remote };
-        },
-        confirmWechatEgress: async (run, signal) => {
-          if (!run.remote || run.nextAction?.kind !== 'update_wechat_ip_allowlist') {
-            throw new InitRunnerError('init_run_conflict', 'The local run is missing its server init context.');
-          }
-          const response = await initApiRequest(
-            'POST',
-            run.server,
-            `/api/v1/init/runs/${encodeURIComponent(run.remote.runId)}/egress-confirmation`,
-            {
-              confirmed: true,
-              expectedVersion: run.remote.version,
-              egressConfigVersion: run.nextAction.configVersion,
-            },
-            flags,
-            undefined,
-            signal,
-          );
-          return { remoteVersion: parseRemoteInitRun(response).version };
-        },
-        createCredentialHandoff: async (run, signal) => {
-          if (!run.remote) throw new InitRunnerError('init_run_conflict', 'The local run is missing its server init context.');
-          const response = await initApiRequest(
-            'POST',
-            run.server,
-            `/api/v1/init/runs/${encodeURIComponent(run.remote.runId)}/credential-handoffs`,
-            { expectedVersion: run.remote.version },
-            flags,
-            undefined,
-            signal,
-          );
-          const root = asRecord(response);
-          const data = asRecord(root?.data) ?? root;
-          const remote = parseRemoteInitRun(response);
-          const handoff = asRecord(data?.handoff);
-          const handoffId = stringValue(handoff?.handoffId);
-          const handoffUrl = stringValue(data?.handoffUrl);
-          if (!handoffId || !handoffUrl) {
-            throw new InitRunnerError('secure_input_required', 'The server did not create a valid one-time credential handoff.');
-          }
-          const parsedUrl = new URL(handoffUrl);
-          if (parsedUrl.protocol !== 'https:' || parsedUrl.origin !== new URL(run.server).origin) {
-            throw new InitRunnerError('secure_input_required', 'The credential handoff URL failed its origin check.');
-          }
-          return { handoffId, handoffUrl: parsedUrl.toString(), remoteVersion: remote.version };
-        },
-        getCredentialHandoffStatus: async (run, signal) => {
-          if (!run.remote?.handoffId) {
-            throw new InitRunnerError('secure_input_required', 'The local run has no credential handoff to reconcile.');
-          }
-          const response = await initApiRequest(
-            'GET',
-            run.server,
-            `/api/v1/init/runs/${encodeURIComponent(run.remote.runId)}/credential-handoffs/${encodeURIComponent(run.remote.handoffId)}/status`,
-            undefined,
-            flags,
-            undefined,
-            signal,
-          );
-          const root = asRecord(response);
-          const data = asRecord(root?.data) ?? root;
-          const handoff = asRecord(data?.handoff);
-          const status = stringValue(handoff?.status);
-          if (!status || !['pending', 'claimed', 'processing', 'verified', 'failed', 'expired'].includes(status)) {
-            throw new InitRunnerError('secure_input_required', 'The server returned an invalid credential handoff status.');
-          }
-          const remoteVersion = status === 'verified'
-            ? parseRemoteInitRun(await initApiRequest(
-                'GET',
-                run.server,
-                `/api/v1/init/runs/${encodeURIComponent(run.remote.runId)}`,
-                undefined,
-                flags,
-                undefined,
-                signal,
-              )).version
-            : undefined;
-          return {
-            status: status as 'pending' | 'claimed' | 'processing' | 'verified' | 'failed' | 'expired',
-            errorCode: stringValue(handoff?.errorCode),
-            remoteVersion,
-          };
-        },
-        createTestDraft: async (run, signal) => {
-          if (!run.remote || run.nextAction?.kind !== 'wait' || run.nextAction.operation !== 'create_test_draft') {
-            throw new InitRunnerError('init_run_conflict', 'The test-draft server action is not ready.');
-          }
-          const response = await initApiRequest(
-            'POST',
-            run.server,
-            `/api/v1/init/runs/${encodeURIComponent(run.remote.runId)}/test-draft`,
-            { expectedVersion: run.remote.version },
-            flags,
-            run.nextAction.idempotencyKey,
-            signal,
-          );
-          const root = asRecord(response);
-          const data = asRecord(root?.data) ?? root;
-          const draft = asRecord(data?.draft);
-          const mediaId = stringValue(draft?.mediaId);
-          const readBack = draft?.readBack === true;
-          const published = draft?.published;
-          if (!mediaId || !readBack || published !== false) {
-            throw new InitRunnerError('target_tool_verification_failed', 'The server did not prove an unpublished test-draft read-back.');
-          }
-          return { mediaId, remoteVersion: parseRemoteInitRun(response).version };
-        },
-        openUrl: async url => {
-          if (initHeadless || flagEnabled(flags, 'no-open')) {
-            process.stderr.write(`请在用户浏览器打开此一次性地址：\n${url}\n`);
-          } else {
-            openBrowser(url);
-          }
-        },
-      },
-    });
-    if (result.exitCode !== 0) process.exitCode = result.exitCode;
-  } catch (error) {
-    if ((error instanceof InitRunnerError || error instanceof InitStateError) && capabilities.mode === 'jsonl') {
-      const existing = await (runId ? store.load(runId) : store.latest()).catch(() => null);
-      const recoverable = Boolean(existing) && !['cli_upgrade_required', 'checkpoint_save_failed'].includes(error.code);
-      if (existing && existing.phase !== 'completed' && existing.status !== 'done') {
-        const event = toInitProtocolEvent(existing);
-        event.type = 'error';
-        event.status = 'error';
-        event.error = { code: error.code, message: error.message, recoverable };
-        if (!recoverable) delete event.resume;
-        await renderer.render(event);
-        process.exitCode = 1;
-        return;
-      }
-      const synthetic = transitionInitRun(createInitRun({
-        server,
-        ...(runId && /^run_[a-f0-9]{32}$/.test(runId) ? { runId } : {}),
-        cliVersion: CLI_VERSION,
-        packageVersion: CLI_VERSION,
-      }), {
-        kind: 'fail',
-        error: { code: error.code, message: error.message, recoverable: false },
-      });
-      const event = toInitProtocolEvent(synthetic);
-      delete event.resume;
-      await renderer.render(event);
-      process.exitCode = 1;
-      return;
-    }
-    throw error;
-  } finally {
-    await initOAuthState.prepared?.close();
-  }
+  const result = await executeInitCommand({ sub, leaf, flags, services: createInitCommandServices() });
+  if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }
 
-function parseInitResumeEvent(
-  flags: Record<string, string | boolean>,
-  directHuman: boolean,
-): NonNullable<Parameters<typeof runInit>[0]['resumeEvent']> | undefined {
-  const event = stringFlag(flags, 'event');
-  if (!event) return undefined;
-  if (event === 'allowlist_saved' || event === 'test_draft_confirmed' || event === 'test_draft_declined') {
-    if (!directHuman) {
-      throw new CliUsageError(`${event} is human-only and requires a directly operated TTY; Agent, pipe, and CI modes cannot submit it.`);
-    }
-    return { kind: event } as NonNullable<Parameters<typeof runInit>[0]['resumeEvent']>;
+async function handleUiCommand(flags: Record<string, string | boolean>): Promise<void> {
+  const capabilities = detectTerminalCapabilities({
+    agent: flagEnabled(flags, 'agent'),
+    plain: flagEnabled(flags, 'plain'),
+  });
+  const unavailable = interactiveConsoleUnavailableReason(capabilities);
+  if (unavailable) throw new CliUsageError(unavailable);
+  const snapshot = await loadInitConsoleSnapshot(CONFIG_PATH);
+  const { runInkUiShell } = await import('./ui-shell.js');
+  const selection = await runInkUiShell(snapshot, { color: capabilities.color });
+  if (selection === 'exit') return;
+  if (selection === 'resume') {
+    if (!snapshot.canResume || !snapshot.event) throw new CliUsageError('No compatible resumable initialization run is available.');
+    await handleInitCommand('resume', snapshot.event.runId, flags);
+    return;
   }
-  if (event === 'remote_mcp_added' || event === 'host_oauth_completed') return { kind: event };
-  if (event === 'host_tool_verified') {
-    const tool = stringFlag(flags, 'tool');
-    if (tool !== 'woa_context' && tool !== 'wechat_draft_count') {
-      throw new CliUsageError('host_tool_verified requires --tool woa_context|wechat_draft_count.');
-    }
-    return { kind: 'host_tool_verified', tool };
-  }
-  throw new CliUsageError('Unknown init resume event.');
+  await handleInitCommand(undefined, undefined, flags);
+}
+
+function createInitCommandServices(): InitCommandServices {
+  return {
+    configPath: CONFIG_PATH,
+    loadConfig,
+    apiGet,
+    prepareCliOAuth: prepareInitOAuthAuthorization,
+    completeHeadlessLogin: async () => await completeHeadlessLogin({}, { quiet: true }),
+    initApiRequest,
+    selectInitTarget,
+    openBrowser,
+    isLikelyHeadlessEnvironment,
+  };
 }
 
 async function printMcpDescriptor(flags: Record<string, string | boolean>): Promise<void> {
@@ -599,22 +355,6 @@ async function selectInitTarget(flags: Record<string, string | boolean>): Promis
     );
   }
   return { tenantId: candidates[0].tenantId, accountId: candidates[0].accountId };
-}
-
-function parseRemoteInitRun(response: unknown): RemoteInitRunReference {
-  const root = asRecord(response);
-  const data = asRecord(root?.data) ?? root;
-  const run = asRecord(data?.run);
-  const runId = stringValue(run?.runId);
-  const tenantId = stringValue(run?.tenantId);
-  const accountId = stringValue(run?.accountId);
-  const status = stringValue(run?.status);
-  const phase = stringValue(run?.phase);
-  const version = run?.version;
-  if (!runId || !tenantId || !accountId || !status || !phase || typeof version !== 'number' || !Number.isSafeInteger(version)) {
-    throw new InitRunnerError('init_run_conflict', 'The server returned an invalid init run envelope.');
-  }
-  return { runId, tenantId, accountId, status, phase, version };
 }
 
 function stableInitErrorCode(serverCode: string | undefined, status: number): ConstructorParameters<typeof InitRunnerError>[0] {
@@ -1896,6 +1636,7 @@ function printHelp(): void {
 Usage:
   woa --version
   woa help agent [--format markdown|json]
+  woa ui
   woa init [--server <url>] [--headless] [--plain] [--no-open]
   woa init --agent [--server <url>] --format jsonl
   woa init status [--run <runId>] [--format json]
@@ -1935,7 +1676,9 @@ Usage:
   woa media upload <local-file> [--tenant <tenantId>] [--account <accountId>] [--content-type <mime>]
 
 Runtime posture:
-  - First run: use \`woa init\`; command-capable Agents first read \`woa help agent\`.
+  - Node.js 20 or newer is required by the published CLI.
+  - Human-operated TTY: use \`woa ui\` or \`woa init\`; command-capable Agents first read \`woa help agent\`.
+  - Plain, pipe, CI, and Agent paths never mount Ink; use \`woa init --plain\` or strict JSONL.
   - Remote-only: commands call the OAuth-protected Worker REST API or the standard remote /mcp endpoint.
   - \`woa api list/describe/call\` exposes the authoritative current wechat_* MCP tool surface without duplicating REST routes.
   - Prefer --file or --stdin for long or sensitive structured input; do not place secrets in --input or shell history.
