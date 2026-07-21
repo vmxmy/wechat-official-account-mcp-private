@@ -29,7 +29,11 @@ import { renderMcpDescriptor } from './mcp-descriptor.js';
 import { CliMcpApiClient, type CliMcpTool } from './mcp-api-client.js';
 import { defaultCliConfigPath, readSecureJson, writeSecureJson } from './secure-config.js';
 import { readSecureInput } from './secure-input.js';
-import { detectTerminalCapabilities, interactiveConsoleUnavailableReason } from './terminal-capabilities.js';
+import {
+  detectTerminalCapabilities,
+  interactiveConsoleUnavailableReason,
+  normalizeInkCiEnvironment,
+} from './terminal-capabilities.js';
 import { CLI_VERSION } from './version.js';
 
 interface CliConfig {
@@ -270,6 +274,7 @@ async function handleUiCommand(flags: Record<string, string | boolean>): Promise
   const unavailable = interactiveConsoleUnavailableReason(capabilities);
   if (unavailable) throw new CliUsageError(unavailable);
   const snapshot = await loadInitConsoleSnapshot(CONFIG_PATH);
+  normalizeInkCiEnvironment();
   const { runInkUiShell } = await import('./ui-shell.js');
   const selection = await runInkUiShell(snapshot, { color: capabilities.color });
   if (selection === 'exit') return;

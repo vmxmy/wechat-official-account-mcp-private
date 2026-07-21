@@ -34,7 +34,7 @@ export function detectTerminalCapabilities(options: TerminalCapabilityOptions = 
   const stdinIsTTY = stdin.isTTY === true;
   const stdoutIsTTY = stdout.isTTY === true;
   const stderrIsTTY = stderr.isTTY === true;
-  const ci = envFlag(env.CI);
+  const ci = envFlag(env.CI) || envFlag(env.CONTINUOUS_INTEGRATION);
   const agent = options.agent === true;
   const plainRequested = options.plain === true || envFlag(env.WOA_PLAIN) || env.TERM === 'dumb';
   const interactive = stdinIsTTY && stdoutIsTTY && !ci && !agent;
@@ -63,6 +63,13 @@ export function detectTerminalCapabilities(options: TerminalCapabilityOptions = 
     width,
     narrow: width < 60,
   };
+}
+
+/** Keep Ink's import-time CI detection aligned with the CLI's false-like flag semantics. */
+export function normalizeInkCiEnvironment(env: NodeJS.ProcessEnv = process.env): void {
+  for (const key of ['CI', 'CONTINUOUS_INTEGRATION'] as const) {
+    if (env[key] !== undefined && !envFlag(env[key])) env[key] = 'false';
+  }
 }
 
 export function interactiveConsoleUnavailableReason(capabilities: TerminalCapabilities): string | null {

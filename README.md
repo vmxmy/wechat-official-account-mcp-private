@@ -11,7 +11,7 @@
 
 **当前版本**: `v3.0.1` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**v3.0.1 TUI 刷新修复**: `woa ui` 和交互式 `woa init` 改用 Ink 的兼容性整帧重绘，修复 Ghostty 等终端中操作后界面不原地刷新、而是不断新增行的问题。Node.js 20+、alternate screen、信号恢复、`--plain` 和严格 JSONL 行为保持不变。
+**v3.0.1 TUI 刷新修复**: `woa ui` 和交互式 `woa init` 统一空值 `CI=` 与 Ink 的环境判断，并改用兼容性整帧重绘，修复 Ghostty 等终端中操作后界面不原地刷新、而是不断新增行的问题。Node.js 20+、alternate screen、信号恢复、`--plain` 和严格 JSONL 行为保持不变。
 
 **v3.0.0 Ink TUI 更新**: 新增 Ink 6 驱动的 `woa ui` 接入控制台，交互式 `woa init` 复用同一套界面与流程。CLI 最低运行时提升为 Node.js 20；Node.js 18 不再受支持。`--plain`、严格 JSONL、Agent、pipe 与 CI 行为保持兼容，Worker、远程 MCP、OAuth/REST API 与已有接入检查点不需要数据迁移。
 

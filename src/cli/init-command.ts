@@ -16,7 +16,7 @@ import {
   type RemoteInitRunReference,
 } from './init.js';
 import { defaultInitDirectory } from './secure-config.js';
-import { detectTerminalCapabilities } from './terminal-capabilities.js';
+import { detectTerminalCapabilities, normalizeInkCiEnvironment } from './terminal-capabilities.js';
 import { CliUsageError } from './cli-errors.js';
 import { CLI_VERSION } from './version.js';
 
@@ -397,6 +397,7 @@ async function createRenderer(input: {
   if (input.capabilities.mode === 'plain') {
     return new PlainInitRenderer({ width: input.capabilities.width, headless: input.headless });
   }
+  normalizeInkCiEnvironment();
   const { InkInitRenderer } = await import('./init-ink.js');
   return new InkInitRenderer({ headless: input.headless, color: input.capabilities.color });
 }

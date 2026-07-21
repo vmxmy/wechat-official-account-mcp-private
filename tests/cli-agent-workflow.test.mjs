@@ -39,7 +39,11 @@ import {
   readSecureJson,
   writeSecureJson,
 } from '../src/cli/secure-config.js';
-import { detectTerminalCapabilities, interactiveConsoleUnavailableReason } from '../src/cli/terminal-capabilities.js';
+import {
+  detectTerminalCapabilities,
+  interactiveConsoleUnavailableReason,
+  normalizeInkCiEnvironment,
+} from '../src/cli/terminal-capabilities.js';
 import { readSecureInput } from '../src/cli/secure-input.js';
 import { CLI_VERSION } from '../src/cli/version.js';
 
@@ -210,6 +214,11 @@ test('terminal detection selects TUI, plain, and strict JSONL modes from observa
   assert.equal(detectTerminalCapabilities({ plain: true, stdin: tty, stdout: wideTty, stderr: tty, env: {} }).mode, 'plain');
   assert.equal(detectTerminalCapabilities({ agent: true, stdin: tty, stdout: wideTty, stderr: tty, env: {} }).mode, 'jsonl');
   assert.equal(detectTerminalCapabilities({ stdin: tty, stdout: wideTty, stderr: tty, env: { CI: '1' } }).mode, 'jsonl');
+  assert.equal(detectTerminalCapabilities({ stdin: tty, stdout: wideTty, stderr: tty, env: { CONTINUOUS_INTEGRATION: '1' } }).mode, 'jsonl');
+  const falseLikeCi = { CI: '' };
+  assert.equal(detectTerminalCapabilities({ stdin: tty, stdout: wideTty, stderr: tty, env: falseLikeCi }).mode, 'tui');
+  normalizeInkCiEnvironment(falseLikeCi);
+  assert.equal(falseLikeCi.CI, 'false');
   const piped = detectTerminalCapabilities({
     stdin: { isTTY: false },
     stdout: { isTTY: false, columns: undefined },
