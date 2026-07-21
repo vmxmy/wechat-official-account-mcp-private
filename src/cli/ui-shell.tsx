@@ -58,7 +58,7 @@ export async function runInkUiShell(
             stderr: errorOutput,
             exitOnCtrlC: false,
             patchConsole: false,
-            incrementalRendering: true,
+            incrementalRendering: false,
             isScreenReaderEnabled: options.screenReader ?? process.env.INK_SCREEN_READER === 'true',
           },
         );

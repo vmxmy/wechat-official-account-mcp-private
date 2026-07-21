@@ -132,7 +132,7 @@ export class InkInitRenderer implements InitRenderer {
       stderr: this.errorOutput,
       exitOnCtrlC: false,
       patchConsole: false,
-      incrementalRendering: true,
+      incrementalRendering: false,
       isScreenReaderEnabled: this.options.screenReader ?? process.env.INK_SCREEN_READER === 'true',
     });
   }

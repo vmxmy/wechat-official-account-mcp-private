@@ -149,6 +149,30 @@ test('WOA UI shell restores terminal state when the process receives SIGTERM', a
   }
 });
 
+test('WOA UI shell uses compatibility redraws instead of incremental line appends', async () => {
+  const { input, output, errorOutput, rendered } = ttyStreams();
+  const selection = runInkUiShell({ event: eventPaused(), canResume: true }, {
+    input,
+    output,
+    errorOutput,
+    color: false,
+  });
+  try {
+    await nextTurn();
+    const initialLength = rendered.stdout.length;
+    input.write('s');
+    await new Promise(resolve => setTimeout(resolve, 75));
+    const update = rendered.stdout.slice(initialLength);
+    assert.match(update, /状态详情/);
+    assert.equal(update.includes('\u001b[2K'), true);
+    assert.equal(update.includes('\u001b[1A'), true);
+    assert.equal(update.includes('\u001b[E'), false);
+  } finally {
+    input.write('q');
+    assert.equal(await selection, 'exit');
+  }
+});
+
 test('persistent Ink renderer reuses one alternate screen and resolves one action per event', async () => {
   const { input, output, errorOutput, rendered } = ttyStreams();
   const renderer = new InkInitRenderer({ input, output, errorOutput, color: false });
@@ -157,8 +181,13 @@ test('persistent Ink renderer reuses one alternate screen and resolves one actio
   input.write('a');
   assert.deepEqual(await allowlistAction, { kind: 'acknowledge' }, rendered.stderr);
 
+  const initialLength = rendered.stdout.length;
   const remoteAction = renderer.render(toInitProtocolEvent(runAtRemoteMcp()));
-  await nextTurn();
+  await new Promise(resolve => setTimeout(resolve, 75));
+  const update = rendered.stdout.slice(initialLength);
+  assert.equal(update.includes('\u001b[2K'), true);
+  assert.equal(update.includes('\u001b[1A'), true);
+  assert.equal(update.includes('\u001b[E'), false);
   input.write('c');
   assert.deepEqual(await remoteAction, { kind: 'remote_mcp_added' });
   await renderer.render(eventPaused());
