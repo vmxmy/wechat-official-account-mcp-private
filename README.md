@@ -3,17 +3,15 @@
 一个为 AI 应用提供微信公众号 API 集成的 MCP (Model Context Protocol) 服务项目。
 
 **作者**: xwang152-jack <xwang152@163.com>
-**更新日期**: 2026年07月21日
+**更新日期**: 2026年07月22日
 
 ## 🚀 项目概述
 
 本项目基于 MCP 协议，为支持远程 Streamable HTTP 与 OAuth 的 AI Agent/宿主提供微信公众号 API 工具集。通过标准化的工具接口，AI 可以管理微信公众号的用户、标签、菜单、素材、草稿、发布、消息、数据统计、二维码、评论、黑名单、入站消息收件箱等常用运营能力。
 
-**当前版本**: `v3.0.1` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
+**当前版本**: `v3.1.0` （查看 [CHANGELOG](./CHANGELOG.md) | [v1.1.0 Release Notes](./RELEASE_NOTES_v1.1.0.md)）
 
-**v3.0.1 TUI 刷新修复**: `woa ui` 和交互式 `woa init` 统一空值 `CI=` 与 Ink 的环境判断，并改用兼容性整帧重绘，修复 Ghostty 等终端中操作后界面不原地刷新、而是不断新增行的问题。Node.js 20+、alternate screen、信号恢复、`--plain` 和严格 JSONL 行为保持不变。
-
-**开发中：完整 Ink 控制台**: `woa ui` 现提供总览、可恢复接入、公众号账号、草稿/发布/收件箱、媒体上传、动态 MCP 工具、用量、OAuth 会话和 MCP descriptor 页面。所有远程数据均以当前 OAuth 作用域、租户和公众号为边界；高风险删除和 MCP 写入操作先展示 dry-run，再要求精确确认文本。`--plain`、严格 JSONL、Agent、pipe 与 CI 行为保持兼容，且不会加载 Ink。
+**v3.1.0 完整 Ink 控制台**: `woa ui` 提供总览、可恢复接入、公众号账号、草稿/发布/收件箱、媒体上传、动态 MCP 工具、用量、OAuth 会话和 MCP descriptor 页面。所有远程数据均以当前 OAuth 作用域、租户和公众号为边界；高风险删除和 MCP 写入操作先展示 dry-run，再要求精确确认文本。兼容性整帧重绘修复了 Ghostty 等终端操作后不断新增行的问题；Node.js 20+、alternate screen、`--plain`、Agent、pipe 与 CI 行为保持兼容，且不会加载 Ink。
 
 **CLI API 能力**: remote-only `@ziikoo/woa` 通过标准 Streamable HTTP MCP 动态发现并调用全部 23 个 `wechat_*` 运营工具，提供 `woa api list/describe/call`、完整草稿 add/update/get/count 命令、JSON 文件/stdin 输入、显式 `wechat-full` OAuth scope profile、dry-run 与高风险 action 精确确认。API contract 仍以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源。
 
