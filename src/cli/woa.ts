@@ -34,6 +34,16 @@ import {
   interactiveConsoleUnavailableReason,
   normalizeInkCiEnvironment,
 } from './terminal-capabilities.js';
+import type {
+  UiAccount,
+  UiConsoleServices,
+  UiConsoleSnapshot,
+  UiContentItem,
+  UiSession,
+  UiTenant,
+  UiUsageMetric,
+  UiUsageSummary,
+} from './ui-console-types.js';
 import { CLI_VERSION } from './version.js';
 
 interface CliConfig {
@@ -273,17 +283,479 @@ async function handleUiCommand(flags: Record<string, string | boolean>): Promise
   });
   const unavailable = interactiveConsoleUnavailableReason(capabilities);
   if (unavailable) throw new CliUsageError(unavailable);
-  const snapshot = await loadInitConsoleSnapshot(CONFIG_PATH);
-  normalizeInkCiEnvironment();
-  const { runInkUiShell } = await import('./ui-shell.js');
-  const selection = await runInkUiShell(snapshot, { color: capabilities.color });
-  if (selection === 'exit') return;
-  if (selection === 'resume') {
-    if (!snapshot.canResume || !snapshot.event) throw new CliUsageError('No compatible resumable initialization run is available.');
-    await handleInitCommand('resume', snapshot.event.runId, flags);
-    return;
+  const services = createUiConsoleServices(flags);
+  while (true) {
+    const consoleSnapshot = await services.refresh();
+    normalizeInkCiEnvironment();
+    const { runInkUiShell } = await import('./ui-shell.js');
+    const selection = await runInkUiShell(consoleSnapshot.init, {
+      color: capabilities.color,
+      console: { snapshot: consoleSnapshot, services },
+    });
+    if (selection === 'exit') return;
+    if (selection === 'resume') {
+      if (!consoleSnapshot.init.canResume || !consoleSnapshot.init.event) {
+        throw new CliUsageError('No compatible resumable initialization run is available.');
+      }
+      await handleInitCommand('resume', consoleSnapshot.init.event.runId, flags);
+      continue;
+    }
+    if (selection === 'start') {
+      await handleInitCommand(undefined, undefined, flags);
+      continue;
+    }
+    if (selection.kind === 'login') {
+      const config = await loadConfig();
+      await login({ ...flags, server: stringFlag(flags, 'server') || config.server || 'https://woa.ziikoo.app' });
+      continue;
+    }
+    if (selection.kind === 'configure_account') {
+      await handleAccountCommand('configure', selection.accountId, {
+        ...flags,
+        tenant: selection.tenantId,
+        account: selection.accountId,
+        'app-id': selection.appId,
+      });
+      continue;
+    }
   }
-  await handleInitCommand(undefined, undefined, flags);
+}
+
+function createUiConsoleServices(flags: Record<string, string | boolean>): UiConsoleServices {
+  return {
+    refresh: async () => await loadUiConsoleSnapshot(flags),
+    switchScope: async input => {
+      const config = await loadConfig();
+      await saveConfig({ ...config, activeTenantId: input.tenantId, activeAccountId: input.accountId });
+      return { message: '已切换当前租户和公众号。' };
+    },
+    createAccount: async input => {
+      await apiPost(`/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts`, { name: input.name }, flags);
+      return uiMutation('公众号已创建。');
+    },
+    renameAccount: async input => {
+      await apiPatch(
+        `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}`,
+        { name: input.name },
+        flags,
+      );
+      return uiMutation('公众号名称已更新。');
+    },
+    setDefaultAccount: async input => {
+      await apiPatch(
+        `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}`,
+        { isDefault: true },
+        flags,
+      );
+      const config = await loadConfig();
+      await saveConfig({ ...config, activeTenantId: input.tenantId, activeAccountId: input.accountId });
+      return uiMutation('已设为默认公众号。');
+    },
+    disableAccount: async input => {
+      const expected = `DELETE ${input.accountId}`;
+      if (input.confirmation !== expected) throw new Error(`公众号停用需要确认文本：${expected}`);
+      await apiPost(
+        `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}/disable`,
+        { confirmation: input.confirmation },
+        flags,
+      );
+      return uiMutation('公众号已停用，服务端已清除关联凭据。');
+    },
+    refreshAccountToken: async input => {
+      await apiPost(
+        `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}/token/refresh`,
+        {},
+        flags,
+      );
+      return uiMutation('公众号访问 Token 已刷新。');
+    },
+    deleteDraft: async input => {
+      const expected = `DELETE ${input.mediaId}`;
+      if (input.confirmation !== expected) throw new Error(`草稿删除需要确认文本：${expected}`);
+      await apiDelete(
+        `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}/drafts/${encodeURIComponent(input.mediaId)}`,
+        flags,
+      );
+      return uiMutation('草稿已删除。');
+    },
+    deletePublish: async input => {
+      const expected = `DELETE ${input.articleId}`;
+      if (input.confirmation !== expected) throw new Error(`发布记录删除需要确认文本：${expected}`);
+      await apiDelete(
+        `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}/publishes/${encodeURIComponent(input.articleId)}`,
+        flags,
+      );
+      return uiMutation('发布记录已删除。');
+    },
+    uploadMedia: async input => {
+      await uploadLocalMediaResult(input.filePath, {
+        ...flags,
+        tenant: input.tenantId,
+        account: input.accountId,
+      });
+      return uiMutation('媒体已上传至受保护的暂存区。');
+    },
+    callTool: async input => {
+      const client = await createCliMcpApiClient(flags);
+      try {
+        const tool = (await client.listTools()).find(candidate => candidate.name === input.tool.name);
+        if (!tool || !isWechatToolName(tool.name)) throw new Error(`WeChat MCP tool not found: ${input.tool.name}`);
+        const args = await injectToolAccount(tool, input.arguments, flags);
+        assertToolConfirmation(tool, args, input.confirmation);
+        return await client.callTool(tool.name, args);
+      } finally {
+        await client.close();
+      }
+    },
+    checkout: async input => {
+      const config = await loadConfig();
+      const server = normalizeServer(stringFlag(flags, 'server') || config.server || '');
+      if (!server) throw new Error('缺少 Server。请先登录或在命令中提供 --server。');
+      const response = await apiPost(`/api/v1/tenants/${encodeURIComponent(input.tenantId)}/billing/checkout`, {
+        plan: input.plan,
+        successUrl: new URL('/billing/success', server).toString(),
+        cancelUrl: new URL('/billing/cancel', server).toString(),
+      }, flags);
+      const url = checkoutUrl(response);
+      if (!url) throw new Error('服务端没有返回可用的 Stripe Checkout 地址。');
+      openBrowser(url);
+      return uiMutation(`已在浏览器打开 ${input.plan.toUpperCase()} 套餐支付页面。`);
+    },
+    revokeSession: async input => {
+      const expected = `REVOKE ${input.sessionId}`;
+      if (input.confirmation !== expected) throw new Error(`撤销会话需要确认文本：${expected}`);
+      await apiDelete(`/api/v1/sessions/${encodeURIComponent(input.sessionId)}`, flags);
+      return uiMutation('会话已撤销。');
+    },
+  };
+}
+
+async function loadUiConsoleSnapshot(flags: Record<string, string | boolean>): Promise<UiConsoleSnapshot> {
+  const [init, config] = await Promise.all([
+    loadInitConsoleSnapshot(CONFIG_PATH),
+    loadConfig(),
+  ]);
+  const snapshot: UiConsoleSnapshot = {
+    init,
+    server: stringFlag(flags, 'server') || config.server,
+    authenticated: false,
+    tenants: [],
+    accounts: [],
+    drafts: [],
+    publishes: [],
+    inbox: [],
+    tools: [],
+    sessions: [],
+    errors: [],
+    refreshedAt: Date.now(),
+  };
+  if (snapshot.server) {
+    try {
+      snapshot.mcpDescriptor = renderMcpDescriptor(snapshot.server);
+      snapshot.mcpConfig = renderUiMcpConfig(snapshot.server);
+    } catch (error) {
+      snapshot.errors.push({ area: 'MCP 描述', message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  if (!snapshot.server || (!config.accessToken && !config.refreshToken)) return snapshot;
+
+  const contextResponse = await uiOptional('身份与范围', async () => await apiGet('/api/v1/me', flags), snapshot);
+  const context = uiEnvelopeData(contextResponse);
+  if (!context) return snapshot;
+  snapshot.authenticated = true;
+  snapshot.operator = uiOperator(context);
+  snapshot.tenants = uiTenants(context.tenants);
+  snapshot.accounts = uiAccounts(context.accounts);
+  snapshot.activeTenantId = selectUiTenantId(config, context, snapshot.tenants, snapshot.accounts);
+  snapshot.activeAccountId = selectUiAccountId(config, context, snapshot.activeTenantId, snapshot.accounts);
+
+  if (snapshot.activeTenantId) {
+    const accountResponse = await uiOptional('公众号列表', async () => await apiGet(
+      `/api/v1/tenants/${encodeURIComponent(snapshot.activeTenantId!)}/accounts`,
+      flags,
+    ), snapshot);
+    const accountData = uiEnvelopeData(accountResponse);
+    const detailed = uiAccounts(accountData?.accounts);
+    if (detailed.length > 0) snapshot.accounts = mergeUiAccounts(snapshot.accounts, detailed);
+    snapshot.activeAccountId = selectUiAccountId(config, context, snapshot.activeTenantId, snapshot.accounts);
+
+    const usageResponse = await uiOptional('租户用量', async () => await apiGet(
+      `/api/v1/tenants/${encodeURIComponent(snapshot.activeTenantId!)}/usage`,
+      flags,
+    ), snapshot);
+    snapshot.usage = uiUsage(uiEnvelopeData(usageResponse));
+  }
+
+  if (snapshot.activeTenantId && snapshot.activeAccountId) {
+    const tenantId = snapshot.activeTenantId;
+    const accountId = snapshot.activeAccountId;
+    const [statusResponse, draftResponse, publishResponse, inboxResponse] = await Promise.all([
+      uiOptional('账号状态', async () => await apiGet(`/api/v1/tenants/${encodeURIComponent(tenantId)}/accounts/${encodeURIComponent(accountId)}/status`, flags), snapshot),
+      uiOptional('草稿', async () => await apiGet(`/api/v1/tenants/${encodeURIComponent(tenantId)}/accounts/${encodeURIComponent(accountId)}/drafts?count=20`, flags), snapshot),
+      uiOptional('发布记录', async () => await apiGet(`/api/v1/tenants/${encodeURIComponent(tenantId)}/accounts/${encodeURIComponent(accountId)}/publishes?count=20`, flags), snapshot),
+      uiOptional('收件箱', async () => await apiGet(`/api/v1/tenants/${encodeURIComponent(tenantId)}/accounts/${encodeURIComponent(accountId)}/inbox?limit=20`, flags), snapshot),
+    ]);
+    const status = uiEnvelopeData(statusResponse);
+    const index = snapshot.accounts.findIndex(item => item.tenantId === tenantId && item.accountId === accountId);
+    if (index >= 0) {
+      snapshot.accounts[index] = {
+        ...snapshot.accounts[index],
+        configured: status?.configured === true,
+        ...(uiAccounts(status?.account)[0] || {}),
+      };
+    }
+    snapshot.drafts = uiContentItems(uiEnvelopeData(draftResponse), 'draft');
+    snapshot.publishes = uiContentItems(uiEnvelopeData(publishResponse), 'publish');
+    snapshot.inbox = uiContentItems(uiEnvelopeData(inboxResponse), 'inbox');
+  }
+
+  const [toolList, sessionResponse] = await Promise.all([
+    uiOptional('MCP 工具目录', async () => {
+      const client = await createCliMcpApiClient(flags);
+      try {
+        return await client.listTools();
+      } finally {
+        await client.close();
+      }
+    }, snapshot),
+    uiOptional('安全会话', async () => await apiGet('/api/v1/sessions', flags), snapshot),
+  ]);
+  if (Array.isArray(toolList)) snapshot.tools = filterWechatTools(toolList);
+  snapshot.sessions = uiSessions(uiEnvelopeData(sessionResponse)?.sessions);
+  return snapshot;
+}
+
+async function uiOptional<T>(
+  area: string,
+  operation: () => Promise<T>,
+  snapshot: UiConsoleSnapshot,
+): Promise<T | undefined> {
+  try {
+    return await operation();
+  } catch (error) {
+    snapshot.errors.push({ area, message: error instanceof Error ? error.message : String(error) });
+    return undefined;
+  }
+}
+
+function uiMutation(message: string): { message: string } {
+  return { message };
+}
+
+function uiEnvelopeData(value: unknown): Record<string, unknown> | null {
+  const root = asRecord(value);
+  return asRecord(root?.data) ?? root;
+}
+
+function uiOperator(context: Record<string, unknown>): UiConsoleSnapshot['operator'] {
+  const user = asRecord(context.user);
+  return {
+    displayName: stringValue(user?.displayName),
+    email: stringValue(user?.email),
+    scopes: Array.isArray(context.scopes) ? context.scopes.filter((item): item is string => typeof item === 'string') : [],
+  };
+}
+
+function uiTenants(value: unknown): UiTenant[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    const record = asRecord(item);
+    const tenantId = stringValue(record?.tenantId);
+    return tenantId ? [{
+      tenantId,
+      name: stringValue(record?.name),
+      slug: stringValue(record?.slug),
+      role: stringValue(record?.role),
+      status: stringValue(record?.status),
+    }] : [];
+  });
+}
+
+function uiAccounts(value: unknown): UiAccount[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    const record = asRecord(item);
+    const tenantId = stringValue(record?.tenantId);
+    const accountId = stringValue(record?.accountId);
+    return tenantId && accountId ? [{
+      tenantId,
+      accountId,
+      name: stringValue(record?.name),
+      slug: stringValue(record?.slug),
+      appId: stringValue(record?.appId),
+      status: stringValue(record?.status),
+      isDefault: record?.isDefault === true,
+      hasAppSecret: record?.hasAppSecret === true,
+      configured: record?.configured === true,
+      updatedAt: typeof record?.updatedAt === 'number' ? record.updatedAt : undefined,
+    }] : [];
+  });
+}
+
+function mergeUiAccounts(existing: UiAccount[], detailed: UiAccount[]): UiAccount[] {
+  const byKey = new Map(existing.map(account => [`${account.tenantId}:${account.accountId}`, account]));
+  for (const account of detailed) {
+    const key = `${account.tenantId}:${account.accountId}`;
+    byKey.set(key, { ...byKey.get(key), ...account });
+  }
+  return [...byKey.values()];
+}
+
+function selectUiTenantId(
+  config: CliConfig,
+  context: Record<string, unknown>,
+  tenants: UiTenant[],
+  accounts: UiAccount[],
+): string | undefined {
+  const allowed = new Set([...tenants.map(item => item.tenantId), ...accounts.map(item => item.tenantId)]);
+  const candidates = [config.activeTenantId, stringValue(context.defaultTenantId), tenants[0]?.tenantId, accounts[0]?.tenantId];
+  return candidates.find((item): item is string => typeof item === 'string' && allowed.has(item));
+}
+
+function selectUiAccountId(
+  config: CliConfig,
+  context: Record<string, unknown>,
+  tenantId: string | undefined,
+  accounts: UiAccount[],
+): string | undefined {
+  const candidates = accounts.filter(account => !tenantId || account.tenantId === tenantId);
+  const configured = [
+    config.activeAccountId,
+    stringValue(context.defaultAccountId),
+    candidates.find(account => account.isDefault)?.accountId,
+    candidates[0]?.accountId,
+  ];
+  return configured.find((item): item is string => typeof item === 'string' && candidates.some(account => account.accountId === item));
+}
+
+function uiUsage(value: Record<string, unknown> | null): UiUsageSummary | undefined {
+  if (!value) return undefined;
+  const entitlement = asRecord(value.entitlement);
+  const source = entitlement ?? value;
+  const metrics = uiUsageMetrics(value);
+  return {
+    plan: stringValue(source.plan) || stringValue(source.planId),
+    resetAt: uiTimestamp(source.resetAt) || uiTimestamp(source.periodEnd),
+    metrics,
+    upgradePrompt: stringValue(value.upgradePrompt),
+  };
+}
+
+function uiUsageMetrics(value: Record<string, unknown>): UiUsageMetric[] {
+  const candidates = [value.metrics, value.counters, value.usage];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      const metrics = candidate.flatMap(item => {
+        const record = asRecord(item);
+        const name = stringValue(record?.name) || stringValue(record?.metric) || stringValue(record?.key);
+        return name ? [{
+          name,
+          used: numberValue(record?.used) ?? numberValue(record?.value),
+          limit: numberValue(record?.limit) ?? numberValue(record?.limitValue),
+          unit: stringValue(record?.unit),
+        }] : [];
+      });
+      if (metrics.length) return metrics;
+    }
+  }
+  return [];
+}
+
+function uiContentItems(value: Record<string, unknown> | null, kind: 'draft' | 'publish' | 'inbox'): UiContentItem[] {
+  if (!value) return [];
+  const candidates = [value.items, value.item, value.messages, value.list, value.data];
+  const source = candidates.find(Array.isArray) as unknown[] | undefined;
+  if (!source) return [];
+  return source.flatMap((item, index) => {
+    const record = asRecord(item);
+    if (!record) return [];
+    const content = asRecord(record.content);
+    const newsItems = Array.isArray(content?.news_item) ? content?.news_item : Array.isArray(record.news_item) ? record.news_item : [];
+    const firstArticle = asRecord(newsItems[0]);
+    const id = stringValue(record.media_id)
+      || stringValue(record.mediaId)
+      || stringValue(record.article_id)
+      || stringValue(record.articleId)
+      || stringValue(record.msg_id)
+      || stringValue(record.messageId)
+      || stringValue(record.id)
+      || `${kind}-${index + 1}`;
+    const title = stringValue(record.title)
+      || stringValue(firstArticle?.title)
+      || stringValue(record.type)
+      || `${kind === 'draft' ? '草稿' : kind === 'publish' ? '发布记录' : '收件箱消息'} ${index + 1}`;
+    const subtitle = stringValue(record.author)
+      || stringValue(record.update_time)
+      || stringValue(record.create_time);
+    return [{
+      id,
+      title,
+      subtitle,
+      status: kind === 'publish' ? stringValue(record.publish_status) || 'published' : stringValue(record.status),
+      updatedAt: uiTimestamp(record.update_time) || uiTimestamp(record.create_time),
+      detail: uiContentDetail(record, firstArticle, id, title, kind, newsItems.length),
+    }];
+  });
+}
+
+function uiContentDetail(
+  record: Record<string, unknown>,
+  firstArticle: Record<string, unknown> | null,
+  id: string,
+  title: string,
+  kind: 'draft' | 'publish' | 'inbox',
+  articleCount: number,
+): Record<string, string | number | boolean | null> {
+  return {
+    id,
+    title,
+    kind,
+    status: stringValue(record.status) || stringValue(record.publish_status) || null,
+    type: stringValue(record.type) || null,
+    author: stringValue(record.author) || stringValue(firstArticle?.author) || null,
+    articleCount: articleCount || null,
+    updatedAt: uiTimestamp(record.update_time) || null,
+    createdAt: uiTimestamp(record.create_time) || null,
+  };
+}
+
+function uiSessions(value: unknown): UiSession[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    const record = asRecord(item);
+    const id = stringValue(record?.id) || stringValue(record?.sessionId);
+    if (!id) return [];
+    return [{
+      id,
+      label: stringValue(record?.label) || stringValue(record?.clientName) || stringValue(record?.kind) || id,
+      kind: stringValue(record?.kind),
+      current: record?.current === true,
+      createdAt: uiTimestamp(record?.createdAt),
+      lastSeenAt: uiTimestamp(record?.lastSeenAt) || uiTimestamp(record?.updatedAt),
+    }];
+  });
+}
+
+function uiTimestamp(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const milliseconds = value < 10_000_000_000 ? value * 1_000 : value;
+    return new Date(milliseconds).toISOString();
+  }
+  return undefined;
+}
+
+function numberValue(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function renderUiMcpConfig(server: string): string {
+  const mcpUrl = new URL('/mcp', server).toString();
+  return `${JSON.stringify({
+    mcp_servers: {
+      wechat: { type: 'streamable-http', url: mcpUrl },
+    },
+  }, null, 2)}\n`;
 }
 
 function createInitCommandServices(): InitCommandServices {
@@ -1174,6 +1646,11 @@ async function apiDelete(route: string, flags: Record<string, string | boolean>)
 }
 
 async function uploadLocalMedia(fileArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
+  const result = await uploadLocalMediaResult(fileArg, flags);
+  console.log(JSON.stringify(result, null, 2));
+}
+
+async function uploadLocalMediaResult(fileArg: string | undefined, flags: Record<string, string | boolean>): Promise<unknown> {
   const filePath = path.resolve(fileArg || stringFlag(flags, 'file') || '');
   if (!fileArg && !stringFlag(flags, 'file')) {
     throw new Error('media upload requires a local file path. Example: woa media upload ./cover.png');
@@ -1216,7 +1693,7 @@ async function uploadLocalMedia(fileArg: string | undefined, flags: Record<strin
   if (!response.ok) {
     throw new Error(`Remote media upload failed with ${response.status}: ${text}`);
   }
-  console.log(JSON.stringify(withMediaUploadHints(data, accountId), null, 2));
+  return withMediaUploadHints(data, accountId);
 }
 
 function withMediaUploadHints(value: unknown, accountId: string): unknown {

@@ -17,6 +17,8 @@ import {
   renderInitSummary,
 } from '../src/cli/init-ink.js';
 import { runInkUiShell, UiShellScreen } from '../src/cli/ui-shell.js';
+import { UiConsoleScreen } from '../src/cli/ui-console.js';
+import type { UiConsoleServices, UiConsoleSnapshot } from '../src/cli/ui-console-types.js';
 import {
   createInitRun,
   toInitProtocolEvent,
@@ -130,6 +132,166 @@ test('WOA UI shell exposes start, resume, status, and exit actions', async t => 
   assert.deepEqual(selections, ['resume', 'start']);
 });
 
+test('full WOA console navigates account management, requires an exact delete marker, and redacts remote errors', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  const calls: string[] = [];
+  const services: UiConsoleServices = {
+    refresh: async () => snapshot,
+    switchScope: async input => ({ message: `scope=${input.accountId}` }),
+    createAccount: async input => ({ message: `created=${input.name}` }),
+    renameAccount: async input => ({ message: `renamed=${input.name}` }),
+    setDefaultAccount: async () => ({ message: 'default' }),
+    disableAccount: async input => {
+      calls.push(`${input.tenantId}:${input.accountId}:${input.confirmation}`);
+      return { message: 'disabled' };
+    },
+    refreshAccountToken: async () => ({ message: 'token' }),
+    deleteDraft: async () => ({ message: 'draft' }),
+    deletePublish: async () => ({ message: 'publish' }),
+    uploadMedia: async () => ({ message: 'media' }),
+    callTool: async () => ({ content: [{ type: 'text', text: 'ok' }] }),
+    checkout: async () => ({ message: 'checkout' }),
+    revokeSession: async () => ({ message: 'revoked' }),
+  };
+  const exits: unknown[] = [];
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={services} color={false} onExit={action => exits.push(action)} />);
+  assert.match(view.lastFrame() ?? '', /WOA Console/);
+  assert.match(view.lastFrame() ?? '', /access_token=\[REDACTED\]/);
+  await nextTurn();
+  view.stdin.write('3');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /公众号账号/);
+  view.stdin.write('x');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /Dry Run：停用公众号/);
+  view.stdin.write('\r');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /确认停用公众号/);
+  view.stdin.write('DELETE account-1');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /DELETE account-1/);
+  view.stdin.write('\r');
+  await nextTurn();
+  await nextTurn();
+  assert.deepEqual(calls, ['tenant-1:account-1:DELETE account-1']);
+  assert.deepEqual(exits, []);
+});
+
+test('full WOA console requires the MCP confirmation token before a protected tool call', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  snapshot.tools[0] = {
+    ...snapshot.tools[0]!,
+    annotations: { destructiveHint: true },
+  };
+  const confirmations: Array<string | undefined> = [];
+  const services: UiConsoleServices = {
+    refresh: async () => snapshot,
+    switchScope: async () => ({ message: 'scope' }),
+    createAccount: async () => ({ message: 'create' }),
+    renameAccount: async () => ({ message: 'rename' }),
+    setDefaultAccount: async () => ({ message: 'default' }),
+    disableAccount: async () => ({ message: 'disable' }),
+    refreshAccountToken: async () => ({ message: 'token' }),
+    deleteDraft: async () => ({ message: 'draft' }),
+    deletePublish: async () => ({ message: 'publish' }),
+    uploadMedia: async () => ({ message: 'media' }),
+    callTool: async input => {
+      confirmations.push(input.confirmation);
+      return { content: [{ type: 'text', text: 'called' }] };
+    },
+    checkout: async () => ({ message: 'checkout' }),
+    revokeSession: async () => ({ message: 'revoke' }),
+  };
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={services} color={false} onExit={() => undefined} />);
+  await nextTurn();
+  view.stdin.write('5');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /动态 MCP 工具/);
+  view.stdin.write('\r');
+  await nextTurn();
+  view.stdin.write('{"action":"delete","mediaId":"draft-1"}');
+  await nextTurn();
+  view.stdin.write('\r');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /Dry Run：受保护的 MCP 调用/);
+  view.stdin.write('\r');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /wechat_draft:delete/);
+  view.stdin.write('wechat_draft:delete');
+  await nextTurn();
+  view.stdin.write('\r');
+  await nextTurn();
+  await nextTurn();
+  assert.deepEqual(confirmations, ['wechat_draft:delete']);
+});
+
+test('full WOA console filters the current list without changing its active account scope', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={consoleServices(snapshot)} color={false} onExit={() => undefined} />);
+  await nextTurn();
+  view.stdin.write('3');
+  await nextTurn();
+  view.stdin.write('/');
+  await nextTurn();
+  view.stdin.write('does-not-exist');
+  await nextTurn();
+  view.stdin.write('\r');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /筛选：does-not-exist/);
+  assert.match(view.lastFrame() ?? '', /暂无可访问公众号/);
+  assert.match(view.lastFrame() ?? '', /测试公众号/);
+});
+
+test('full WOA console never falls back to an account outside the active tenant scope', t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  snapshot.tenants.push({ tenantId: 'tenant-2', name: '空租户', role: 'owner', status: 'active' });
+  snapshot.activeTenantId = 'tenant-2';
+  snapshot.activeAccountId = undefined;
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={consoleServices(snapshot)} color={false} onExit={() => undefined} />);
+  const frame = view.lastFrame() ?? '';
+  assert.match(frame, /空租户/);
+  assert.match(frame, /尚未选择或创建公众号/);
+  assert.doesNotMatch(frame, /凭据：已配置/);
+});
+
+test('full WOA console preserves a successful mutation when only the post-mutation refresh fails', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  const services: UiConsoleServices = {
+    ...consoleServices(snapshot),
+    refresh: async () => { throw new Error('refresh unavailable'); },
+    setDefaultAccount: async () => ({ message: '已设为默认公众号。' }),
+  };
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={services} color={false} onExit={() => undefined} />);
+  await nextTurn();
+  view.stdin.write('3');
+  await nextTurn();
+  view.stdin.write('d');
+  await nextTurn();
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /已设为默认公众号。 远程状态刷新失败：refresh unavailable/);
+});
+
+test('media tab has no hidden inbox selection to open or delete', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  snapshot.inbox = [{ id: 'inbox-1', title: '不应出现在媒体页', status: 'pending' }];
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={consoleServices(snapshot)} color={false} onExit={() => undefined} />);
+  await nextTurn();
+  view.stdin.write('4');
+  await nextTurn();
+  view.stdin.write('4');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /本地媒体会先安全暂存/);
+  view.stdin.write('\r');
+  await nextTurn();
+  assert.doesNotMatch(view.lastFrame() ?? '', /详情/);
+});
+
 test('WOA UI shell restores terminal state when the process receives SIGTERM', async () => {
   const previousExitCode = process.exitCode;
   const { input, output, errorOutput, rendered } = ttyStreams();
@@ -149,6 +311,25 @@ test('WOA UI shell restores terminal state when the process receives SIGTERM', a
   } finally {
     process.exitCode = previousExitCode;
   }
+});
+
+test('full WOA console uses a linear, non-alternate-screen projection for screen readers', async () => {
+  const { input, output, errorOutput, rendered } = ttyStreams();
+  const snapshot = consoleSnapshot();
+  const selection = runInkUiShell(snapshot.init, {
+    input,
+    output,
+    errorOutput,
+    color: false,
+    screenReader: true,
+    console: { snapshot, services: consoleServices(snapshot) },
+  });
+  await nextTurn();
+  assert.match(rendered.stdout, /WOA Console/);
+  assert.match(rendered.stdout, /当前页面：总览/);
+  assert.equal(rendered.stdout.includes('\u001b[?1049h'), false);
+  input.write('q');
+  assert.equal(await selection, 'exit');
 });
 
 test('WOA UI shell uses compatibility redraws instead of incremental line appends', async () => {
@@ -280,6 +461,9 @@ test('pseudo-TTY woa ui and interactive init restore alternate screen and print 
   assert.equal(ui.code, 0, ui.stderr || ui.stdout);
   assert.equal(ui.stdout.includes('\u001b[?1049h'), true);
   assert.equal(ui.stdout.includes('\u001b[?1049l'), true);
+  assert.match(ui.stdout, /WOA Console/);
+  assert.match(ui.stdout, /总览/);
+  assert.doesNotMatch(ui.stdout, /onboarding MVP/);
 
   const server = createServer((request, response) => {
     response.setHeader('content-type', 'application/json');
@@ -331,6 +515,57 @@ function eventAtLogin(): InitProtocolEvent {
   run = transitionInitRun(run, { kind: 'environment_supported' });
   run = transitionInitRun(run, { kind: 'cli_oauth_prepared', authorizationUrl: 'https://woa.example/authorize?state=STATE' });
   return toInitProtocolEvent(run);
+}
+
+function consoleSnapshot(): UiConsoleSnapshot {
+  return {
+    init: { event: eventPaused(), canResume: true },
+    server: 'https://woa.example',
+    authenticated: true,
+    operator: { displayName: '测试操作员', scopes: ['woa:context:read'] },
+    tenants: [{ tenantId: 'tenant-1', name: '测试租户', role: 'owner', status: 'active' }],
+    accounts: [{
+      tenantId: 'tenant-1',
+      accountId: 'account-1',
+      name: '测试公众号',
+      status: 'active',
+      isDefault: true,
+      configured: true,
+    }],
+    activeTenantId: 'tenant-1',
+    activeAccountId: 'account-1',
+    usage: { plan: 'free', metrics: [{ name: 'MCP calls', used: 2, limit: 10 }] },
+    drafts: [{ id: 'draft-1', title: '测试草稿', status: 'draft' }],
+    publishes: [],
+    inbox: [],
+    tools: [{
+      name: 'wechat_draft',
+      description: '草稿工具',
+      inputSchema: { type: 'object', required: ['action'] },
+      annotations: { readOnlyHint: true },
+    }],
+    sessions: [],
+    errors: [{ area: '草稿', message: 'access_token=NEVER_SHOW' }],
+    refreshedAt: Date.now(),
+  };
+}
+
+function consoleServices(snapshot: UiConsoleSnapshot): UiConsoleServices {
+  return {
+    refresh: async () => snapshot,
+    switchScope: async () => ({ message: 'scope' }),
+    createAccount: async () => ({ message: 'create' }),
+    renameAccount: async () => ({ message: 'rename' }),
+    setDefaultAccount: async () => ({ message: 'default' }),
+    disableAccount: async () => ({ message: 'disable' }),
+    refreshAccountToken: async () => ({ message: 'token' }),
+    deleteDraft: async () => ({ message: 'draft' }),
+    deletePublish: async () => ({ message: 'publish' }),
+    uploadMedia: async () => ({ message: 'media' }),
+    callTool: async () => ({ content: [{ type: 'text', text: 'called' }] }),
+    checkout: async () => ({ message: 'checkout' }),
+    revokeSession: async () => ({ message: 'revoke' }),
+  };
 }
 
 function eventAtAllowlist(): InitProtocolEvent {
@@ -444,9 +679,10 @@ async function runPseudoTty(args: string[], input: string): Promise<{ code: numb
   const delayedInput = input === 'q'
     ? `(sleep 1; while printf q; do sleep 1; done)`
     : `(sleep 3; printf ${shellQuote(input)})`;
+  const ttyCommand = `stty cols 120 rows 40; exec env ${env} ${cli}`;
   const command = process.platform === 'darwin'
-    ? `${delayedInput} | script -q /dev/null env ${env} ${cli}`
-    : `${delayedInput} | script -q -e -c ${shellQuote(`env ${env} ${cli}`)} /dev/null`;
+    ? `${delayedInput} | script -q /dev/null sh -lc ${shellQuote(ttyCommand)}`
+    : `${delayedInput} | script -q -e -c ${shellQuote(ttyCommand)} /dev/null`;
   const child = spawn('/bin/sh', ['-c', command], {
     cwd: projectRoot,
     detached: true,

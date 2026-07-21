@@ -1,10 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { useState, type ReactNode } from 'react';
+import React, { Component, useState, type ReactNode } from 'react';
 import { Box, Text, render, useFocus, useInput, type Instance } from 'ink';
 import type { InitConsoleSnapshot } from './init-command.js';
 import { redactTerminalText } from './init-ink.js';
+import { UiConsoleScreen } from './ui-console.js';
+import type { UiConsoleExitAction, UiConsoleServices, UiConsoleSnapshot } from './ui-console-types.js';
 
-export type UiShellSelection = 'start' | 'resume' | 'exit';
+export type UiShellSelection = UiConsoleExitAction;
 
 export interface UiShellOptions {
   input?: NodeJS.ReadStream;
@@ -13,6 +15,10 @@ export interface UiShellOptions {
   color?: boolean;
   alternateScreen?: boolean;
   screenReader?: boolean;
+  console?: {
+    snapshot: UiConsoleSnapshot;
+    services: UiConsoleServices;
+  };
 }
 
 interface ShellAction {
@@ -31,6 +37,7 @@ export async function runInkUiShell(
   const instance: { current: Instance | null } = { current: null };
   let alternateScreenActive = false;
   let finishFromSignal: ((selection: UiShellSelection) => void) | null = null;
+  const screenReader = options.screenReader ?? process.env.INK_SCREEN_READER === 'true';
   const onSigint = () => {
     process.exitCode = 130;
     finishFromSignal?.('exit');
@@ -41,7 +48,7 @@ export async function runInkUiShell(
   };
   process.on('SIGINT', onSigint);
   process.on('SIGTERM', onSigterm);
-  if (options.alternateScreen !== false && output.isTTY === true) {
+  if (options.alternateScreen !== false && !screenReader && output.isTTY === true) {
     output.write('\u001b[?1049h\u001b[2J\u001b[H');
     alternateScreenActive = true;
   }
@@ -51,7 +58,20 @@ export async function runInkUiShell(
       const finish = (selection: UiShellSelection) => resolve(selection);
       try {
         instance.current = render(
-          <UiShellScreen snapshot={snapshot} color={options.color !== false} onSelect={finish} />,
+          options.console ? (
+            <UiConsoleErrorBoundary onError={error => {
+              errorOutput.write(`WOA Console render error: ${redactTerminalText(error.message)}\n`);
+              finish('exit');
+            }}>
+              <UiConsoleScreen
+                snapshot={options.console.snapshot}
+                services={options.console.services}
+                color={options.color !== false}
+                screenReader={screenReader}
+                onExit={finish}
+              />
+            </UiConsoleErrorBoundary>
+          ) : <UiShellScreen snapshot={snapshot} color={options.color !== false} onSelect={finish} />,
           {
             stdin: input,
             stdout: output,
@@ -59,7 +79,7 @@ export async function runInkUiShell(
             exitOnCtrlC: false,
             patchConsole: false,
             incrementalRendering: false,
-            isScreenReaderEnabled: options.screenReader ?? process.env.INK_SCREEN_READER === 'true',
+            isScreenReaderEnabled: screenReader,
           },
         );
       } catch (error) {
@@ -151,4 +171,24 @@ export function UiShellScreen(props: {
       </Box>
     </Box>
   );
+}
+
+class UiConsoleErrorBoundary extends Component<{
+  children: ReactNode;
+  onError: (error: Error) => void;
+}, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error };
+  }
+
+  componentDidCatch(error: Error): void {
+    this.props.onError(error);
+  }
+
+  render(): ReactNode {
+    if (this.state.error) return <Text>WOA Console 无法继续，正在恢复终端。</Text>;
+    return this.props.children;
+  }
 }

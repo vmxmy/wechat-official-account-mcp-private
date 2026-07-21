@@ -13,7 +13,7 @@
 
 **v3.0.1 TUI 刷新修复**: `woa ui` 和交互式 `woa init` 统一空值 `CI=` 与 Ink 的环境判断，并改用兼容性整帧重绘，修复 Ghostty 等终端中操作后界面不原地刷新、而是不断新增行的问题。Node.js 20+、alternate screen、信号恢复、`--plain` 和严格 JSONL 行为保持不变。
 
-**v3.0.0 Ink TUI 更新**: 新增 Ink 6 驱动的 `woa ui` 接入控制台，交互式 `woa init` 复用同一套界面与流程。CLI 最低运行时提升为 Node.js 20；Node.js 18 不再受支持。`--plain`、严格 JSONL、Agent、pipe 与 CI 行为保持兼容，Worker、远程 MCP、OAuth/REST API 与已有接入检查点不需要数据迁移。
+**开发中：完整 Ink 控制台**: `woa ui` 现提供总览、可恢复接入、公众号账号、草稿/发布/收件箱、媒体上传、动态 MCP 工具、用量、OAuth 会话和 MCP descriptor 页面。所有远程数据均以当前 OAuth 作用域、租户和公众号为边界；高风险删除和 MCP 写入操作先展示 dry-run，再要求精确确认文本。`--plain`、严格 JSONL、Agent、pipe 与 CI 行为保持兼容，且不会加载 Ink。
 
 **CLI API 能力**: remote-only `@ziikoo/woa` 通过标准 Streamable HTTP MCP 动态发现并调用全部 23 个 `wechat_*` 运营工具，提供 `woa api list/describe/call`、完整草稿 add/update/get/count 命令、JSON 文件/stdin 输入、显式 `wechat-full` OAuth scope profile、dry-run 与高风险 action 精确确认。API contract 仍以 [微信官方 API Contract 核验](./WECHAT_OFFICIAL_API_CONTRACT.md) 和微信官方开发文档为唯一真源。
 
@@ -68,10 +68,11 @@
 请运行 npx -y --registry=https://registry.npmjs.org --package @ziikoo/woa@latest woa help agent，完整阅读输出，并严格按其中规范用 woa init 帮我完成微信公众号 MCP 接入；需要登录授权、把固定出口 IP 加入微信白名单、输入 AppSecret 或确认创建只保存不发布的测试草稿时暂停让我操作，不要在聊天、参数、环境变量或日志中索取或回显任何凭据。
 ```
 
-直接操作终端时可使用 `woa ui` 打开接入控制台，也可直接运行 `woa init`。读屏、日志或不支持控制字符的终端使用 `--plain`。Agent、pipe 与 CI 必须使用严格非交互 JSONL，且不会加载 Ink：
+直接操作终端时可使用 `woa ui` 打开完整管理控制台，也可直接运行 `woa init`。控制台通过 `Tab` 切换区域、`/` 筛选当前列表、`g` 切换当前公众号、`r` 刷新、`:` 打开命令面板、`?` 查看快捷键；AppSecret 与 OAuth code 仍只会在可信无回显终端或一次性 HTTPS handoff 中输入。读屏、日志或不支持控制字符的终端使用 `--plain`。Agent、pipe 与 CI 必须使用严格非交互 JSONL，且不会加载 Ink：
 
 ```bash
 woa ui
+INK_SCREEN_READER=true woa ui
 woa init
 woa init --plain
 woa init --agent --format jsonl
