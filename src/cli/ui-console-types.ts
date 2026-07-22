@@ -84,7 +84,7 @@ export interface UiMcpTool {
   name: string;
   description?: string;
   requiredFields: string[];
-  accountScoped: boolean;
+  scopeBound: boolean;
   readOnly: boolean;
   destructive: boolean;
 }

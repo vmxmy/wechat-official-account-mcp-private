@@ -1005,7 +1005,8 @@ async function readJsonBody(request: Request): Promise<unknown> {
 }
 
 function requireExactDeletionConfirmation(body: unknown, expected: string, operation: string): void {
-  const confirmation = stringValue((body as Record<string, unknown> | null)?.confirmation);
+  const value = (body as Record<string, unknown> | null)?.confirmation;
+  const confirmation = typeof value === 'string' ? value : undefined;
   if (confirmation !== expected) {
     throw new ApiError('confirmation_required', `${operation} requires confirmation: ${expected}`, 409, { expected });
   }

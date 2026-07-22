@@ -266,8 +266,11 @@ check(
   '多租户管理 MCP 工具 woa_context/woa_tenant/woa_account/woa_audit 已注册',
 );
 check(
-  mcpTools.filter(tool => tool.name.startsWith('wechat_')).every(tool => tool.inputSchema.accountId?.safeParse(undefined).success === true),
-  '既有 WeChat MCP 工具均接受可选 accountId 以支持账号解析',
+  mcpTools.filter(tool => tool.name.startsWith('wechat_')).every(tool =>
+    tool.inputSchema.tenantId?.safeParse(undefined).success === true
+      && tool.inputSchema.accountId?.safeParse(undefined).success === true,
+  ),
+  '既有 WeChat MCP 工具均接受可选 tenantId/accountId 以支持精确账号解析',
 );
 
 check(

@@ -601,20 +601,31 @@ test('OAuth session revocation calls Provider revokeGrant before reporting succe
 
 test('session revocation requires an exact confirmation marker at the server boundary', async () => {
   let revokeCalled = false;
-  const response = await handleManagementApiRequest(
-    new Request('https://woa.example/api/v1/sessions/grant_123', { method: 'DELETE' }),
-    {
-      trustedContext: tenantContext(),
-      onboardingStore: {} as D1SaasOnboardingStore,
-      revokeOAuthGrant: async () => {
-        revokeCalled = true;
-        return true;
-      },
-      createApiClient: async () => ({} as WechatApiClient),
+  const deps = {
+    trustedContext: tenantContext(),
+    onboardingStore: {} as D1SaasOnboardingStore,
+    revokeOAuthGrant: async () => {
+      revokeCalled = true;
+      return true;
     },
+    createApiClient: async () => ({} as WechatApiClient),
+  };
+  const missing = await handleManagementApiRequest(
+    new Request('https://woa.example/api/v1/sessions/grant_123', { method: 'DELETE' }),
+    deps,
   );
-  assert.equal(response.status, 409);
-  assert.equal((await response.json() as any).error.code, 'confirmation_required');
+  const whitespace = await handleManagementApiRequest(
+    new Request('https://woa.example/api/v1/sessions/grant_123', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmation: ' REVOKE grant_123 ' }),
+    }),
+    deps,
+  );
+  assert.equal(missing.status, 409);
+  assert.equal((await missing.json() as any).error.code, 'confirmation_required');
+  assert.equal(whitespace.status, 409);
+  assert.equal((await whitespace.json() as any).error.code, 'confirmation_required');
   assert.equal(revokeCalled, false);
 });
 

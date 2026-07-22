@@ -631,7 +631,7 @@ function consoleSnapshot(): UiConsoleSnapshot {
       name: 'wechat_draft',
       description: '草稿工具',
       requiredFields: ['action'],
-      accountScoped: true,
+      scopeBound: true,
       readOnly: true,
       destructive: false,
     }],

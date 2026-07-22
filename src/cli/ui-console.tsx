@@ -408,8 +408,8 @@ export function UiConsoleScreen(props: UiConsoleScreenProps): ReactNode {
 
   const callTool = async (tool: NonNullable<typeof selectedTool>, args: Record<string, unknown>, confirmation?: string): Promise<void> => {
     if (operationInFlight.current) return;
-    if (!activeAccount || !tool.accountScoped) {
-      setNotice('当前工具不支持可信的公众号作用域调用。请选择已配置公众号后重试。');
+    if (!activeAccount || !tool.scopeBound) {
+      setNotice('当前工具不支持可信的租户/公众号作用域调用。请选择已配置公众号后重试。');
       return;
     }
     operationInFlight.current = true;
@@ -795,7 +795,7 @@ function Setup(props: { snapshot: UiConsoleSnapshot; color: boolean }): ReactNod
       {event ? <>
         <Text color={statusColor(event.status, props.color)}>[{statusMarker(event.status)}] {event.status} · {event.phase}</Text>
         <Text>流程状态已保存。</Text>
-        <Text color={props.color ? 'cyan' : undefined}>{props.snapshot.init.canResume ? '[c / Enter] 继续此流程  [n] 新建流程' : '[n] 开始接入流程'}</Text>
+        <Text color={props.color ? 'cyan' : undefined}>{props.snapshot.init.canResume ? '[c / Enter] 继续此流程  [n] 新建流程' : '[n / Enter] 开始接入流程'}</Text>
       </> : <>
         <Text>接入会检查环境、OAuth、固定出口 IP、凭据、远程 MCP 和测试草稿。</Text>
         <Text color={props.color ? 'cyan' : undefined}>[n / Enter] 开始接入流程</Text>
@@ -856,7 +856,7 @@ function Tools(props: { tools: UiConsoleSnapshot['tools']; selected?: UiConsoleS
           <Text>{shortText(props.selected.description || '服务端未提供描述。', 70)}</Text>
           <Text dimColor>必填：{props.selected.requiredFields.join(', ') || '无'}</Text>
           <Text dimColor>{props.selected.readOnly ? '只读' : props.selected.destructive ? '高风险' : '写入或未知影响'}</Text>
-          <Text color={props.color ? 'cyan' : undefined}>{props.selected.accountScoped ? '[Enter] 输入 JSON 参数并调用' : '此工具缺少账号作用域，不能从 TUI 调用'}</Text>
+          <Text color={props.color ? 'cyan' : undefined}>{props.selected.scopeBound ? '[Enter] 输入 JSON 参数并调用' : '此工具缺少租户/账号作用域，不能从 TUI 调用'}</Text>
         </Box> : null}
       </Box>}
       {props.result ? <Box flexDirection="column" marginTop={1}>
@@ -907,13 +907,22 @@ function Footer(props: { page: UiPage; contentTab: ContentTab }): ReactNode {
   const pageHelp = props.page === 'accounts'
     ? 'c 创建  e 重命名  d 默认  k 凭据  x 停用'
     : props.page === 'content'
-      ? props.contentTab === 'media' ? 'u 上传媒体' : props.contentTab === 'inbox' ? '1-4 切换内容  Enter 详情' : '1-4 切换内容  Enter 详情  x 删除'
+      ? contentFooterHelp(props.contentTab)
       : props.page === 'tools'
         ? '↑↓ 选择工具  Enter 调用'
         : props.page === 'connection'
           ? 'l 登录  m 描述  c 配置  v 撤销会话'
           : props.page === 'setup' ? 'n 新建  c 继续' : 'Enter 执行主要操作';
   return <Box marginTop={1}><Text dimColor>{pageHelp}  ·  Tab 焦点  / 筛选  g 切换账号  r 刷新  : 命令  ? 帮助  q 退出</Text></Box>;
+}
+
+function contentFooterHelp(tab: ContentTab): string {
+  switch (tab) {
+    case 'media': return 'u 上传媒体';
+    case 'inbox': return '1-4 切换内容  Enter 详情';
+    case 'drafts':
+    case 'publishes': return '1-4 切换内容  Enter 详情  x 删除';
+  }
 }
 
 function DialogView(props: { dialog: UiDialog; snapshot: UiConsoleSnapshot; color: boolean }): ReactNode {

@@ -350,6 +350,13 @@ try {
   assert.ok(sessionList.some(session => session.id === webSessionId));
   const oauthGrant = sessionList.find(session => session.kind === 'oauth' && session.clientId === registration.client_id);
   assert.ok(oauthGrant?.id);
+  const rejectedGrant = await fetch(`${origin}/api/v1/sessions/${oauthGrant.id}`, {
+    method: 'DELETE',
+    headers: { cookie: sessionCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ confirmation: `REVOKE ${oauthGrant.id} ` }),
+  });
+  assert.equal(rejectedGrant.status, 409);
+  assert.equal((await rejectedGrant.json()).error.code, 'confirmation_required');
   const revokedGrant = await fetch(`${origin}/api/v1/sessions/${oauthGrant.id}`, {
     method: 'DELETE',
     headers: { cookie: sessionCookie, 'content-type': 'application/json' },

@@ -22,6 +22,7 @@ import { CliUsageError } from './cli-errors.js';
 import {
   executeInitCommand,
   loadInitConsoleSnapshot,
+  type InitConsoleSnapshot,
   type InitCommandServices,
 } from './init-command.js';
 import { InitRunnerError } from './init-runner.js';
@@ -288,20 +289,20 @@ async function handleUiCommand(flags: Record<string, string | boolean>): Promise
   if (unavailable) throw new CliUsageError(unavailable);
   const services = createUiConsoleServices(flags);
   while (true) {
-    const consoleSnapshot = await services.refresh();
-    const initSnapshot = await loadInitConsoleSnapshot(CONFIG_PATH);
+    const rawInitSnapshot = await loadInitConsoleSnapshot(CONFIG_PATH);
+    const consoleSnapshot = await loadUiConsoleSnapshot(flags, rawInitSnapshot);
     normalizeInkCiEnvironment();
     const { runInkUiShell } = await import('./ui-shell.js');
-    const selection = await runInkUiShell(initSnapshot, {
+    const selection = await runInkUiShell(consoleSnapshot.init, {
       color: capabilities.color,
       console: { snapshot: consoleSnapshot, services },
     });
     if (selection === 'exit') return;
     if (selection === 'resume') {
-      if (!initSnapshot.canResume || !initSnapshot.event) {
+      if (!rawInitSnapshot.canResume || !rawInitSnapshot.event) {
         throw new CliUsageError('No compatible resumable initialization run is available.');
       }
-      await handleInitCommand('resume', initSnapshot.event.runId, flags);
+      await handleInitCommand('resume', rawInitSnapshot.event.runId, flags);
       continue;
     }
     if (selection === 'start') {
@@ -407,7 +408,7 @@ function createUiConsoleServices(flags: Record<string, string | boolean>): UiCon
         const tool = (await client.listTools()).find(candidate => candidate.name === input.tool.name);
         if (!tool || !isWechatToolName(tool.name)) throw new Error(`WeChat MCP tool not found: ${input.tool.name}`);
         await assertUiToolScope(input.tenantId, input.accountId, flags);
-        const args = injectUiToolAccount(tool, input.arguments, input.accountId);
+        const args = injectUiToolScope(tool, input.arguments, input.tenantId, input.accountId);
         assertToolConfirmation(tool, args, input.confirmation);
         return uiToolCallResult(await client.callTool(tool.name, args));
       } finally {
@@ -437,9 +438,12 @@ function createUiConsoleServices(flags: Record<string, string | boolean>): UiCon
   };
 }
 
-async function loadUiConsoleSnapshot(flags: Record<string, string | boolean>): Promise<UiConsoleSnapshot> {
+async function loadUiConsoleSnapshot(
+  flags: Record<string, string | boolean>,
+  initSnapshot?: InitConsoleSnapshot,
+): Promise<UiConsoleSnapshot> {
   const [init, config] = await Promise.all([
-    loadInitConsoleSnapshot(CONFIG_PATH),
+    initSnapshot ? Promise.resolve(initSnapshot) : loadInitConsoleSnapshot(CONFIG_PATH),
     loadConfig(),
   ]);
   const snapshot: UiConsoleSnapshot = {
@@ -735,14 +739,41 @@ function uiMcpTools(tools: CliMcpTool[]): UiMcpTool[] {
       .slice(0, 20);
     return [{
       name: tool.name,
-      description: uiDisplayText(tool.description, 280),
+      description: SAFE_UI_TOOL_DESCRIPTIONS[tool.name],
       requiredFields,
-      accountScoped: Object.prototype.hasOwnProperty.call(properties, 'accountId'),
+      scopeBound: Object.prototype.hasOwnProperty.call(properties, 'tenantId')
+        && Object.prototype.hasOwnProperty.call(properties, 'accountId'),
       readOnly: tool.annotations?.readOnlyHint === true,
       destructive: tool.annotations?.destructiveHint === true,
     }];
   });
 }
+
+const SAFE_UI_TOOL_DESCRIPTIONS: Record<string, string> = {
+  wechat_auth: '查看或刷新当前公众号的授权状态。',
+  wechat_draft: '管理公众号草稿。',
+  wechat_publish: '管理已发布文章。',
+  wechat_content_publish: '创建并发布公众号内容。',
+  wechat_permanent_media: '管理永久素材。',
+  wechat_media_upload: '管理临时素材。',
+  wechat_upload_img: '上传图文正文图片。',
+  wechat_user: '管理公众号用户。',
+  wechat_tag: '管理用户标签。',
+  wechat_menu: '管理自定义菜单。',
+  wechat_template_msg: '管理和发送模板消息。',
+  wechat_customer_service: '管理客服消息。',
+  wechat_subscribe_msg: '发送服务号订阅通知。',
+  wechat_statistics: '查询公众号数据统计。',
+  wechat_auto_reply: '查询自动回复规则。',
+  wechat_mass_send: '管理群发任务。',
+  wechat_inbox: '管理入站消息收件箱。',
+  wechat_qrcode: '管理公众号二维码。',
+  wechat_short_url: '生成或查询短链。',
+  wechat_comment: '管理已发布文章评论。',
+  wechat_blacklist: '管理用户黑名单。',
+  wechat_kf_account: '管理客服账号。',
+  wechat_account: '查看或重置接口配额。',
+};
 
 function uiToolCallResult(result: { isError?: boolean }): UiToolCallResult {
   return {
@@ -751,21 +782,6 @@ function uiToolCallResult(result: { isError?: boolean }): UiToolCallResult {
       ? '工具返回了失败结果；请检查参数、登录状态和权限后重试。'
       : '工具调用已完成。为保护远程数据，完整结果不会在终端界面中显示。',
   };
-}
-
-function uiDisplayText(value: unknown, maxLength: number): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const sanitized = value
-    // eslint-disable-next-line no-control-regex
-    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
-    .replace(/\b(?:Bearer\s+)[^\s]+/gi, 'Bearer [REDACTED]')
-    .replace(/\b(access_?token|refresh_?token|client_?secret|app_?secret|authorization_?code|code_verifier)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
-    .replace(/([?&](?:code|access_token|refresh_token|client_secret|app_secret)=)[^&\s]+/gi, '$1[REDACTED]')
-    .replace(/https?:\/\/127\.0\.0\.1(?::\d+)?\/[^\s]*callback[^\s]*/gi, '[REDACTED_CALLBACK_URL]')
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
-    .trim();
-  return sanitized ? sanitized.slice(0, maxLength) : undefined;
 }
 
 function isSafeUiToolName(value: string): boolean {
@@ -1687,20 +1703,24 @@ async function injectToolAccount(
   return argumentAccountId ? args : { ...args, accountId };
 }
 
-function injectUiToolAccount(
+function injectUiToolScope(
   tool: CliMcpTool,
   args: Record<string, unknown>,
+  tenantId: string,
   accountId: string,
 ): Record<string, unknown> {
-  const acceptsAccount = Object.prototype.hasOwnProperty.call(tool.inputSchema.properties ?? {}, 'accountId');
-  if (!acceptsAccount) {
-    throw new CliUsageError('This MCP tool cannot be called from the UI because it does not declare accountId scope.');
+  const properties = tool.inputSchema.properties ?? {};
+  const acceptsScope = Object.prototype.hasOwnProperty.call(properties, 'tenantId')
+    && Object.prototype.hasOwnProperty.call(properties, 'accountId');
+  if (!acceptsScope) {
+    throw new CliUsageError('This MCP tool cannot be called from the UI because it does not declare tenant/account scope.');
   }
-  const argumentAccountId = typeof args.accountId === 'string' && args.accountId.trim() ? args.accountId.trim() : undefined;
-  if (argumentAccountId && argumentAccountId !== accountId) {
-    throw new CliUsageError('Tool input accountId conflicts with the active UI account. Switch scope before calling this tool.');
+  const argumentTenantId = typeof args.tenantId === 'string' && args.tenantId.length > 0 ? args.tenantId : undefined;
+  const argumentAccountId = typeof args.accountId === 'string' && args.accountId.length > 0 ? args.accountId : undefined;
+  if ((argumentTenantId && argumentTenantId !== tenantId) || (argumentAccountId && argumentAccountId !== accountId)) {
+    throw new CliUsageError('Tool input scope conflicts with the active UI account. Switch scope before calling this tool.');
   }
-  return { ...args, accountId };
+  return { ...args, tenantId, accountId };
 }
 
 async function assertUiToolScope(

@@ -3,7 +3,7 @@ import React, { Component, useState, type ReactNode } from 'react';
 import { Box, Text, render, useFocus, useInput, type Instance } from 'ink';
 import type { InitConsoleSnapshot } from './init-command.js';
 import { UiConsoleScreen } from './ui-console.js';
-import type { UiConsoleExitAction, UiConsoleServices, UiConsoleSnapshot } from './ui-console-types.js';
+import type { UiConsoleExitAction, UiConsoleServices, UiConsoleSnapshot, UiInitSnapshot } from './ui-console-types.js';
 
 export type UiShellSelection = UiConsoleExitAction;
 
@@ -27,7 +27,7 @@ interface ShellAction {
 }
 
 export async function runInkUiShell(
-  snapshot: InitConsoleSnapshot,
+  snapshot: InitConsoleSnapshot | UiInitSnapshot,
   options: UiShellOptions = {},
 ): Promise<UiShellSelection> {
   const input = options.input ?? process.stdin;
@@ -71,7 +71,7 @@ export async function runInkUiShell(
                 onExit={finish}
               />
             </UiConsoleErrorBoundary>
-          ) : <UiShellScreen snapshot={snapshot} color={options.color !== false} onSelect={finish} />,
+          ) : <UiShellScreen snapshot={snapshot as InitConsoleSnapshot} color={options.color !== false} onSelect={finish} />,
           {
             stdin: input,
             stdout: output,

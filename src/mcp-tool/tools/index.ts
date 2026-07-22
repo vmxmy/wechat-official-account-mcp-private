@@ -35,18 +35,21 @@ const accountIdInput = z.string()
   .optional()
   .describe('公众号账号 ID（多租户模式可选；省略时使用默认/唯一账号）');
 
+const tenantIdInput = z.string()
+  .min(1)
+  .max(128)
+  .optional()
+  .describe('租户 ID（多租户模式可选；省略时使用默认租户）');
+
 const [rawMediaUploadTool, rawUploadImgTool, rawPermanentMediaTool] = createWorkerMediaTools();
 
 export function withOptionalAccountId(tool: McpTool): McpTool {
-  if (Object.prototype.hasOwnProperty.call(tool.inputSchema, 'accountId')) {
-    return tool;
-  }
-
   return {
     ...tool,
     inputSchema: {
       ...tool.inputSchema,
-      accountId: accountIdInput,
+      ...(Object.prototype.hasOwnProperty.call(tool.inputSchema, 'tenantId') ? {} : { tenantId: tenantIdInput }),
+      ...(Object.prototype.hasOwnProperty.call(tool.inputSchema, 'accountId') ? {} : { accountId: accountIdInput }),
     },
   };
 }
