@@ -299,10 +299,11 @@ async function handleUiCommand(flags: Record<string, string | boolean>): Promise
     });
     if (selection === 'exit') return;
     if (selection === 'resume') {
-      if (!rawInitSnapshot.canResume || !rawInitSnapshot.event) {
+      const resumeSnapshot = await loadInitConsoleSnapshot(CONFIG_PATH);
+      if (!resumeSnapshot.canResume || !resumeSnapshot.event) {
         throw new CliUsageError('No compatible resumable initialization run is available.');
       }
-      await handleInitCommand('resume', rawInitSnapshot.event.runId, flags);
+      await handleInitCommand('resume', resumeSnapshot.event.runId, flags);
       continue;
     }
     if (selection === 'start') {

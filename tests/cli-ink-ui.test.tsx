@@ -120,10 +120,13 @@ test('WOA UI shell exposes start, resume, status, and exit actions', async t => 
   assert.match(initial, /恢复最近的接入流程/);
   assert.match(initial, /查看最近状态/);
   assert.match(initial, /退出/);
+  assert.doesNotMatch(initial, new RegExp(RUN_ID));
+  assert.doesNotMatch(initial, /woa\.example/);
   await nextTurn();
   view.stdin.write('s');
   await nextTurn();
   assert.match(view.lastFrame() ?? '', /状态详情/);
+  assert.doesNotMatch(view.lastFrame() ?? '', new RegExp(RUN_ID));
   view.stdin.write('r');
   await nextTurn();
   assert.deepEqual(selections, ['resume']);

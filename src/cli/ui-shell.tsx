@@ -1,7 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { Component, useState, type ReactNode } from 'react';
 import { Box, Text, render, useFocus, useInput, type Instance } from 'ink';
-import type { InitConsoleSnapshot } from './init-command.js';
 import { UiConsoleScreen } from './ui-console.js';
 import type { UiConsoleExitAction, UiConsoleServices, UiConsoleSnapshot, UiInitSnapshot } from './ui-console-types.js';
 
@@ -27,7 +26,7 @@ interface ShellAction {
 }
 
 export async function runInkUiShell(
-  snapshot: InitConsoleSnapshot | UiInitSnapshot,
+  snapshot: UiInitSnapshot,
   options: UiShellOptions = {},
 ): Promise<UiShellSelection> {
   const input = options.input ?? process.stdin;
@@ -71,7 +70,7 @@ export async function runInkUiShell(
                 onExit={finish}
               />
             </UiConsoleErrorBoundary>
-          ) : <UiShellScreen snapshot={snapshot as InitConsoleSnapshot} color={options.color !== false} onSelect={finish} />,
+          ) : <UiShellScreen snapshot={snapshot} color={options.color !== false} onSelect={finish} />,
           {
             stdin: input,
             stdout: output,
@@ -97,7 +96,7 @@ export async function runInkUiShell(
 }
 
 export function UiShellScreen(props: {
-  snapshot: InitConsoleSnapshot;
+  snapshot: UiInitSnapshot;
   color?: boolean;
   onSelect: (selection: UiShellSelection) => void;
 }): ReactNode {
@@ -144,7 +143,7 @@ export function UiShellScreen(props: {
       <Text dimColor>微信公众号 MCP 终端控制台 · onboarding MVP</Text>
       {event ? (
         <Box flexDirection="column" marginTop={1}>
-          <Text>最近流程：{event.runId}</Text>
+          <Text>最近流程状态已保存。</Text>
           <Text color={statusColor}>[{event.status}] {event.phase}</Text>
           {props.snapshot.canResume ? <Text>可安全恢复，不会重复已完成阶段。</Text> : null}
         </Box>
@@ -152,11 +151,9 @@ export function UiShellScreen(props: {
       {showStatus && event ? (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>状态详情</Text>
-          <Text>CLI: {event.cliVersion}</Text>
-          <Text>Server: {event.server}</Text>
-          <Text>已完成阶段：{event.completedPhases.length}</Text>
-          {event.error ? <Text>[{event.error.code}] 初始化流程出现错误。</Text> : null}
-          {event.resume ? <Text>恢复：{event.resume.command} {event.resume.args.join(' ')}</Text> : null}
+          <Text>阶段：{event.phase}</Text>
+          <Text>状态：{event.status}</Text>
+          <Text>完整接入详情只在可信的 init 命令中显示。</Text>
         </Box>
       ) : null}
       <Box flexDirection="column" marginTop={1}>
