@@ -145,8 +145,11 @@ function runUiPseudoTty({ major, node, cliPath }) {
 }
 
 async function runSignalSmoke({ major, node, cliPath }) {
+  let markRequestStarted;
+  const requestStarted = new Promise(resolve => { markRequestStarted = resolve; });
   const server = createServer((_request, _response) => {
     // Keep OAuth discovery pending until SIGTERM aborts fetch.
+    markRequestStarted?.();
   });
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -172,7 +175,7 @@ async function runSignalSmoke({ major, node, cliPath }) {
   child.stdout.on('data', chunk => { stdout += chunk.toString('utf8'); });
   child.stderr.on('data', chunk => { stderr += chunk.toString('utf8'); });
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await waitForSignalReadiness(requestStarted, child, () => stdout, () => stderr);
     child.kill('SIGTERM');
     const status = await new Promise((resolve, reject) => {
       child.once('error', reject);
@@ -184,8 +187,25 @@ async function runSignalSmoke({ major, node, cliPath }) {
     assert.equal(events.at(-1)?.status, 'paused');
     assert.doesNotMatch(stdout, /\u001b|appSecret|refresh_token|access_token/);
   } finally {
-    await new Promise(resolve => server.close(resolve));
     if (child.exitCode === null) child.kill('SIGKILL');
+    await new Promise(resolve => server.close(resolve));
+  }
+}
+
+async function waitForSignalReadiness(requestStarted, child, readStdout, readStderr) {
+  let timer;
+  let rejectStartup;
+  const onExit = () => rejectStartup?.(new Error(`JSONL signal smoke exited before startup: ${readStderr() || readStdout()}`));
+  try {
+    await new Promise((resolve, reject) => {
+      rejectStartup = reject;
+      timer = setTimeout(() => reject(new Error(`JSONL signal smoke did not start within 5000ms: ${readStderr() || readStdout()}`)), 5_000);
+      child.once('exit', onExit);
+      requestStarted.then(resolve, reject);
+    });
+  } finally {
+    clearTimeout(timer);
+    child.off('exit', onExit);
   }
 }
 
