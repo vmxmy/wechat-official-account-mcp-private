@@ -1974,7 +1974,9 @@ const restDeleteDraftResponse = await handleManagementApiRequest(
     headers: {
       authorization: 'Bearer TEST_TOKEN',
       'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:write',
+      'content-type': 'application/json',
     },
+    body: JSON.stringify({ confirmation: 'DELETE MEDIA_ID_FOR_DELETE' }),
   }),
   {
     appId: 'wx1234567890abcdef',
@@ -2007,7 +2009,9 @@ const restDeletePublishResponse = await handleManagementApiRequest(
     headers: {
       authorization: 'Bearer TEST_TOKEN',
       'x-woa-scopes': 'woa:tenant:read woa:account:read woa:content:publish',
+      'content-type': 'application/json',
     },
+    body: JSON.stringify({ confirmation: 'DELETE ARTICLE_ID_FOR_DELETE' }),
   }),
   {
     appId: 'wx1234567890abcdef',
@@ -5513,7 +5517,11 @@ const sessionListResponse = await handleManagementApiRequest(
 );
 const sessionListBody = await sessionListResponse.json();
 const sessionRevokeResponse = await handleManagementApiRequest(
-  new Request(`https://worker.example.test/api/v1/sessions/${routeSession.sessionId}`, { method: 'DELETE' }),
+  new Request(`https://worker.example.test/api/v1/sessions/${routeSession.sessionId}`, {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ confirmation: `REVOKE ${routeSession.sessionId}` }),
+  }),
   {
     trustedContext: ownerContext,
     onboardingStore: saasStore,

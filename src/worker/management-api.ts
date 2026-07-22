@@ -335,6 +335,11 @@ async function handleSessionRoutes(
   if (request.method === 'DELETE' && segments.length === 2) {
     requireScope(context, 'woa:security:write');
     const sessionId = decodePathSegment(segments[1], 'sessionId');
+    requireExactDeletionConfirmation(
+      await readJsonBody(request),
+      `REVOKE ${sessionId}`,
+      'Session revocation',
+    );
     if (deps.revokeOAuthGrant && await deps.revokeOAuthGrant(sessionId, context.userId)) {
       await writeManagementAudit(deps, context, {
         action: 'session.revoke',
@@ -800,6 +805,11 @@ async function handleAccountRoutes(
     requireTenantScope(context, tenantId, 'woa:content:write');
     requireOperationalAccount(account);
     const mediaId = decodePathSegment(segments[5], 'mediaId');
+    requireExactDeletionConfirmation(
+      await readJsonBody(request),
+      `DELETE ${mediaId}`,
+      'Draft deletion',
+    );
     const params = {
       action: 'delete',
       mediaId,
@@ -857,6 +867,11 @@ async function handleAccountRoutes(
     requireOperationalAccount(account);
     const url = new URL(request.url);
     const articleId = decodePathSegment(segments[5], 'articleId');
+    requireExactDeletionConfirmation(
+      await readJsonBody(request),
+      `DELETE ${articleId}`,
+      'Publish deletion',
+    );
     const index = url.searchParams.has('index')
       ? clampIntQuery(url, 'index', 0, 0, 20)
       : undefined;
@@ -986,6 +1001,13 @@ async function readJsonBody(request: Request): Promise<unknown> {
     return await request.json();
   } catch {
     throw new ApiError('validation_error', 'Invalid JSON request body.', 400);
+  }
+}
+
+function requireExactDeletionConfirmation(body: unknown, expected: string, operation: string): void {
+  const confirmation = stringValue((body as Record<string, unknown> | null)?.confirmation);
+  if (confirmation !== expected) {
+    throw new ApiError('confirmation_required', `${operation} requires confirmation: ${expected}`, 409, { expected });
   }
 }
 

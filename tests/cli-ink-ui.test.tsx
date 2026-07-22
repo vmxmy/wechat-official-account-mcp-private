@@ -150,7 +150,7 @@ test('full WOA console navigates account management, requires an exact delete ma
     deleteDraft: async () => ({ message: 'draft' }),
     deletePublish: async () => ({ message: 'publish' }),
     uploadMedia: async () => ({ message: 'media' }),
-    callTool: async () => ({ content: [{ type: 'text', text: 'ok' }] }),
+    callTool: async () => ({ isError: false, displayText: 'ok' }),
     checkout: async () => ({ message: 'checkout' }),
     revokeSession: async () => ({ message: 'revoked' }),
   };
@@ -183,9 +183,10 @@ test('full WOA console requires the MCP confirmation token before a protected to
   const snapshot = consoleSnapshot();
   snapshot.tools[0] = {
     ...snapshot.tools[0]!,
-    annotations: { destructiveHint: true },
+    destructive: true,
   };
   const confirmations: Array<string | undefined> = [];
+  const scopes: string[] = [];
   const services: UiConsoleServices = {
     refresh: async () => snapshot,
     switchScope: async () => ({ message: 'scope' }),
@@ -199,7 +200,8 @@ test('full WOA console requires the MCP confirmation token before a protected to
     uploadMedia: async () => ({ message: 'media' }),
     callTool: async input => {
       confirmations.push(input.confirmation);
-      return { content: [{ type: 'text', text: 'called' }] };
+      scopes.push(`${input.tenantId}:${input.accountId}`);
+      return { isError: false, displayText: 'called' };
     },
     checkout: async () => ({ message: 'checkout' }),
     revokeSession: async () => ({ message: 'revoke' }),
@@ -225,6 +227,92 @@ test('full WOA console requires the MCP confirmation token before a protected to
   await nextTurn();
   await nextTurn();
   assert.deepEqual(confirmations, ['wechat_draft:delete']);
+  assert.deepEqual(scopes, ['tenant-1:account-1']);
+});
+
+test('content deletion keeps the content item tenant/account scope after the active account changes', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  snapshot.tenants.push({ tenantId: 'tenant-2', name: '另一个租户', role: 'owner', status: 'active' });
+  snapshot.accounts.push({ tenantId: 'tenant-2', accountId: 'account-2', name: '另一个公众号', status: 'active' });
+  snapshot.activeTenantId = 'tenant-2';
+  snapshot.activeAccountId = 'account-2';
+  const calls: string[] = [];
+  const services: UiConsoleServices = {
+    ...consoleServices(snapshot),
+    deleteDraft: async input => {
+      calls.push(`${input.tenantId}:${input.accountId}:${input.mediaId}:${input.confirmation}`);
+      return { message: 'draft' };
+    },
+  };
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={services} color={false} onExit={() => undefined} />);
+  await nextTurn();
+  view.stdin.write('4');
+  await nextTurn();
+  view.stdin.write('x');
+  await nextTurn();
+  view.stdin.write('\r');
+  await nextTurn();
+  view.stdin.write('DELETE draft-1');
+  await nextTurn();
+  view.stdin.write('\r');
+  await nextTurn();
+  await nextTurn();
+  assert.deepEqual(calls, ['tenant-1:account-1:draft-1:DELETE draft-1']);
+});
+
+test('setup Enter starts onboarding when no resumable flow exists', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  snapshot.init = { canResume: false };
+  const exits: unknown[] = [];
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={consoleServices(snapshot)} color={false} onExit={action => exits.push(action)} />);
+  await nextTurn();
+  view.stdin.write('2');
+  await nextTurn();
+  view.stdin.write('\r');
+  await nextTurn();
+  assert.deepEqual(exits, ['start']);
+});
+
+test('screen-reader Tab remains in the main region while page hotkeys stay usable', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={consoleServices(snapshot)} color={false} screenReader onExit={() => undefined} />);
+  await nextTurn();
+  view.stdin.write('\t');
+  await nextTurn();
+  view.stdin.write('4');
+  await nextTurn();
+  assert.match(view.lastFrame() ?? '', /内容中心/);
+});
+
+test('scope picker matches the active tenant/account pair when account IDs overlap', async t => {
+  t.after(cleanup);
+  const snapshot = consoleSnapshot();
+  snapshot.accounts = [
+    { tenantId: 'tenant-1', accountId: 'shared-account', name: '租户一', status: 'active' },
+    { tenantId: 'tenant-2', accountId: 'shared-account', name: '租户二', status: 'active' },
+  ];
+  snapshot.tenants.push({ tenantId: 'tenant-2', name: '租户二', role: 'owner', status: 'active' });
+  snapshot.activeTenantId = 'tenant-2';
+  snapshot.activeAccountId = 'shared-account';
+  const selected: string[] = [];
+  const services: UiConsoleServices = {
+    ...consoleServices(snapshot),
+    switchScope: async input => {
+      selected.push(`${input.tenantId}:${input.accountId}`);
+      return { message: 'scope' };
+    },
+  };
+  const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={services} color={false} onExit={() => undefined} />);
+  await nextTurn();
+  view.stdin.write('g');
+  await nextTurn();
+  view.stdin.write('\r');
+  await nextTurn();
+  await nextTurn();
+  assert.deepEqual(selected, ['tenant-2:shared-account']);
 });
 
 test('full WOA console filters the current list without changing its active account scope', async t => {
@@ -273,13 +361,13 @@ test('full WOA console preserves a successful mutation when only the post-mutati
   view.stdin.write('d');
   await nextTurn();
   await nextTurn();
-  assert.match(view.lastFrame() ?? '', /已设为默认公众号。 远程状态刷新失败：refresh unavailable/);
+  assert.match(view.lastFrame() ?? '', /已设为默认公众号。 远程状态刷新失败：操作未完成，请检查网络、登录状态与权限后重试。/);
 });
 
 test('media tab has no hidden inbox selection to open or delete', async t => {
   t.after(cleanup);
   const snapshot = consoleSnapshot();
-  snapshot.inbox = [{ id: 'inbox-1', title: '不应出现在媒体页', status: 'pending' }];
+  snapshot.inbox = [{ tenantId: 'tenant-1', accountId: 'account-1', id: 'inbox-1', title: '不应出现在媒体页', status: 'pending' }];
   const view = renderInk(<UiConsoleScreen snapshot={snapshot} services={consoleServices(snapshot)} color={false} onExit={() => undefined} />);
   await nextTurn();
   view.stdin.write('4');
@@ -518,8 +606,9 @@ function eventAtLogin(): InitProtocolEvent {
 }
 
 function consoleSnapshot(): UiConsoleSnapshot {
+  const paused = eventPaused();
   return {
-    init: { event: eventPaused(), canResume: true },
+    init: { event: { status: paused.status, phase: paused.phase }, canResume: true },
     server: 'https://woa.example',
     authenticated: true,
     operator: { displayName: '测试操作员', scopes: ['woa:context:read'] },
@@ -535,14 +624,16 @@ function consoleSnapshot(): UiConsoleSnapshot {
     activeTenantId: 'tenant-1',
     activeAccountId: 'account-1',
     usage: { plan: 'free', metrics: [{ name: 'MCP calls', used: 2, limit: 10 }] },
-    drafts: [{ id: 'draft-1', title: '测试草稿', status: 'draft' }],
+    drafts: [{ tenantId: 'tenant-1', accountId: 'account-1', id: 'draft-1', title: '测试草稿', status: 'draft' }],
     publishes: [],
     inbox: [],
     tools: [{
       name: 'wechat_draft',
       description: '草稿工具',
-      inputSchema: { type: 'object', required: ['action'] },
-      annotations: { readOnlyHint: true },
+      requiredFields: ['action'],
+      accountScoped: true,
+      readOnly: true,
+      destructive: false,
     }],
     sessions: [],
     errors: [{ area: '草稿', message: 'access_token=NEVER_SHOW' }],
@@ -562,7 +653,7 @@ function consoleServices(snapshot: UiConsoleSnapshot): UiConsoleServices {
     deleteDraft: async () => ({ message: 'draft' }),
     deletePublish: async () => ({ message: 'publish' }),
     uploadMedia: async () => ({ message: 'media' }),
-    callTool: async () => ({ content: [{ type: 'text', text: 'called' }] }),
+    callTool: async () => ({ isError: false, displayText: 'called' }),
     checkout: async () => ({ message: 'checkout' }),
     revokeSession: async () => ({ message: 'revoke' }),
   };

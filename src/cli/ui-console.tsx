@@ -317,14 +317,14 @@ export function UiConsoleScreen(props: UiConsoleScreenProps): ReactNode {
     if (dialog.kind === 'confirm-draft') {
       const item = dialog.target as UiContentItem;
       const expected = `DELETE ${item.id}`;
-      if (dialog.value.trim() !== expected || !activeAccount) {
+      if (dialog.value.trim() !== expected) {
         setNotice(`确认文本必须完全等于 ${expected}`);
         return;
       }
       closeDialog();
       await mutate('正在删除草稿…', async () => await props.services.deleteDraft({
-        tenantId: activeAccount.tenantId,
-        accountId: activeAccount.accountId,
+        tenantId: item.tenantId,
+        accountId: item.accountId,
         mediaId: item.id,
         confirmation: dialog.value.trim(),
       }));
@@ -338,14 +338,14 @@ export function UiConsoleScreen(props: UiConsoleScreenProps): ReactNode {
     if (dialog.kind === 'confirm-publish') {
       const item = dialog.target as UiContentItem;
       const expected = `DELETE ${item.id}`;
-      if (dialog.value.trim() !== expected || !activeAccount) {
+      if (dialog.value.trim() !== expected) {
         setNotice(`确认文本必须完全等于 ${expected}`);
         return;
       }
       closeDialog();
       await mutate('正在删除发布记录…', async () => await props.services.deletePublish({
-        tenantId: activeAccount.tenantId,
-        accountId: activeAccount.accountId,
+        tenantId: item.tenantId,
+        accountId: item.accountId,
         articleId: item.id,
         confirmation: dialog.value.trim(),
       }));
@@ -408,11 +408,21 @@ export function UiConsoleScreen(props: UiConsoleScreenProps): ReactNode {
 
   const callTool = async (tool: NonNullable<typeof selectedTool>, args: Record<string, unknown>, confirmation?: string): Promise<void> => {
     if (operationInFlight.current) return;
+    if (!activeAccount || !tool.accountScoped) {
+      setNotice('当前工具不支持可信的公众号作用域调用。请选择已配置公众号后重试。');
+      return;
+    }
     operationInFlight.current = true;
     setBusy(`正在调用 ${tool.name}…`);
     try {
-      const result = await props.services.callTool({ tool, arguments: args, confirmation });
-      setToolResult(formatJson(result));
+      const result = await props.services.callTool({
+        tool,
+        tenantId: activeAccount.tenantId,
+        accountId: activeAccount.accountId,
+        arguments: args,
+        confirmation,
+      });
+      setToolResult(result.displayText);
       const message = result.isError ? `${tool.name} 返回了错误结果。` : `${tool.name} 调用完成。`;
       try {
         setSnapshot(await props.services.refresh());
@@ -443,7 +453,7 @@ export function UiConsoleScreen(props: UiConsoleScreenProps): ReactNode {
       return;
     }
     if (page === 'setup') {
-      if (input === 'n') props.onExit('start');
+      if (input === 'n' || (key.return && !snapshot.init.canResume)) props.onExit('start');
       else if ((input === 'c' || key.return) && snapshot.init.canResume) props.onExit('resume');
       return;
     }
@@ -553,7 +563,12 @@ export function UiConsoleScreen(props: UiConsoleScreenProps): ReactNode {
       return;
     }
     if (input === 'g') {
-      setDialog({ kind: 'scope', index: Math.max(snapshot.accounts.findIndex(item => item.accountId === activeAccount?.accountId), 0) });
+      setDialog({
+        kind: 'scope',
+        index: Math.max(snapshot.accounts.findIndex(item =>
+          item.tenantId === activeAccount?.tenantId && item.accountId === activeAccount.accountId,
+        ), 0),
+      });
       return;
     }
     if (input === 'r') {
@@ -561,8 +576,16 @@ export function UiConsoleScreen(props: UiConsoleScreenProps): ReactNode {
       return;
     }
     if (key.tab) {
-      setFocus(current => current === 'navigation' ? 'main' : current === 'main' ? 'context' : 'navigation');
+      if (width < 60 || props.screenReader === true) setFocus('main');
+      else setFocus(current => current === 'navigation' ? 'main' : current === 'main' ? 'context' : 'navigation');
       return;
+    }
+    if ((width < 60 || props.screenReader === true) && page !== 'content') {
+      const byHotkey = NAV_ITEMS.find(item => item.hotkey === input);
+      if (byHotkey) {
+        activatePage(byHotkey.id);
+        return;
+      }
     }
     if (focus === 'navigation') {
       if (key.upArrow || input === 'k') setNavIndex(value => (value - 1 + NAV_ITEMS.length) % NAV_ITEMS.length);
@@ -736,7 +759,7 @@ function Overview(props: { snapshot: UiConsoleSnapshot; activeAccount?: UiAccoun
       {props.snapshot.init.canResume && event ? (
         <Box flexDirection="column" marginTop={1}>
           <Text color={props.color ? 'yellow' : undefined}>● 有一个可恢复的接入流程</Text>
-          <Text>阶段：{event.phase} · 运行：{shortText(event.runId, 22)}</Text>
+          <Text>阶段：{event.phase}</Text>
           <Text color={props.color ? 'cyan' : undefined}>[c] 继续接入  [n] 开始新的接入流程</Text>
         </Box>
       ) : (
@@ -770,9 +793,8 @@ function Setup(props: { snapshot: UiConsoleSnapshot; color: boolean }): ReactNod
     <Box flexDirection="column">
       <Text bold>接入公众号</Text>
       {event ? <>
-        <Text>最近流程：{event.runId}</Text>
         <Text color={statusColor(event.status, props.color)}>[{statusMarker(event.status)}] {event.status} · {event.phase}</Text>
-        <Text>{event.nextAction?.reason ? shortText(event.nextAction.reason, 100) : '流程状态已保存。'}</Text>
+        <Text>流程状态已保存。</Text>
         <Text color={props.color ? 'cyan' : undefined}>{props.snapshot.init.canResume ? '[c / Enter] 继续此流程  [n] 新建流程' : '[n] 开始接入流程'}</Text>
       </> : <>
         <Text>接入会检查环境、OAuth、固定出口 IP、凭据、远程 MCP 和测试草稿。</Text>
@@ -832,9 +854,9 @@ function Tools(props: { tools: UiConsoleSnapshot['tools']; selected?: UiConsoleS
         {props.selected ? <Box flexDirection="column" flexGrow={1}>
           <Text bold>{props.selected.name}</Text>
           <Text>{shortText(props.selected.description || '服务端未提供描述。', 70)}</Text>
-          <Text dimColor>必填：{props.selected.inputSchema.required?.join(', ') || '无'}</Text>
-          <Text dimColor>{props.selected.annotations?.readOnlyHint ? '只读' : props.selected.annotations?.destructiveHint ? '高风险' : '写入或未知影响'}</Text>
-          <Text color={props.color ? 'cyan' : undefined}>[Enter] 输入 JSON 参数并调用</Text>
+          <Text dimColor>必填：{props.selected.requiredFields.join(', ') || '无'}</Text>
+          <Text dimColor>{props.selected.readOnly ? '只读' : props.selected.destructive ? '高风险' : '写入或未知影响'}</Text>
+          <Text color={props.color ? 'cyan' : undefined}>{props.selected.accountScoped ? '[Enter] 输入 JSON 参数并调用' : '此工具缺少账号作用域，不能从 TUI 调用'}</Text>
         </Box> : null}
       </Box>}
       {props.result ? <Box flexDirection="column" marginTop={1}>
@@ -885,7 +907,7 @@ function Footer(props: { page: UiPage; contentTab: ContentTab }): ReactNode {
   const pageHelp = props.page === 'accounts'
     ? 'c 创建  e 重命名  d 默认  k 凭据  x 停用'
     : props.page === 'content'
-      ? props.contentTab === 'media' ? 'u 上传媒体' : '1-4 切换内容  Enter 详情  x 删除'
+      ? props.contentTab === 'media' ? 'u 上传媒体' : props.contentTab === 'inbox' ? '1-4 切换内容  Enter 详情' : '1-4 切换内容  Enter 详情  x 删除'
       : props.page === 'tools'
         ? '↑↓ 选择工具  Enter 调用'
         : props.page === 'connection'
@@ -946,26 +968,8 @@ function DialogView(props: { dialog: UiDialog; snapshot: UiConsoleSnapshot; colo
       <Text dimColor>Dry Run 不会建立 MCP 连接。Enter 进入最终确认。</Text>
     </Dialog>;
   }
-  const title = dialog.kind === 'create-account'
-    ? '创建公众号'
-    : dialog.kind === 'rename-account'
-      ? '重命名公众号'
-      : dialog.kind === 'configure-account'
-        ? '配置公众号凭据'
-        : dialog.kind === 'upload-media'
-          ? '上传本地媒体'
-          : dialog.kind === 'tool-json'
-            ? '输入 MCP JSON 参数'
-            : dialog.kind === 'tool-confirm'
-              ? '确认高风险 MCP 操作'
-              : dialog.kind === 'confirm-account'
-                ? '确认停用公众号'
-                : dialog.kind === 'confirm-draft'
-                  ? '确认删除草稿'
-                  : dialog.kind === 'confirm-publish'
-                    ? '确认删除发布记录'
-                    : '确认撤销会话';
   const inputDialog = dialog as TextDialog | ConfirmDialog;
+  const title = dialogTitle(inputDialog);
   const prompt = dialogPrompt(inputDialog);
   return <Dialog title={title} color={props.color}>
     {prompt ? <Text>{prompt}</Text> : null}
@@ -990,6 +994,21 @@ function dialogPrompt(dialog: TextDialog | ConfirmDialog): string | undefined {
   if (dialog.kind === 'confirm-publish') return `发布记录删除不可恢复。输入 DELETE ${(dialog.target as UiContentItem).id}：`;
   const session = (dialog as ConfirmDialog).target as UiSession;
   return `输入 REVOKE ${session.id}：`;
+}
+
+function dialogTitle(dialog: TextDialog | ConfirmDialog): string {
+  switch (dialog.kind) {
+    case 'create-account': return '创建公众号';
+    case 'rename-account': return '重命名公众号';
+    case 'configure-account': return '配置公众号凭据';
+    case 'upload-media': return '上传本地媒体';
+    case 'tool-json': return '输入 MCP JSON 参数';
+    case 'tool-confirm': return '确认高风险 MCP 操作';
+    case 'confirm-account': return '确认停用公众号';
+    case 'confirm-draft': return '确认删除草稿';
+    case 'confirm-publish': return '确认删除发布记录';
+    case 'confirm-session': return '确认撤销会话';
+  }
 }
 
 function useTerminalWidth(): number {
@@ -1054,7 +1073,8 @@ function usageBar(used?: number, limit?: number): string {
 }
 
 function safeError(error: unknown): string {
-  return redactTerminalText(error instanceof Error ? error.message : String(error));
+  void error;
+  return '操作未完成，请检查网络、登录状态与权限后重试。';
 }
 
 function formatJson(value: unknown): string {

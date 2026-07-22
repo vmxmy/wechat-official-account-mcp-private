@@ -573,7 +573,11 @@ test('OAuth session revocation calls Provider revokeGrant before reporting succe
   let revoked = '';
   let d1FallbackCalled = false;
   const response = await handleManagementApiRequest(
-    new Request('https://woa.example/api/v1/sessions/grant_123', { method: 'DELETE' }),
+    new Request('https://woa.example/api/v1/sessions/grant_123', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'REVOKE grant_123' }),
+    }),
     {
       trustedContext: tenantContext(),
       onboardingStore: {
@@ -593,6 +597,51 @@ test('OAuth session revocation calls Provider revokeGrant before reporting succe
   assert.equal(revoked, 'op_test/grant_123');
   assert.equal(d1FallbackCalled, false);
   assert.equal((await response.json() as any).data.kind, 'oauth');
+});
+
+test('session revocation requires an exact confirmation marker at the server boundary', async () => {
+  let revokeCalled = false;
+  const response = await handleManagementApiRequest(
+    new Request('https://woa.example/api/v1/sessions/grant_123', { method: 'DELETE' }),
+    {
+      trustedContext: tenantContext(),
+      onboardingStore: {} as D1SaasOnboardingStore,
+      revokeOAuthGrant: async () => {
+        revokeCalled = true;
+        return true;
+      },
+      createApiClient: async () => ({} as WechatApiClient),
+    },
+  );
+  assert.equal(response.status, 409);
+  assert.equal((await response.json() as any).error.code, 'confirmation_required');
+  assert.equal(revokeCalled, false);
+});
+
+test('draft and publish deletion routes require exact server-side confirmation markers', async () => {
+  let apiClientCreated = false;
+  const context = tenantContext();
+  context.scopes = [...context.scopes, 'woa:content:publish'];
+  const deps = {
+    trustedContext: context,
+    createApiClient: async () => {
+      apiClientCreated = true;
+      return {} as WechatApiClient;
+    },
+  };
+  const draft = await handleManagementApiRequest(
+    new Request('https://woa.example/api/v1/tenants/ten_a/accounts/acct_a/drafts/draft_123', { method: 'DELETE' }),
+    deps,
+  );
+  const publish = await handleManagementApiRequest(
+    new Request('https://woa.example/api/v1/tenants/ten_a/accounts/acct_a/publishes/article_123', { method: 'DELETE' }),
+    deps,
+  );
+  assert.equal(draft.status, 409);
+  assert.equal((await draft.json() as any).error.code, 'confirmation_required');
+  assert.equal(publish.status, 409);
+  assert.equal((await publish.json() as any).error.code, 'confirmation_required');
+  assert.equal(apiClientCreated, false);
 });
 
 test('OAuth clients need explicit security scopes to list or revoke Operator sessions', async () => {

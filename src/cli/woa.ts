@@ -39,8 +39,11 @@ import type {
   UiConsoleServices,
   UiConsoleSnapshot,
   UiContentItem,
+  UiInitSnapshot,
+  UiMcpTool,
   UiSession,
   UiTenant,
+  UiToolCallResult,
   UiUsageMetric,
   UiUsageSummary,
 } from './ui-console-types.js';
@@ -286,18 +289,19 @@ async function handleUiCommand(flags: Record<string, string | boolean>): Promise
   const services = createUiConsoleServices(flags);
   while (true) {
     const consoleSnapshot = await services.refresh();
+    const initSnapshot = await loadInitConsoleSnapshot(CONFIG_PATH);
     normalizeInkCiEnvironment();
     const { runInkUiShell } = await import('./ui-shell.js');
-    const selection = await runInkUiShell(consoleSnapshot.init, {
+    const selection = await runInkUiShell(initSnapshot, {
       color: capabilities.color,
       console: { snapshot: consoleSnapshot, services },
     });
     if (selection === 'exit') return;
     if (selection === 'resume') {
-      if (!consoleSnapshot.init.canResume || !consoleSnapshot.init.event) {
+      if (!initSnapshot.canResume || !initSnapshot.event) {
         throw new CliUsageError('No compatible resumable initialization run is available.');
       }
-      await handleInitCommand('resume', consoleSnapshot.init.event.runId, flags);
+      await handleInitCommand('resume', initSnapshot.event.runId, flags);
       continue;
     }
     if (selection === 'start') {
@@ -375,6 +379,7 @@ function createUiConsoleServices(flags: Record<string, string | boolean>): UiCon
       await apiDelete(
         `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}/drafts/${encodeURIComponent(input.mediaId)}`,
         flags,
+        { confirmation: input.confirmation },
       );
       return uiMutation('草稿已删除。');
     },
@@ -384,6 +389,7 @@ function createUiConsoleServices(flags: Record<string, string | boolean>): UiCon
       await apiDelete(
         `/api/v1/tenants/${encodeURIComponent(input.tenantId)}/accounts/${encodeURIComponent(input.accountId)}/publishes/${encodeURIComponent(input.articleId)}`,
         flags,
+        { confirmation: input.confirmation },
       );
       return uiMutation('发布记录已删除。');
     },
@@ -400,9 +406,10 @@ function createUiConsoleServices(flags: Record<string, string | boolean>): UiCon
       try {
         const tool = (await client.listTools()).find(candidate => candidate.name === input.tool.name);
         if (!tool || !isWechatToolName(tool.name)) throw new Error(`WeChat MCP tool not found: ${input.tool.name}`);
-        const args = await injectToolAccount(tool, input.arguments, flags);
+        await assertUiToolScope(input.tenantId, input.accountId, flags);
+        const args = injectUiToolAccount(tool, input.arguments, input.accountId);
         assertToolConfirmation(tool, args, input.confirmation);
-        return await client.callTool(tool.name, args);
+        return uiToolCallResult(await client.callTool(tool.name, args));
       } finally {
         await client.close();
       }
@@ -424,7 +431,7 @@ function createUiConsoleServices(flags: Record<string, string | boolean>): UiCon
     revokeSession: async input => {
       const expected = `REVOKE ${input.sessionId}`;
       if (input.confirmation !== expected) throw new Error(`撤销会话需要确认文本：${expected}`);
-      await apiDelete(`/api/v1/sessions/${encodeURIComponent(input.sessionId)}`, flags);
+      await apiDelete(`/api/v1/sessions/${encodeURIComponent(input.sessionId)}`, flags, { confirmation: input.confirmation });
       return uiMutation('会话已撤销。');
     },
   };
@@ -436,7 +443,7 @@ async function loadUiConsoleSnapshot(flags: Record<string, string | boolean>): P
     loadConfig(),
   ]);
   const snapshot: UiConsoleSnapshot = {
-    init,
+    init: uiInitSnapshot(init),
     server: stringFlag(flags, 'server') || config.server,
     authenticated: false,
     tenants: [],
@@ -454,7 +461,8 @@ async function loadUiConsoleSnapshot(flags: Record<string, string | boolean>): P
       snapshot.mcpDescriptor = renderMcpDescriptor(snapshot.server);
       snapshot.mcpConfig = renderUiMcpConfig(snapshot.server);
     } catch (error) {
-      snapshot.errors.push({ area: 'MCP 描述', message: error instanceof Error ? error.message : String(error) });
+      void error;
+      snapshot.errors.push({ area: 'MCP 描述', message: '本地 MCP 描述不可用。' });
     }
   }
   if (!snapshot.server || (!config.accessToken && !config.refreshToken)) return snapshot;
@@ -504,9 +512,10 @@ async function loadUiConsoleSnapshot(flags: Record<string, string | boolean>): P
         ...(uiAccounts(status?.account)[0] || {}),
       };
     }
-    snapshot.drafts = uiContentItems(uiEnvelopeData(draftResponse), 'draft');
-    snapshot.publishes = uiContentItems(uiEnvelopeData(publishResponse), 'publish');
-    snapshot.inbox = uiContentItems(uiEnvelopeData(inboxResponse), 'inbox');
+    const contentScope = { tenantId, accountId };
+    snapshot.drafts = uiContentItems(uiEnvelopeData(draftResponse), 'draft', contentScope);
+    snapshot.publishes = uiContentItems(uiEnvelopeData(publishResponse), 'publish', contentScope);
+    snapshot.inbox = uiContentItems(uiEnvelopeData(inboxResponse), 'inbox', contentScope);
   }
 
   const [toolList, sessionResponse] = await Promise.all([
@@ -520,7 +529,7 @@ async function loadUiConsoleSnapshot(flags: Record<string, string | boolean>): P
     }, snapshot),
     uiOptional('安全会话', async () => await apiGet('/api/v1/sessions', flags), snapshot),
   ]);
-  if (Array.isArray(toolList)) snapshot.tools = filterWechatTools(toolList);
+  if (Array.isArray(toolList)) snapshot.tools = uiMcpTools(toolList);
   snapshot.sessions = uiSessions(uiEnvelopeData(sessionResponse)?.sessions);
   return snapshot;
 }
@@ -533,7 +542,8 @@ async function uiOptional<T>(
   try {
     return await operation();
   } catch (error) {
-    snapshot.errors.push({ area, message: error instanceof Error ? error.message : String(error) });
+    void error;
+    snapshot.errors.push({ area, message: '暂时无法加载；请检查网络、登录状态和权限后刷新。' });
     return undefined;
   }
 }
@@ -661,7 +671,11 @@ function uiUsageMetrics(value: Record<string, unknown>): UiUsageMetric[] {
   return [];
 }
 
-function uiContentItems(value: Record<string, unknown> | null, kind: 'draft' | 'publish' | 'inbox'): UiContentItem[] {
+function uiContentItems(
+  value: Record<string, unknown> | null,
+  kind: 'draft' | 'publish' | 'inbox',
+  scope: { tenantId: string; accountId: string },
+): UiContentItem[] {
   if (!value) return [];
   const candidates = [value.items, value.item, value.messages, value.list, value.data];
   const source = candidates.find(Array.isArray) as unknown[] | undefined;
@@ -688,6 +702,8 @@ function uiContentItems(value: Record<string, unknown> | null, kind: 'draft' | '
       || stringValue(record.update_time)
       || stringValue(record.create_time);
     return [{
+      tenantId: scope.tenantId,
+      accountId: scope.accountId,
       id,
       title,
       subtitle,
@@ -696,6 +712,68 @@ function uiContentItems(value: Record<string, unknown> | null, kind: 'draft' | '
       detail: uiContentDetail(record, firstArticle, id, title, kind, newsItems.length),
     }];
   });
+}
+
+function uiInitSnapshot(value: Awaited<ReturnType<typeof loadInitConsoleSnapshot>>): UiInitSnapshot {
+  return {
+    canResume: value.canResume,
+    ...(value.event ? {
+      event: {
+        status: value.event.status,
+        phase: value.event.phase,
+      },
+    } : {}),
+  };
+}
+
+function uiMcpTools(tools: CliMcpTool[]): UiMcpTool[] {
+  return filterWechatTools(tools).flatMap(tool => {
+    if (!isSafeUiToolName(tool.name)) return [];
+    const properties = tool.inputSchema.properties ?? {};
+    const requiredFields = (tool.inputSchema.required ?? [])
+      .filter(isSafeUiFieldName)
+      .slice(0, 20);
+    return [{
+      name: tool.name,
+      description: uiDisplayText(tool.description, 280),
+      requiredFields,
+      accountScoped: Object.prototype.hasOwnProperty.call(properties, 'accountId'),
+      readOnly: tool.annotations?.readOnlyHint === true,
+      destructive: tool.annotations?.destructiveHint === true,
+    }];
+  });
+}
+
+function uiToolCallResult(result: { isError?: boolean }): UiToolCallResult {
+  return {
+    isError: result.isError === true,
+    displayText: result.isError === true
+      ? '工具返回了失败结果；请检查参数、登录状态和权限后重试。'
+      : '工具调用已完成。为保护远程数据，完整结果不会在终端界面中显示。',
+  };
+}
+
+function uiDisplayText(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const sanitized = value
+    // eslint-disable-next-line no-control-regex
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\b(?:Bearer\s+)[^\s]+/gi, 'Bearer [REDACTED]')
+    .replace(/\b(access_?token|refresh_?token|client_?secret|app_?secret|authorization_?code|code_verifier)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .replace(/([?&](?:code|access_token|refresh_token|client_secret|app_secret)=)[^&\s]+/gi, '$1[REDACTED]')
+    .replace(/https?:\/\/127\.0\.0\.1(?::\d+)?\/[^\s]*callback[^\s]*/gi, '[REDACTED_CALLBACK_URL]')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+    .trim();
+  return sanitized ? sanitized.slice(0, maxLength) : undefined;
+}
+
+function isSafeUiToolName(value: string): boolean {
+  return /^wechat_[a-z0-9_]{1,80}$/.test(value);
+}
+
+function isSafeUiFieldName(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(value);
 }
 
 function uiContentDetail(
@@ -1609,6 +1687,34 @@ async function injectToolAccount(
   return argumentAccountId ? args : { ...args, accountId };
 }
 
+function injectUiToolAccount(
+  tool: CliMcpTool,
+  args: Record<string, unknown>,
+  accountId: string,
+): Record<string, unknown> {
+  const acceptsAccount = Object.prototype.hasOwnProperty.call(tool.inputSchema.properties ?? {}, 'accountId');
+  if (!acceptsAccount) {
+    throw new CliUsageError('This MCP tool cannot be called from the UI because it does not declare accountId scope.');
+  }
+  const argumentAccountId = typeof args.accountId === 'string' && args.accountId.trim() ? args.accountId.trim() : undefined;
+  if (argumentAccountId && argumentAccountId !== accountId) {
+    throw new CliUsageError('Tool input accountId conflicts with the active UI account. Switch scope before calling this tool.');
+  }
+  return { ...args, accountId };
+}
+
+async function assertUiToolScope(
+  tenantId: string,
+  accountId: string,
+  flags: Record<string, string | boolean>,
+): Promise<void> {
+  const context = await getCliRemoteContext(flags);
+  const authorized = context.accounts.some(account => account.tenantId === tenantId && account.accountId === accountId);
+  if (!authorized) {
+    throw new CliUsageError('The selected UI account is no longer available to this operator. Refresh and choose an authorized account.');
+  }
+}
+
 async function injectDryRunAccount(
   args: Record<string, unknown>,
   flags: Record<string, string | boolean>,
@@ -1641,8 +1747,8 @@ async function apiPatch(route: string, body: unknown, flags: Record<string, stri
   return await apiRequest('PATCH', route, body, flags);
 }
 
-async function apiDelete(route: string, flags: Record<string, string | boolean>): Promise<unknown> {
-  return await apiRequest('DELETE', route, undefined, flags);
+async function apiDelete(route: string, flags: Record<string, string | boolean>, body?: unknown): Promise<unknown> {
+  return await apiRequest('DELETE', route, body, flags);
 }
 
 async function uploadLocalMedia(fileArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
@@ -1765,7 +1871,7 @@ async function deleteDraft(idArg: string | undefined, flags: Record<string, stri
   const { tenantId, accountId } = await resolveTenantAccount(flags);
   const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/drafts/${encodeURIComponent(mediaId)}`;
   requireDeleteConfirmation(flags, 'draft');
-  console.log(JSON.stringify(await apiDelete(route, flags), null, 2));
+  console.log(JSON.stringify(await apiDelete(route, flags, { confirmation: `DELETE ${mediaId}` }), null, 2));
 }
 
 async function deletePublish(idArg: string | undefined, flags: Record<string, string | boolean>): Promise<void> {
@@ -1784,7 +1890,7 @@ async function deletePublish(idArg: string | undefined, flags: Record<string, st
   const { tenantId, accountId } = await resolveTenantAccount(flags);
   const route = `/api/v1/tenants/${tenantId}/accounts/${accountId}/publishes/${encodeURIComponent(articleId)}${query}`;
   requireDeleteConfirmation(flags, 'publish');
-  console.log(JSON.stringify(await apiDelete(route, flags), null, 2));
+  console.log(JSON.stringify(await apiDelete(route, flags, { confirmation: `DELETE ${articleId}` }), null, 2));
 }
 
 function printDeleteDryRun(kind: 'draft' | 'publish' | 'account', route: string, target: Record<string, unknown>): void {

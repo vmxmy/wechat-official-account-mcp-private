@@ -1,5 +1,16 @@
 import type { CliMcpTool } from './mcp-api-client.js';
 
+/** Minimal safety metadata accepted from both MCP and the redacted Ink projection. */
+export interface ToolSafetyMetadata {
+  name: string;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+  };
+  readOnly?: boolean;
+  destructive?: boolean;
+}
+
 const SENSITIVE_KEY = /(?:authorization|access[_-]?token|refresh[_-]?token|app[_-]?secret|client[_-]?secret|password|encoding[_-]?aes[_-]?key|proxy[_-]?token|\btoken\b)/i;
 
 const CURRENT_WECHAT_TOOLS = new Set([
@@ -98,20 +109,20 @@ export function filterWechatTools(tools: CliMcpTool[]): CliMcpTool[] {
 }
 
 export function requiredToolConfirmation(
-  tool: CliMcpTool,
+  tool: ToolSafetyMetadata,
   args: Record<string, unknown>,
 ): string | null {
   const action = typeof args.action === 'string' ? args.action : '';
   const value = action ? `${tool.name}:${action}` : tool.name;
-  if (tool.annotations?.destructiveHint === true) return value;
+  if (tool.destructive === true || tool.annotations?.destructiveHint === true) return value;
   if (HIGH_IMPACT_ACTIONS.has(value)) return value;
   if (action && !KNOWN_ACTIONS[tool.name]?.has(action)) return value;
-  if (!CURRENT_WECHAT_TOOLS.has(tool.name) && tool.annotations?.readOnlyHint !== true) return value;
+  if (!CURRENT_WECHAT_TOOLS.has(tool.name) && tool.readOnly !== true && tool.annotations?.readOnlyHint !== true) return value;
   return null;
 }
 
 export function assertToolConfirmation(
-  tool: CliMcpTool,
+  tool: ToolSafetyMetadata,
   args: Record<string, unknown>,
   confirmation?: string,
 ): void {

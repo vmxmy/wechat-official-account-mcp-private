@@ -2,7 +2,6 @@
 import React, { Component, useState, type ReactNode } from 'react';
 import { Box, Text, render, useFocus, useInput, type Instance } from 'ink';
 import type { InitConsoleSnapshot } from './init-command.js';
-import { redactTerminalText } from './init-ink.js';
 import { UiConsoleScreen } from './ui-console.js';
 import type { UiConsoleExitAction, UiConsoleServices, UiConsoleSnapshot } from './ui-console-types.js';
 
@@ -60,7 +59,8 @@ export async function runInkUiShell(
         instance.current = render(
           options.console ? (
             <UiConsoleErrorBoundary onError={error => {
-              errorOutput.write(`WOA Console render error: ${redactTerminalText(error.message)}\n`);
+              void error;
+              errorOutput.write('WOA Console render error. The console was closed safely.\n');
               finish('exit');
             }}>
               <UiConsoleScreen
@@ -155,7 +155,7 @@ export function UiShellScreen(props: {
           <Text>CLI: {event.cliVersion}</Text>
           <Text>Server: {event.server}</Text>
           <Text>已完成阶段：{event.completedPhases.length}</Text>
-          {event.error ? <Text>[{event.error.code}] {redactTerminalText(event.error.message)}</Text> : null}
+          {event.error ? <Text>[{event.error.code}] 初始化流程出现错误。</Text> : null}
           {event.resume ? <Text>恢复：{event.resume.command} {event.resume.args.join(' ')}</Text> : null}
         </Box>
       ) : null}

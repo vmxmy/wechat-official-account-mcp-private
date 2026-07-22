@@ -352,7 +352,8 @@ try {
   assert.ok(oauthGrant?.id);
   const revokedGrant = await fetch(`${origin}/api/v1/sessions/${oauthGrant.id}`, {
     method: 'DELETE',
-    headers: { cookie: sessionCookie },
+    headers: { cookie: sessionCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ confirmation: `REVOKE ${oauthGrant.id}` }),
   });
   assert.equal(revokedGrant.status, 200);
   assert.equal((await revokedGrant.json()).data.kind, 'oauth');
@@ -439,7 +440,8 @@ try {
 
   const revoked = await fetch(`${origin}/api/v1/sessions/${webSessionId}`, {
     method: 'DELETE',
-    headers: { cookie: sessionCookie },
+    headers: { cookie: sessionCookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ confirmation: `REVOKE ${webSessionId}` }),
   });
   assert.equal(revoked.status, 200);
   assert.equal((await revoked.json()).data.revoked, true);

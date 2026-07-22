@@ -1,6 +1,3 @@
-import type { InitConsoleSnapshot } from './init-command.js';
-import type { CliMcpCallResult, CliMcpTool } from './mcp-api-client.js';
-
 /**
  * Data presented by the human-operated Ink console.  These are deliberately
  * public, redacted projections: credentials and OAuth material never cross
@@ -28,6 +25,9 @@ export interface UiAccount {
 }
 
 export interface UiContentItem {
+  /** Immutable source scope used for destructive content actions. */
+  tenantId: string;
+  accountId: string;
   id: string;
   title: string;
   subtitle?: string;
@@ -64,8 +64,39 @@ export interface UiConsoleDataError {
   message: string;
 }
 
+/**
+ * Minimal onboarding status projection. Do not add raw init events here: they
+ * can include OAuth URLs, idempotency keys, remote target IDs, and tool args.
+ */
+export interface UiInitSnapshot {
+  canResume: boolean;
+  event?: {
+    status: string;
+    phase: string;
+  };
+}
+
+/**
+ * A deliberately small MCP catalogue projection. The complete remote schema
+ * and annotations never enter the renderer.
+ */
+export interface UiMcpTool {
+  name: string;
+  description?: string;
+  requiredFields: string[];
+  accountScoped: boolean;
+  readOnly: boolean;
+  destructive: boolean;
+}
+
+/** Safe, display-only projection of an MCP tool response. */
+export interface UiToolCallResult {
+  isError: boolean;
+  displayText: string;
+}
+
 export interface UiConsoleSnapshot {
-  init: InitConsoleSnapshot;
+  init: UiInitSnapshot;
   server?: string;
   authenticated: boolean;
   operator?: {
@@ -81,7 +112,7 @@ export interface UiConsoleSnapshot {
   drafts: UiContentItem[];
   publishes: UiContentItem[];
   inbox: UiContentItem[];
-  tools: CliMcpTool[];
+  tools: UiMcpTool[];
   sessions: UiSession[];
   mcpDescriptor?: string;
   mcpConfig?: string;
@@ -94,7 +125,9 @@ export interface UiMutationResult {
 }
 
 export interface UiToolCallInput {
-  tool: CliMcpTool;
+  tool: UiMcpTool;
+  tenantId: string;
+  accountId: string;
   arguments: Record<string, unknown>;
   confirmation?: string;
 }
@@ -114,7 +147,7 @@ export interface UiConsoleServices {
   deleteDraft: (input: { tenantId: string; accountId: string; mediaId: string; confirmation: string }) => Promise<UiMutationResult>;
   deletePublish: (input: { tenantId: string; accountId: string; articleId: string; confirmation: string }) => Promise<UiMutationResult>;
   uploadMedia: (input: { tenantId: string; accountId: string; filePath: string }) => Promise<UiMutationResult>;
-  callTool: (input: UiToolCallInput) => Promise<CliMcpCallResult>;
+  callTool: (input: UiToolCallInput) => Promise<UiToolCallResult>;
   checkout: (input: { tenantId: string; plan: 'plus' | 'pro' }) => Promise<UiMutationResult>;
   revokeSession: (input: { sessionId: string; confirmation: string }) => Promise<UiMutationResult>;
 }
