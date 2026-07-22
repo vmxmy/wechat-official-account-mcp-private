@@ -25,7 +25,23 @@ interface ShellAction {
   hotkey: string;
 }
 
-export async function runInkUiShell(
+export function runInkUiShell(
+  snapshot: UiInitSnapshot,
+  options: UiShellOptions = {},
+): Promise<UiShellSelection> {
+  const safeSnapshot: UiInitSnapshot = {
+    canResume: snapshot.canResume,
+    ...(snapshot.event ? {
+      event: {
+        status: snapshot.event.status,
+        phase: snapshot.event.phase,
+      },
+    } : {}),
+  };
+  return runProjectedInkUiShell(safeSnapshot, options);
+}
+
+async function runProjectedInkUiShell(
   snapshot: UiInitSnapshot,
   options: UiShellOptions = {},
 ): Promise<UiShellSelection> {

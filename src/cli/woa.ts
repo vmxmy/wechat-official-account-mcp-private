@@ -22,7 +22,6 @@ import { CliUsageError } from './cli-errors.js';
 import {
   executeInitCommand,
   loadInitConsoleSnapshot,
-  type InitConsoleSnapshot,
   type InitCommandServices,
 } from './init-command.js';
 import { InitRunnerError } from './init-runner.js';
@@ -289,8 +288,7 @@ async function handleUiCommand(flags: Record<string, string | boolean>): Promise
   if (unavailable) throw new CliUsageError(unavailable);
   const services = createUiConsoleServices(flags);
   while (true) {
-    const rawInitSnapshot = await loadInitConsoleSnapshot(CONFIG_PATH);
-    const consoleSnapshot = await loadUiConsoleSnapshot(flags, rawInitSnapshot);
+    const consoleSnapshot = await services.refresh();
     normalizeInkCiEnvironment();
     const { runInkUiShell } = await import('./ui-shell.js');
     const selection = await runInkUiShell(consoleSnapshot.init, {
@@ -441,10 +439,9 @@ function createUiConsoleServices(flags: Record<string, string | boolean>): UiCon
 
 async function loadUiConsoleSnapshot(
   flags: Record<string, string | boolean>,
-  initSnapshot?: InitConsoleSnapshot,
 ): Promise<UiConsoleSnapshot> {
   const [init, config] = await Promise.all([
-    initSnapshot ? Promise.resolve(initSnapshot) : loadInitConsoleSnapshot(CONFIG_PATH),
+    loadInitConsoleSnapshot(CONFIG_PATH),
     loadConfig(),
   ]);
   const snapshot: UiConsoleSnapshot = {
