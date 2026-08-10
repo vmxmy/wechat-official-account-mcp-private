@@ -1,0 +1,17 @@
+{
+  "id": "2081053381213528185",
+  "url": "https://x.com/xing_eth/status/2081053381213528185",
+  "username": "xing_eth",
+  "name": "18168",
+  "created_at": "2026-07-25T16:26:04.000Z",
+  "metrics": {
+    "bookmark_count": 0,
+    "impression_count": 560,
+    "like_count": 2,
+    "quote_count": 1,
+    "reply_count": 0,
+    "retweet_count": 0
+  },
+  "text": "不会命令行，codex没额度，也能给 opencodex 导入新账号。\n当 Codex 额度用完，手里有新的账号导出文件，却不知道怎么使用终端、执行命令和修改配置怎么办？\nOpenCodex Account Importer 的 macOS 应用端就是为这个场景做的：\n把 Sub2API、CPA、Cockpit Tools 或 Antigravity Tools 导出的 JSON 拖进 App，自动校验、一键导入 OpenCodex 账号池。\n不用终端，不用重新 OAuth，也不用手动改配置。\n下载 App → 拖入账号 →导入opencodex\n→ 继续使用 Codex。\n项目地址：\nhttps://t.co/cZ7rnf63xy\n#Codex #OpenCodex #AI工具 #开源项目",
+  "media": []
+}

@@ -1,0 +1,17 @@
+{
+  "id": "style-candidate",
+  "displayName": "Style Candidate",
+  "mood": [],
+  "useFor": [],
+  "fonts": {
+    "body": "system-ui, sans-serif",
+    "code": "monospace"
+  },
+  "signature": "auto-extracted from /Users/xumingyang/github/wechat-official-account-mcp/articles/research-mptext/article.html",
+  "source": {
+    "url": "/Users/xumingyang/github/wechat-official-account-mcp/articles/research-mptext/article.html",
+    "extractedAt": "2026-07-16"
+  },
+  "autoExtracted": true,
+  "blockCoverage": []
+}

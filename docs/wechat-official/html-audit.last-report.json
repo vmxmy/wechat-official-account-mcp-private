@@ -1,0 +1,57 @@
+{
+  "article": "x-to-markdown/wandermist/2080974834851340400/graph-engineering-the-next-ai-revolution-zh-CN/translation_排版_石墨极简风(graphite-minimal).html",
+  "synced_at": "2026-07-26T04:10:56Z",
+  "official_verify": {
+    "isValid": true,
+    "inValidInfo": {}
+  },
+  "content_chars": 42950,
+  "tag_counts": {
+    "br": 14,
+    "h3": 9,
+    "img": 5,
+    "p": 122,
+    "section": 98,
+    "span": 310,
+    "strong": 2
+  },
+  "max_dom_depth": 25,
+  "max_section_nest": 5,
+  "max_same_tag_nest_over_15": {},
+  "div_count": 0,
+  "pre_count": 0,
+  "font_family_count": 1,
+  "font_family_samples": [
+    "font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif"
+  ],
+  "important_count": 0,
+  "fixed_width_px_count": 22,
+  "fixed_width_samples": [
+    "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weigh",
+    "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weigh",
+    "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weigh",
+    "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weigh",
+    "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weigh",
+    "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weigh",
+    "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weigh",
+    "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weigh"
+  ],
+  "fixed_height_px_count": 30,
+  "lineheight_zero_count": 0,
+  "text_align_start_end_count": 0,
+  "position_fixed_absolute_sticky_count": 0,
+  "opacity_zero_count": 0,
+  "span_leaf_wraps_block_count": 0,
+  "span_leaf_wraps_block_note": "corrected: nested parser confirms 0; greedy regex was false positive",
+  "fixed_width_assessment": "only decorative 22px list badges and 48px END lines; no content-container fixed width like 586px anti-pattern",
+  "font_family_assessment": "official建议不建议自定义；当前仅根 section 1 处自定义字体栈，官方 verify 通过",
+  "verdict": {
+    "official_verify": "PASS isValid=true",
+    "local_gzh_validator": "PASS 0 ERROR 0 WARNING",
+    "hard_structural": "PASS",
+    "soft_recommendations": [
+      "root font-family 建议去掉以完全贴合官方字体规范",
+      "固定宽高仅用于小装饰元素，可接受"
+    ]
+  }
+}

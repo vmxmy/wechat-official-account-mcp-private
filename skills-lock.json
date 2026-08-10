@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "gzh-design": {
+      "source": "isjiamu/gzh-design-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "cba0a35bcc639882029822c08d228a48b260b9ba761d8ceeeec1afc22b32b75d"
+    },
+    "youmind": {
+      "source": "YouMind-OpenLab/skills",
+      "sourceType": "github",
+      "skillPath": "skills/youmind/SKILL.md",
+      "computedHash": "bb5361ecf52c9cbfee913eecbd097a1925ca7afa44d23d8e84000dd940e82d0e"
+    }
+  }
+}

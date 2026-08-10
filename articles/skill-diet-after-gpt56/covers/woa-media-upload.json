@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "data": {
+    "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/20/e3945c2c-cf3a-4f3e-a43d-e884fa35ef4c-skill-diet-neo-brutalist-cover-01-wechat.jpg",
+    "fileName": "skill-diet-neo-brutalist-cover-01-wechat.jpg",
+    "mimeType": "image/jpeg",
+    "size": 59301,
+    "next": {
+      "contentImage": {
+        "tool": "wechat_upload_img",
+        "arguments": {
+          "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/20/e3945c2c-cf3a-4f3e-a43d-e884fa35ef4c-skill-diet-neo-brutalist-cover-01-wechat.jpg",
+          "fileName": "skill-diet-neo-brutalist-cover-01-wechat.jpg",
+          "mimeType": "image/jpeg",
+          "accountId": "acct_31c623c5709b451b996c500c"
+        }
+      },
+      "permanentMedia": {
+        "tool": "wechat_permanent_media",
+        "arguments": {
+          "action": "add",
+          "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/20/e3945c2c-cf3a-4f3e-a43d-e884fa35ef4c-skill-diet-neo-brutalist-cover-01-wechat.jpg",
+          "fileName": "skill-diet-neo-brutalist-cover-01-wechat.jpg",
+          "mimeType": "image/jpeg",
+          "accountId": "acct_31c623c5709b451b996c500c"
+        },
+        "requiredArgument": "type: image | thumb | voice | video"
+      }
+    }
+  },
+  "requestId": "req_5ac84e4577754821ae5653f5"
+}

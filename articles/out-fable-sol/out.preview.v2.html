@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh_CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fable当脑子，Sol做牛马？ · preview v2</title>
+<style>
+body { margin: 0; background: #ECECEC; font-family: -apple-system, sans-serif; }
+.toolbar {
+  position: sticky; top: 0; z-index: 100;
+  background: #fff; border-bottom: 1px solid #ddd;
+  padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+  font-size: 13px;
+}
+.toolbar select { padding: 4px 8px; font-size: 13px; }
+.toolbar .meta { color: #888; font-size: 12px; }
+.phone-frame {
+  max-width: 667px; margin: 16px auto; background: #fff;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  padding: 0;
+}
+.article-host { padding: 16px; }
+.empty { padding: 40px; text-align: center; color: #888; }
+</style>
+<style id="css-dushaofei-column" disabled>/* dushaofei-column v2 · 优化版
+   基于初版优化：减少金句框、轻量化列表、增加署名、作战卡可视化
+*/
+:root {
+  --wa-color-accent: #111111;
+  --wa-color-accent-faint: rgba(255, 238, 51, 0.65);
+  --wa-color-accent-border: rgba(0, 0, 0, 0.12);
+  --wa-color-accent-ghost: rgba(0, 0, 0, 0.45);
+  --wa-color-text: rgba(0, 0, 0, 0.92);
+  --wa-color-text-muted: rgb(136, 136, 136);
+  --wa-color-text-secondary: rgb(68, 68, 68);
+  --wa-color-inline-code-fg: #222222;
+  --wa-color-inline-code-bg: rgba(0, 0, 0, 0.05);
+
+  --wa-color-code-bg: #1f1f1f;
+  --wa-color-code-fg: #f2f2f2;
+  --wa-color-code-keyword: #f3e200;
+  --wa-color-code-string: #c8e6c9;
+  --wa-color-code-number: #ffe082;
+  --wa-color-code-comment: #9e9e9e;
+  --wa-color-code-builtin: #b3e5fc;
+  --wa-color-code-fn: #e1bee7;
+  --wa-color-code-class: #ffccbc;
+
+  --wa-color-highlight: rgb(255, 238, 51);
+  --wa-color-rule: rgba(0, 0, 0, 0.1);
+  --wa-color-bg-soft: #fafafa;
+
+  --wa-font-body: mp-quote, -apple-system-font, BlinkMacSystemFont, "Helvetica Neue",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei",
+    Arial, sans-serif;
+  --wa-font-code: "SF Mono", Consolas, Monaco, Menlo, monospace;
+
+  --wa-text-body: 16px;
+  --wa-text-lede: 26px;
+  --wa-text-h2: 22px;
+  --wa-text-h3: 19px;
+  --wa-text-strong: 16px;
+  --wa-text-code-inline: 15px;
+  --wa-text-code-block: 13px;
+  --wa-text-figure-caption: 12px;
+  --wa-line-height-body: 1.65em;
+  --wa-letter-spacing-body: 0.034em;
+
+  --wa-gap-paragraph: 0px;
+  --wa-gap-section: 42px;
+  --wa-gap-sub-section: 26px;
+  --wa-gap-block: 16px;
+  --wa-gap-list-item: 6px;
+
+  --wa-radius-code: 4px;
+  --wa-radius-pill: 2px;
+}
+
+/* 链接样式 */
+.wa-dushaofei-column a {
+  color: #111111;
+  text-decoration: underline;
+  text-decoration-color: var(--wa-color-highlight);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  font-weight: 600;
+}
+
+/* byline */
+.wa-dushaofei-column .wa-byline {
+  margin: 0 0 1.5em 0;
+  padding: 0 0 0.8em 0;
+  border-bottom: 1px solid var(--wa-color-rule);
+  font-family: var(--wa-font-body);
+  font-size: 13px;
+  color: var(--wa-color-text-muted);
+  letter-spacing: 0.08em;
+  line-height: 1.5em;
+}
+
+/* paragraph */
+.wa-dushaofei-column .wa-paragraph {
+  color: var(--wa-color-text-secondary);
+  font-size: var(--wa-text-body);
+  font-family: var(--wa-font-body);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: var(--wa-letter-spacing-body);
+  font-weight: normal;
+  text-align: left;
+  text-indent: 0;
+  margin: 0 0 1.5em 0;
+  padding: 0;
+}
+
+/* callout：大幅减少，只留核心 */
+.wa-dushaofei-column .wa-callout-blue {
+  position: relative;
+  display: block;
+  margin: 1.8em 0;
+  padding: 16px 18px;
+  border: none;
+  border-left: 4px solid #111111;
+  border-radius: 0;
+  background: var(--wa-color-highlight);
+  overflow: visible;
+}
+.wa-dushaofei-column .wa-callout-blue p {
+  display: block;
+  margin: 0;
+  padding: 0;
+  color: #222222;
+  font-size: 17px;
+  font-family: var(--wa-font-body);
+  line-height: 1.65em;
+  letter-spacing: var(--wa-letter-spacing-body);
+  background: transparent;
+  font-weight: 600;
+}
+.wa-dushaofei-column .wa-callout-blue p + p {
+  margin-top: 0.55em;
+}
+
+/* h2 */
+.wa-dushaofei-column .wa-h2 {
+  display: block;
+  margin-top: var(--wa-gap-section);
+  margin-bottom: 1.15em;
+  padding-top: 0.35em;
+  padding-bottom: 0.55em;
+  border-bottom: 2px solid #111111;
+  font-size: var(--wa-text-h2);
+  font-family: var(--wa-font-body);
+  color: #111111;
+  font-weight: 800;
+  line-height: 1.35em;
+  letter-spacing: 0.02em;
+}
+.wa-dushaofei-column .wa-h2-inner {
+  display: block;
+}
+
+/* h3：与正文拉开差距 */
+.wa-dushaofei-column .wa-h3 {
+  display: block;
+  margin-top: 32px;
+  margin-bottom: 0.8em;
+  padding: 0 0 0 10px;
+  border-left: 3px solid #111111;
+  font-size: var(--wa-text-h3);
+  font-family: var(--wa-font-body);
+  color: #111111;
+  font-weight: 700;
+  line-height: 1.4em;
+  letter-spacing: 0.02em;
+}
+.wa-dushaofei-column .wa-h3-inner {
+  display: inline;
+  line-height: inherit;
+  margin: 0;
+  text-align: left;
+  text-indent: 0;
+}
+
+/* strong */
+.wa-dushaofei-column .wa-strong {
+  color: #111111;
+  font-weight: 700;
+  font-size: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* inline code */
+.wa-dushaofei-column .wa-code-inline {
+  color: var(--wa-color-inline-code-fg);
+  font-size: var(--wa-text-code-inline);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: 0;
+  background: var(--wa-color-inline-code-bg);
+  font-family: var(--wa-font-code);
+  padding: 1px 4px;
+  margin: 0 2px;
+  border-radius: var(--wa-radius-pill);
+  overflow-wrap: break-word;
+  word-break: break-all;
+  vertical-align: baseline;
+}
+
+/* code block */
+.wa-dushaofei-column .wa-code-block {
+  display: block;
+  margin: 1.4em 0;
+  padding: 0;
+  border-radius: var(--wa-radius-code);
+  box-shadow: none;
+  text-align: left;
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 1.6;
+  color: var(--wa-color-code-fg);
+  background: var(--wa-color-code-bg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.wa-dushaofei-column .wa-code-block-inner {
+  display: block;
+  padding: 14px 16px;
+  background: var(--wa-color-code-bg);
+  color: var(--wa-color-code-fg);
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 1.6;
+  white-space: pre;
+}
+.wa-dushaofei-column .wa-code-block .tok-keyword  { color: var(--wa-color-code-keyword); }
+.wa-dushaofei-column .wa-code-block .tok-string   { color: var(--wa-color-code-string); }
+.wa-dushaofei-column .wa-code-block .tok-number   { color: var(--wa-color-code-number); }
+.wa-dushaofei-column .wa-code-block .tok-comment  { color: var(--wa-color-code-comment); font-style: italic; }
+.wa-dushaofei-column .wa-code-block .tok-builtin  { color: var(--wa-color-code-builtin); }
+.wa-dushaofei-column .wa-code-block .tok-fn       { color: var(--wa-color-code-fn); }
+.wa-dushaofei-column .wa-code-block .tok-class    { color: var(--wa-color-code-class); }
+
+/* lists：轻量化，去掉灰墙 */
+.wa-dushaofei-column .wa-list-ul,
+.wa-dushaofei-column .wa-list-ol {
+  margin: 1.25em 0;
+  padding: 0 0 0 1.5em;
+  color: var(--wa-color-text-secondary);
+  font-size: var(--wa-text-body);
+  font-family: var(--wa-font-body);
+  line-height: 1.7em;
+  letter-spacing: var(--wa-letter-spacing-body);
+  background: transparent;
+  border-left: 3px solid #111111;
+  box-sizing: border-box;
+}
+.wa-dushaofei-column .wa-list-ol {
+  border-left-color: var(--wa-color-highlight);
+}
+.wa-dushaofei-column .wa-list-ul { list-style-type: disc; }
+.wa-dushaofei-column .wa-list-ol { list-style-type: decimal; }
+.wa-dushaofei-column .wa-list-ul li,
+.wa-dushaofei-column .wa-list-ol li {
+  margin: 0.45em 0;
+  padding: 0;
+  font-weight: normal;
+}
+
+/* figure */
+.wa-dushaofei-column .wa-figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 1.5em 0 0.2em 0;
+  padding: 0;
+}
+.wa-dushaofei-column .wa-figure img,
+.wa-dushaofei-column .wa-figure svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0;
+  object-fit: fill;
+  box-shadow: none;
+}
+
+/* figure caption */
+.wa-dushaofei-column .wa-figure-caption {
+  display: block;
+  width: 100%;
+  margin: 0 0 1.5em 0;
+  padding: 8px 0 14px 0;
+  font-size: var(--wa-text-figure-caption);
+  color: var(--wa-color-text-muted);
+  font-style: normal;
+  letter-spacing: 1px;
+  text-align: center;
+  font-family: var(--wa-font-body);
+  line-height: 1.5em;
+  border-bottom: 1px solid var(--wa-color-rule);
+}
+
+/* lede */
+.wa-dushaofei-column .wa-lede {
+  margin: 0.2em 0 1.1em 0;
+  padding: 0 0 0.7em 0;
+  font-size: var(--wa-text-lede);
+  font-family: var(--wa-font-body);
+  color: #111111;
+  font-weight: 800;
+  line-height: 1.3em;
+  letter-spacing: 0.01em;
+  border-bottom: 3px solid #111111;
+}
+
+/* divider */
+.wa-dushaofei-column .wa-divider {
+  border: none;
+  border-top: 1px solid var(--wa-color-rule);
+  margin: 2.2em 0;
+  height: 0;
+}
+
+/* 作战卡：可视化速查 */
+.wa-dushaofei-column .wa-battle-card {
+  margin: 1.8em 0;
+  padding: 0;
+  border: 2px solid #111111;
+  background: #fff;
+}
+.wa-dushaofei-column .wa-battle-card-title {
+  padding: 12px 16px;
+  background: #111111;
+  color: #ffffff;
+  font-family: var(--wa-font-body);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+.wa-dushaofei-column .wa-battle-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-bottom: 1px solid var(--wa-color-rule);
+}
+.wa-dushaofei-column .wa-battle-card-route {
+  padding: 16px;
+}
+.wa-dushaofei-column .wa-battle-card-route:first-child {
+  border-right: 1px solid var(--wa-color-rule);
+}
+.wa-dushaofei-column .wa-battle-card-route h4,
+.wa-dushaofei-column .wa-battle-card-dos h4,
+.wa-dushaofei-column .wa-battle-card-donts h4 {
+  margin: 0 0 10px 0;
+  font-family: var(--wa-font-body);
+  font-size: 15px;
+  font-weight: 800;
+  color: #111111;
+}
+.wa-dushaofei-column .wa-battle-card-route ol,
+.wa-dushaofei-column .wa-battle-card-dos ul,
+.wa-dushaofei-column .wa-battle-card-donts ul {
+  margin: 0;
+  padding: 0 0 0 1.3em;
+  font-family: var(--wa-font-body);
+  font-size: 14px;
+  line-height: 1.7em;
+  color: var(--wa-color-text-secondary);
+  background: transparent;
+  border: none;
+}
+.wa-dushaofei-column .wa-battle-card-route li,
+.wa-dushaofei-column .wa-battle-card-dos li,
+.wa-dushaofei-column .wa-battle-card-donts li {
+  margin: 0.4em 0;
+}
+.wa-dushaofei-column .wa-battle-card-dos,
+.wa-dushaofei-column .wa-battle-card-donts {
+  padding: 16px;
+}
+.wa-dushaofei-column .wa-battle-card-dos {
+  background: #f4faf4;
+}
+.wa-dushaofei-column .wa-battle-card-donts {
+  background: #fff5f5;
+  border-right: 1px solid var(--wa-color-rule);
+}
+.wa-dushaofei-column .wa-battle-card-dos h4 { color: #27ae60; }
+.wa-dushaofei-column .wa-battle-card-donts h4 { color: #c0392b; }
+.wa-dushaofei-column .wa-battle-card .wa-callout-blue {
+  margin: 0;
+  border-left: none;
+  border-top: 1px solid #111111;
+  border-bottom: 1px solid #111111;
+}
+
+@media (max-width: 480px) {
+  .wa-dushaofei-column .wa-battle-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .wa-dushaofei-column .wa-battle-card-route:first-child {
+    border-right: none;
+    border-bottom: 1px solid var(--wa-color-rule);
+  }
+  .wa-dushaofei-column .wa-battle-card-donts {
+    border-right: none;
+    border-bottom: 1px solid var(--wa-color-rule);
+  }
+}
+
+/* ziikoo hook：弱化广告感 */
+.wa-dushaofei-column .wa-ziikoo-hook {
+  margin: 2.5em 0 0.8em 0;
+  padding: 1.5em 0 0;
+  text-align: center;
+  border-top: 1px solid var(--wa-color-rule);
+}
+.wa-dushaofei-column .wa-ziikoo-hook-row {
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wa-dushaofei-column .wa-ziikoo-hook-logo {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 10px 0 0;
+  line-height: 0;
+}
+.wa-dushaofei-column .wa-ziikoo-hook-logo svg {
+  display: block;
+  width: 80px;
+  height: auto;
+  shape-rendering: crispEdges;
+}
+.wa-dushaofei-column .wa-ziikoo-hook-phrase {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  color: #111111;
+  font-family: var(--wa-font-body);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+}
+.wa-dushaofei-column .wa-ziikoo-hook-bubble {
+  margin: 1em auto 0;
+  padding: 14px 16px;
+  max-width: 94%;
+  box-sizing: border-box;
+  text-align: left;
+  background: var(--wa-color-highlight);
+  border: none;
+  border-left: 4px solid #111111;
+  border-radius: 0;
+}
+.wa-dushaofei-column .wa-ziikoo-hook-line {
+  margin: 0;
+  padding: 0;
+  color: #222222;
+  font-family: var(--wa-font-body);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: var(--wa-letter-spacing-body);
+  line-height: 1.65em;
+  text-align: left;
+}
+.wa-dushaofei-column .wa-ziikoo-hook-line + .wa-ziikoo-hook-line {
+  margin-top: 0.45em;
+}
+.wa-dushaofei-column .wa-ziikoo-hook-slogan {
+  margin: 1.1em 0 0 0;
+  padding: 0;
+  color: var(--wa-color-text-muted);
+  font-family: var(--wa-font-body);
+  font-size: 12px;
+  font-weight: normal;
+  letter-spacing: 1px;
+  line-height: 1.5;
+}
+.wa-dushaofei-column .wa-ziikoo-hook-domain {
+  margin: 4px 0 0 0;
+  padding: 0;
+  color: var(--wa-color-text-muted);
+  font-family: var(--wa-font-body);
+  font-size: 12px;
+  font-weight: normal;
+  letter-spacing: 1px;
+  line-height: 1.5;
+}</style>
+</head>
+<body>
+<div class="toolbar">
+  <label for="style-select">样式：</label>
+  <select id="style-select"><option value="dushaofei-column">杜绍斐专栏 · Gossip Editorial v2</option></select>
+  <span class="meta" id="meta"></span>
+</div>
+<div class="phone-frame">
+  <div class="article-host" id="article-host"><div class="empty">Loading…</div></div>
+</div>
+<template id="tpl-dushaofei-column"><div class="wa-dushaofei-column">
+<p class="wa-byline">编辑 / ziikoo 研究室 · 2026.07.16</p>
+<h1 class="wa-lede">Fable当脑子，Sol做牛马？</h1>
+
+<figure class="wa-figure">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" aria-label="Fable 与 Sol 分工主视觉">
+    <rect width="800" height="450" fill="#fafafa"/>
+
+    <!-- 外框 -->
+    <rect x="50" y="40" width="700" height="360" fill="#ffffff" stroke="#111111" stroke-width="3"/>
+
+    <!-- 标题 -->
+    <text x="400" y="80" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="28" font-weight="800" fill="#111111" letter-spacing="0.04em">FABLE · SOL</text>
+
+    <!-- 中线分隔 -->
+    <line x1="400" y1="105" x2="400" y2="370" stroke="#111111" stroke-width="2"/>
+
+    <!-- 左半：Fable / 脑子 —— 网络节点 -->
+    <text x="225" y="125" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#888888" letter-spacing="0.12em">BRAIN</text>
+
+    <circle cx="225" cy="210" r="24" fill="#111111"/>
+    <text x="225" y="216" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#ffffff" font-weight="700">FABLE</text>
+
+    <circle cx="155" cy="170" r="10" fill="#111111"/>
+    <circle cx="295" cy="170" r="10" fill="#111111"/>
+    <circle cx="140" cy="260" r="10" fill="#111111"/>
+    <circle cx="310" cy="260" r="10" fill="#ffee33" stroke="#111111" stroke-width="1.5"/>
+    <circle cx="225" cy="320" r="10" fill="#111111"/>
+    <circle cx="180" cy="135" r="7" fill="#111111"/>
+    <circle cx="270" cy="135" r="7" fill="#111111"/>
+
+    <line x1="225" y1="210" x2="155" y2="170" stroke="#111111" stroke-width="1.5"/>
+    <line x1="225" y1="210" x2="295" y2="170" stroke="#111111" stroke-width="1.5"/>
+    <line x1="225" y1="210" x2="140" y2="260" stroke="#111111" stroke-width="1.5"/>
+    <line x1="225" y1="210" x2="310" y2="260" stroke="#111111" stroke-width="1.5"/>
+    <line x1="225" y1="210" x2="225" y2="320" stroke="#111111" stroke-width="1.5"/>
+    <line x1="225" y1="210" x2="180" y2="135" stroke="#111111" stroke-width="1.5"/>
+    <line x1="225" y1="210" x2="270" y2="135" stroke="#111111" stroke-width="1.5"/>
+
+    <!-- 右半：Sol / 牛马 —— 执行条 -->
+    <text x="575" y="125" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#888888" letter-spacing="0.12em">WORK</text>
+
+    <rect x="480" y="160" width="190" height="28" fill="#111111"/>
+    <rect x="480" y="204" width="150" height="28" fill="#111111"/>
+    <rect x="480" y="248" width="170" height="28" fill="#ffee33" stroke="#111111" stroke-width="1.5"/>
+    <rect x="480" y="292" width="130" height="28" fill="#111111"/>
+    <rect x="480" y="336" width="110" height="28" fill="#111111"/>
+
+    <text x="490" y="179" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#ffffff" font-weight="600">01</text>
+    <text x="490" y="267" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" fill="#111111" font-weight="600">03</text>
+
+    <!-- 底部标语 -->
+    <text x="400" y="425" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="13" fill="#888888" letter-spacing="0.04em">把「想」和「做」拆开，是模型编排的第一性原理</text>
+  </svg>
+  <figcaption class="wa-figure-caption">主视觉：把「想」和「做」拆开</figcaption>
+</figure>
+
+<p class="wa-paragraph">GPT-5.6 之后，AI 圈吵架的主题变了。</p>
+<p class="wa-paragraph">不是「谁吊打谁」，是 <strong class="wa-strong">Fable 和 Sol，谁当脑子、谁做牛马</strong>。</p>
+<p class="wa-paragraph">日本开发者圈高收藏帖结论一致，Newsletter 博主 Ben 又补了 OpenAI 三档搭配。这篇把两边捏一起，方便直接抄。</p>
+
+<blockquote class="wa-callout-blue"><p>脑子坐哪里？牛马坐哪里？</p></blockquote>
+
+<hr class="wa-divider" />
+
+<h2 class="wa-h2"><span class="wa-h2-inner">分工：猫头鹰当脑子，罗威纳做牛马</span></h2>
+
+<figure class="wa-figure">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" aria-label="猫头鹰与罗威纳分工">
+    <rect width="800" height="450" fill="#fffdf0"/>
+    <text x="250" y="235" text-anchor="middle" font-family="system-ui, sans-serif" font-size="64">🦉</text>
+    <text x="250" y="295" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="700" fill="#111111">Fable · 猫头鹰</text>
+    <text x="250" y="325" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#666666">看得深，问「该不该做」</text>
+    <text x="550" y="235" text-anchor="middle" font-family="system-ui, sans-serif" font-size="64">🐕</text>
+    <text x="550" y="295" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="700" fill="#111111">Sol · 罗威纳</text>
+    <text x="550" y="325" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#666666">咬住任务，干到结束</text>
+    <line x1="400" y1="120" x2="400" y2="360" stroke="#111111" stroke-width="2"/>
+  </svg>
+  <figcaption class="wa-figure-caption">左 Fable 当脑子，右 Sol 做牛马</figcaption>
+</figure>
+
+<p class="wa-paragraph">日推最好记的说法：</p>
+<ul class="wa-list-ul">
+  <li><strong class="wa-strong">Fable ≈ 猫头鹰</strong>：看得深，问「该不该做」</li>
+  <li><strong class="wa-strong">Sol ≈ 罗威纳</strong>：咬住任务，干到结束</li>
+</ul>
+
+<p class="wa-paragraph">更稳的流程只有三步：</p>
+<ol class="wa-list-ol">
+  <li><strong class="wa-strong">你说</strong>目标、边界、禁区</li>
+  <li><strong class="wa-strong">Fable 写成</strong>验收、影响范围、测试、风险</li>
+  <li><strong class="wa-strong">原样丢给</strong>Codex + Sol</li>
+</ol>
+
+<p class="wa-paragraph">少一层人手翻译，就少一次信息损耗。牛马位别自己终审，同一模型会给自己找补。</p>
+<p class="wa-paragraph">只剩一个名额，很多人仍选 Fable。<strong class="wa-strong">脑子位更稀缺，不是牛马不重要。</strong></p>
+
+<blockquote class="wa-callout-blue"><p>脑子当脑子，牛马做牛马。角色反了，账单和事故一起涨。</p></blockquote>
+
+<hr class="wa-divider" />
+
+<h2 class="wa-h2"><span class="wa-h2-inner">用法：收敛成一条主线</span></h2>
+
+<figure class="wa-figure">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" aria-label="七种用法收敛为最小闭环">
+    <rect width="800" height="450" fill="#fafafa"/>
+    <text x="400" y="160" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="800" fill="#111111">七种用法收敛为一条主线</text>
+    <rect x="180" y="220" width="440" height="56" fill="#ffee33" stroke="#111111" stroke-width="2"/>
+    <text x="400" y="257" text-anchor="middle" font-family="system-ui, sans-serif" font-size="17" font-weight="600" fill="#111111">Fable 规划 → Sol 执行 → 换模型只读复审</text>
+  </svg>
+  <figcaption class="wa-figure-caption">七种用法收敛为最小闭环</figcaption>
+</figure>
+
+<p class="wa-paragraph">日本圈收敛出四个原则：</p>
+<ol class="wa-list-ol">
+  <li><strong class="wa-strong">设计归 Fable，实现归 Sol</strong></li>
+  <li><strong class="wa-strong">商量找 Fable，写码找 Sol</strong>——别混会话</li>
+  <li><strong class="wa-strong">让 Fable 指挥 Sol</strong>：规划 → 执行 → 换模型复审</li>
+  <li><strong class="wa-strong">按任务选，不按信仰选</strong>——Fable 偶漏，Sol 会收尾</li>
+</ol>
+
+<p class="wa-paragraph">最小闭环：<strong class="wa-strong">脑子规划 → 牛马执行 → 换模型只读复审。</strong>别在一个窗口从聊天做到上线。</p>
+
+<hr class="wa-divider" />
+
+<h2 class="wa-h2"><span class="wa-h2-inner">Ben 的 GPT-5.6 三档</span></h2>
+
+<figure class="wa-figure">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" aria-label="Ben 的 GPT-5.6 三档">
+    <rect width="800" height="450" fill="#f8f8f8"/>
+    <text x="400" y="120" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="800" fill="#111111">Ben 的 GPT-5.6 三档</text>
+    <rect x="100" y="190" width="170" height="140" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+    <text x="185" y="250" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#111111">Sol medium</text>
+    <text x="185" y="280" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#666666">主开发 / 创意</text>
+    <text x="185" y="305" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#666666">牛马位默认值</text>
+    <rect x="315" y="190" width="170" height="140" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+    <text x="400" y="250" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#111111">Ultra</text>
+    <text x="400" y="280" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#666666">复杂 / 子代理</text>
+    <text x="400" y="305" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#666666">并行后台任务</text>
+    <rect x="530" y="190" width="170" height="140" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+    <text x="615" y="250" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#111111">Luna xhigh</text>
+    <text x="615" y="280" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#666666">日常对话</text>
+    <text x="615" y="305" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#666666">省额度</text>
+  </svg>
+  <figcaption class="wa-figure-caption">Ben 的 GPT-5.6 默认搭配</figcaption>
+</figure>
+
+<p class="wa-paragraph">只混 OpenAI 栈，Ben 的组合很实用：</p>
+<ul class="wa-list-ul">
+  <li><strong class="wa-strong">开发 / 创意 → Sol medium</strong>：够强又不烧，牛马位默认</li>
+  <li><strong class="wa-strong">复杂任务 → Ultra</strong>：后台 Subagent，子代理用 Sol 或 Terra</li>
+  <li><strong class="wa-strong">日常对话 → Luna xhigh</strong>：闲聊省额度</li>
+</ul>
+
+<p class="wa-paragraph">体感直接记：Sol 做 UI 要给参考；Max 写作强。Terra 是 GPT-5.5 升级版，更听话，适合当子代理。Luna 提示词糊了容易 get 不到。</p>
+<p class="wa-paragraph"><strong class="wa-strong">任务定义清楚，才不掉链子。</strong></p>
+
+<hr class="wa-divider" />
+
+<h2 class="wa-h2"><span class="wa-h2-inner">一张作战卡</span></h2>
+
+<figure class="wa-figure">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" aria-label="AI 模型作战卡">
+    <rect width="800" height="450" fill="#ffffff"/>
+    <rect x="50" y="50" width="700" height="350" fill="none" stroke="#111111" stroke-width="4"/>
+    <text x="400" y="110" text-anchor="middle" font-family="system-ui, sans-serif" font-size="30" font-weight="800" fill="#111111">AI 模型作战卡</text>
+    <line x1="400" y1="140" x2="400" y2="350" stroke="#111111" stroke-width="2"/>
+    <text x="225" y="180" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#111111">跨生态</text>
+    <text x="225" y="220" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#333333">意图糊 → Fable 对稿</text>
+    <text x="225" y="255" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#333333">规格清 → Sol 执行</text>
+    <text x="225" y="290" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#333333">终审 → 换模型只读</text>
+    <text x="575" y="180" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#111111">纯 OpenAI</text>
+    <text x="575" y="220" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#333333">主开发 → Sol medium</text>
+    <text x="575" y="255" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#333333">复杂并行 → Ultra</text>
+    <text x="575" y="290" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#333333">闲聊 → Luna xhigh</text>
+  </svg>
+  <figcaption class="wa-figure-caption">一张能直接贴团队墙的作战卡</figcaption>
+</figure>
+
+<div class="wa-battle-card">
+  <div class="wa-battle-card-title">AI 模型作战卡</div>
+  <div class="wa-battle-card-grid">
+    <div class="wa-battle-card-route">
+      <h4>跨生态路由</h4>
+      <ol>
+        <li><strong>意图糊</strong> → Fable 对稿</li>
+        <li><strong>规格清</strong> → Sol 执行</li>
+        <li><strong>终审</strong> → 换模型、只读</li>
+      </ol>
+    </div>
+    <div class="wa-battle-card-route">
+      <h4>纯 OpenAI 路由</h4>
+      <ol>
+        <li><strong>主开发 / 创意</strong> → Sol medium</li>
+        <li><strong>复杂可并行</strong> → Ultra + Sol/Terra</li>
+        <li><strong>日常对话</strong> → Luna xhigh</li>
+      </ol>
+    </div>
+  </div>
+  <blockquote class="wa-callout-blue"><p>Fable 写指令，Sol 去干活。聊天 Luna，复杂 Ultra，Terra 当听话的牛马手。</p></blockquote>
+  <div class="wa-battle-card-grid">
+    <div class="wa-battle-card-donts">
+      <h4>别踩这些坑</h4>
+      <ul>
+        <li>Sol Ultra 吃到饱</li>
+        <li>模糊需求塞 Luna</li>
+        <li>Full Access 无沙箱</li>
+        <li>牛马自己终审</li>
+        <li>一聊到底</li>
+      </ul>
+    </div>
+    <div class="wa-battle-card-dos">
+      <h4>本周落地</h4>
+      <ul>
+        <li>双模型规则做成 Skill</li>
+        <li>主开发默认 Sol medium</li>
+        <li>子 Agent 钉死模型</li>
+        <li>Sol 做 UI 附参考</li>
+        <li>看 diff，不看 tool 次数</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p class="wa-paragraph"><strong class="wa-strong">安全提示：</strong>先做影响范围和简短规格。写完停，等确认。别直接改代码。</p>
+
+<hr class="wa-divider" />
+
+<h2 class="wa-h2"><span class="wa-h2-inner">结语</span></h2>
+<p class="wa-paragraph">编排时代，胜负手不是榜单第一。</p>
+<p class="wa-paragraph">是你有没有把「想」和「做」拆开，再给「做」配上匹配成本的档位。</p>
+<p class="wa-paragraph">Fable / Sol / Luna / Terra 不是信仰战，是同一条产线上的不同工位。</p>
+
+<blockquote class="wa-callout-blue"><p>脑子想清楚。牛马干完。</p></blockquote>
+
+<hr class="wa-divider" />
+
+<h3 class="wa-h3"><span class="wa-h3-inner">延伸阅读</span></h3>
+<ul class="wa-list-ul">
+  <li><a href="https://x.com/ctgptlb/status/2077660888224698573">日推｜Fable 与 Sol 的七种用法合集</a>——原帖整理</li>
+  <li><a href="https://x.com/kenn/status/2077017118663696667">日推｜Kenn：Fable 别写码，让它写给 Codex 的指令</a>——规划写法</li>
+  <li><a href="https://x.com/suna_gaku/status/2075063260072558708">日推｜猫头鹰 vs 罗威纳：Fable / Sol 分工</a>——比喻来源</li>
+</ul>
+
+<section class="wa-ziikoo-hook">
+  <div class="wa-ziikoo-hook-row">
+    <span class="wa-ziikoo-hook-logo">
+      <svg role="img" aria-label="ziikoo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" shape-rendering="crispEdges">
+        <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>
+        <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/>
+      </svg>
+    </span>
+    <span class="wa-ziikoo-hook-phrase">有话说</span>
+  </div>
+  <div class="wa-ziikoo-hook-bubble">
+    <p class="wa-ziikoo-hook-line">小朋友才做选择，大人的 Claude 都被封了🐶</p>
+  </div>
+  <p class="wa-ziikoo-hook-slogan">企业 AI 生产力管理平台</p>
+  <p class="wa-ziikoo-hook-domain">ziikoo.com</p>
+</section>
+</div></template>
+<script>
+(function () {
+  var select = document.getElementById('style-select');
+  var host = document.getElementById('article-host');
+  var meta = document.getElementById('meta');
+  function disableAllStyles() {
+    var sheets = document.querySelectorAll('style[id^="css-"]');
+    for (var i = 0; i < sheets.length; i++) sheets[i].disabled = true;
+  }
+  function setActiveStyle(id) {
+    disableAllStyles();
+    var s = document.getElementById('css-' + id);
+    if (s) s.disabled = false;
+    var tpl = document.getElementById('tpl-' + id);
+    if (!tpl) {
+      host.innerHTML = '<div class="empty">No content for ' + id + '</div>';
+    } else if (tpl.content && tpl.content.childNodes.length) {
+      host.innerHTML = '';
+      host.appendChild(tpl.content.cloneNode(true));
+    } else {
+      host.innerHTML = tpl.innerHTML;
+    }
+    meta.textContent = 'id: ' + id;
+  }
+  select.addEventListener('change', function () { setActiveStyle(select.value); });
+  if (select.options.length) {
+    select.value = select.options[0].value;
+    setActiveStyle(select.value);
+  } else {
+    host.innerHTML = '<div class="empty">No active styles registered.</div>';
+  }
+})();
+</script>
+</body>
+</html>

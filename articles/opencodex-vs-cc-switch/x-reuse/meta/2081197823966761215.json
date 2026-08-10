@@ -1,0 +1,24 @@
+{
+  "id": "2081197823966761215",
+  "url": "https://x.com/Jolyne_AI/status/2081197823966761215",
+  "username": "Jolyne_AI",
+  "name": "徐伦",
+  "created_at": "2026-07-26T02:00:02.000Z",
+  "metrics": {
+    "bookmark_count": 0,
+    "impression_count": 157,
+    "like_count": 2,
+    "quote_count": 0,
+    "reply_count": 1,
+    "retweet_count": 0
+  },
+  "text": "用 Codex 写代码，模型被绑死在 OpenAI 官方那几个上，想换别的用不了。\n\nopencodex 是个跑在本地的小代理，把 Codex 接到任意大模型上，Claude Code 也一样能用。\n\n可接入 Claude、Gemini、Grok、DeepSeek、Kimi、Qwen 还有本地的 Ollama 模型。\n\nGitHub：https://t.co/HWtlx9qgzo\n\n支持流式输出、工具调用、图片这些都双向打通，换了模型原来的用法照旧。\n\n还能管理一组 ChatGPT 账号，新会话自动挑用量最低的那个，老会话则固定在原账号上。\n\n可原生运行 macOS、Windows 和 Linux 三大平台，只需要一条命令即可安装好。",
+  "media": [
+    {
+      "file": "media/2081197823966761215_3_2081197820158382080.jpg",
+      "url": "https://pbs.twimg.com/media/HOHmZAnbkAArz4u.jpg",
+      "type": "photo",
+      "media_key": "3_2081197820158382080"
+    }
+  ]
+}

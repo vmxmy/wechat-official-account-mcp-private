@@ -1,0 +1,16 @@
+{
+  "draft_media_id": "xv9tsA2b6d4MzpARc-AiwBOXpTOfQuqxhnpLEkzSiXaMb3qgubcJIQu4YjF0uZ39",
+  "thumb_media_id": "xv9tsA2b6d4MzpARc-AiwCrcO8quiHxBqOrB5fKIdJ7L05sOsF__1W86gVWS-JoQ",
+  "title": "前端 Skills 只跟这两条新：Impeccable 去 AI 脸，Vercel 教你做原生转场",
+  "author": "ZIIKOO有话说",
+  "digest": "装机榜是旧网红。Impeccable 当天还在更，Vercel 转场 skill 7/20 刚补规则；一文附安装到验收的一键 Prompt。",
+  "account": "智蔲科技 acct_31c623c5709b451b996c500c",
+  "tenant": "tenant_default",
+  "html": "articles/frontend-skills-impeccable-vt/01-wechat.html",
+  "md": "articles/frontend-skills-impeccable-vt/01-wechat.md",
+  "cover_wechat": "articles/frontend-skills-impeccable-vt/imgs/cover-wechat-900x383.jpg",
+  "cover_png": "articles/frontend-skills-impeccable-vt/imgs/cover.png",
+  "cover_thumb_upload": "articles/frontend-skills-impeccable-vt/imgs/cover-thumb-lt64k.jpg",
+  "created_at": "2026-07-21T08:01:24Z",
+  "note": "draft only; meta section stripped from HTML content before draft; thumb <64KB; first draft attempts hit 502/fetch failed then succeeded"
+}

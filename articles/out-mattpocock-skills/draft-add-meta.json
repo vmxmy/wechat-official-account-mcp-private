@@ -1,0 +1,17 @@
+{
+  "action": "add",
+  "accountId": "acct_31c623c5709b451b996c500c",
+  "articles": [
+    {
+      "articleType": "news",
+      "title": "别再让 Agent 自己答自己",
+      "author": "ziikoo研究院",
+      "digest": "mattpocock/skills v1.1：确认闸门、wayfinder、to-spec/tickets，加推特可抄实操。装上后先 grill 再写码。",
+      "thumbMediaId": "xv9tsA2b6d4MzpARc-AiwEhyHZQZ_I1od1VIKc4OtqCbm2h-K8TtYDQHmqrRI7Pk",
+      "showCoverPic": 1,
+      "needOpenComment": 1,
+      "onlyFansCanComment": 0,
+      "contentChars": 74323
+    }
+  ]
+}

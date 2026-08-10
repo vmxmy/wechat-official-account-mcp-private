@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01-wechat_排版_摸鱼绿(moyu-green) · 公众号排版预览</title>
+<style>
+  body{margin:0;background:#eef0f2;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;-webkit-text-size-adjust:100%;}
+  .gzh-toolbar{position:fixed;top:0;left:0;right:0;height:54px;background:#ffffff;box-shadow:0 1px 10px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:99;}
+  .gzh-hint{font-size:13px;color:#6b7280;line-height:1.4;}
+  .gzh-hint b{color:#111827;}
+  .gzh-copy{background:#059669;color:#fff;border:0;border-radius:9px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(5,150,105,.28);white-space:nowrap;transition:transform .08s,background .15s;}
+  .gzh-copy:hover{background:#047857;}
+  .gzh-copy:active{transform:translateY(1px);}
+  .gzh-toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
+  .gzh-toast.show{opacity:1;}
+  .gzh-stage{max-width:700px;margin:78px auto 64px;padding:0 8px;}
+  @media(max-width:520px){.gzh-hint{max-width:150px;}}
+</style>
+</head>
+<body>
+<div class="gzh-toolbar">
+  <span class="gzh-hint">👇 下方是排版效果 · 点右侧 <b>复制</b> 直接粘到公众号</span>
+  <button class="gzh-copy" id="gzhCopyBtn" onclick="gzhCopy()">📋 复制到公众号</button>
+</div>
+<div class="gzh-toast" id="gzhToast"></div>
+<div class="gzh-stage">
+  <div id="gzh-content">
+<section style="max-width:677px;margin:0 auto;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;color:#374151;line-height:1.75;letter-spacing:0.5px;overflow-x:hidden;">
+  <section style="margin:0 0 32px;background:#fff;border:1.5px solid rgba(5,150,105,0.15);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);width:100%;">
+    <section style="padding:32px 28px 28px;">
+      <section style="display:flex;align-items:center;gap:8px;margin-bottom:28px;">
+        <span style="width:6px;height:6px;background:#059669;border-radius:50%;"><span leaf=""><br></span></span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:3px;color:#059669;"><span leaf="">AI WORKFLOW · 实用维护</span></span>
+        <section style="flex:1;height:1px;overflow:hidden;background:linear-gradient(to right,rgba(5,150,105,0.12),transparent);"><span leaf=""><br></span></section>
+        <span style="font-size:10px;color:#D1D5DB;font-weight:600;"><span leaf="">2026.07</span></span>
+      </section>
+      <section>
+        <p style="font-size:15px;color:#D1D5DB;margin:0 0 6px;text-decoration:line-through;letter-spacing:0.5px;"><span leaf="">模型升级，就继续加配置？</span></p>
+        <p style="font-size:24px;font-weight:900;color:#111827;margin:0;line-height:1.05;letter-spacing:-2px;"><span leaf="">真正拉开差距的，是</span><span style="color:#059669;"><span leaf="">敢做减法</span></span></p>
+        <p style="font-size:24px;font-weight:900;color:#059669;margin:0 0 16px;line-height:1.05;letter-spacing:-2px;"><span leaf="">先报告，再清理</span></p>
+        <section style="width:48px;height:3px;background:linear-gradient(to right,#059669,#34D399);border-radius:2px;margin-bottom:12px;"><span leaf=""><br></span></section>
+        <p style="font-size:13px;color:#9CA3AF;margin:0;line-height:1.7;letter-spacing:0.5px;"><span leaf="">Skill 清理 · 日志驱动 · Harness 瘦身 · 停止条件</span></p>
+      </section>
+    </section>
+    <section style="background:linear-gradient(135deg,#059669,#10B981);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;">
+      <p style="font-size:12px;color:rgba(255,255,255,0.9);margin:0;font-weight:600;letter-spacing:0.5px;"><span leaf="">Ziikoo</span></p>
+      <section style="display:flex;gap:4px;">
+        <span style="background:rgba(255,255,255,0.2);padding:1px 6px;border-radius:3px;font-size:8px;color:#fff;font-weight:600;"><span leaf="">PROMPT</span></span>
+        <span style="background:rgba(255,255,255,0.2);padding:1px 6px;border-radius:3px;font-size:8px;color:#fff;font-weight:600;"><span leaf="">CLEANUP</span></span>
+      </section>
+    </section>
+  </section>
+
+  <section style="margin:0 20px 32px;">
+    <section style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <p style="font-size:10px;color:#9CA3AF;margin:0;letter-spacing:2px;font-weight:600;"><span leaf="">📦 ６ PARTS</span></p>
+      <p style="font-size:10px;color:#9CA3AF;margin:0;"><span leaf="">👉 滑动</span></p>
+    </section>
+    <section style="overflow-x:scroll;-webkit-overflow-scrolling:touch;white-space:nowrap;padding-bottom:8px;">
+      <section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:linear-gradient(135deg,#059669,#10B981);border-radius:12px;padding:12px;margin-right:8px;">
+        <p style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:1px;margin:0 0 5px;"><span leaf="">PART 01</span></p>
+        <p style="font-size:13px;font-weight:800;color:#fff;margin:0 0 3px;"><span leaf="">直接抄 Prompt</span></p>
+        <p style="font-size:10px;color:rgba(255,255,255,0.7);margin:0;"><span leaf="">先收藏，再执行</span></p>
+      </section>
+      <section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:12px;margin-right:8px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+        <p style="font-size:9px;font-weight:700;color:#9CA3AF;letter-spacing:1px;margin:0 0 5px;"><span leaf="">PART 02</span></p>
+        <p style="font-size:13px;font-weight:800;color:#111827;margin:0 0 3px;"><span leaf="">为什么要清</span></p>
+        <p style="font-size:10px;color:#9CA3AF;margin:0;"><span leaf="">模型越强越要减</span></p>
+      </section>
+      <section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:12px;margin-right:8px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+        <p style="font-size:9px;font-weight:700;color:#9CA3AF;letter-spacing:1px;margin:0 0 5px;"><span leaf="">PART 03</span></p>
+        <p style="font-size:13px;font-weight:800;color:#111827;margin:0 0 3px;"><span leaf="">两套清理入口</span></p>
+        <p style="font-size:10px;color:#9CA3AF;margin:0;"><span leaf="">命令与提示词</span></p>
+      </section>
+      <section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:12px;margin-right:8px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+        <p style="font-size:9px;font-weight:700;color:#9CA3AF;letter-spacing:1px;margin:0 0 5px;"><span leaf="">PART 05</span></p>
+        <p style="font-size:13px;font-weight:800;color:#111827;margin:0 0 3px;"><span leaf="">今晚八步</span></p>
+        <p style="font-size:10px;color:#9CA3AF;margin:0;"><span leaf="">从报告开始</span></p>
+      </section>
+      <section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:12px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+        <p style="font-size:9px;font-weight:700;color:#9CA3AF;letter-spacing:1px;margin:0 0 5px;"><span leaf="">PART 06</span></p>
+        <p style="font-size:13px;font-weight:800;color:#111827;margin:0 0 3px;"><span leaf="">写在最后</span></p>
+        <p style="font-size:10px;color:#9CA3AF;margin:0;"><span leaf="">把握停的时机</span></p>
+      </section>
+    </section>
+  </section>
+
+  <section style="background:#FFF;border:1px dashed #BBF7D0;border-radius:8px;padding:14px 16px;margin:0 20px 24px;text-align:center;">
+    <p style="font-size:12px;color:#9CA3AF;margin:0 0 6px;line-height:1.5;"><span leaf="">模型升级之后，先别急着加东西</span></p>
+    <p style="margin:0;line-height:1.6;"><span style="font-size:15px;color:#059669;font-weight:bold;border-bottom:3px solid #FDE68A;padding-bottom:2px;"><span leaf="">真正拉开差距的，是你敢不敢做减法</span></span></p>
+  </section>
+
+  <section style="padding:0 20px;">
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">很多人把 </span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">GPT-5.6</span></span><span leaf=""> 当成「更强的续杯」。真正拉开差距的，往往是另一件事：</span><strong style="color:#059669;"><span leaf="">你敢不敢做减法</span></strong><span leaf="">。</span></p>
+    <p style="margin-bottom:24px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">下面这篇不推</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">第三方清理工具</span></span><span leaf="">。先给你能直接粘贴的</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">维护指令</span></span><span leaf="">，再讲 Claude Code 与 Codex 怎么清，以及推上反复出现的高赞观点。</span></p>
+  </section>
+
+  <section style="margin-top:16px;margin-bottom:32px;padding:0 20px;">
+    <section style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <section style="text-align:center;flex-shrink:0;"><p style="margin:0;font-size:28px;font-weight:900;color:#059669;line-height:1;letter-spacing:-2px;"><span leaf="">01</span></p><p style="margin:0;font-size:8px;font-weight:700;color:#D1D5DB;letter-spacing:2px;"><span leaf="">PART</span></p></section>
+      <span style="width:1px;height:36px;background:#E5E7EB;flex-shrink:0;"><span leaf=""><br></span></span>
+      <section><p style="margin:0 0 1px;font-size:17px;font-weight:900;color:#111827;letter-spacing:0.3px;"><span leaf="">可直接抄的 Prompt（先收藏）</span></p><p style="margin:0;font-size:11px;font-weight:600;color:#9CA3AF;letter-spacing:1.5px;"><span leaf="">COPY · RUN · REVIEW</span></p></section>
+    </section>
+
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:0 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">1）Codex：让它自己清 Skill</span></span></p>
+    <p style="font-size:13px;color:#374151;margin:0 0 10px;line-height:1.8;"><span style="display:inline-block;background:#059669;color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:3px;margin-right:6px;vertical-align:middle;letter-spacing:0.5px;"><span leaf="">PROMPT 01</span></span><span style="font-size:12px;color:#9CA3AF;font-weight:700;"><span leaf="">完整展开，长按复制</span></span></p>
+    <section style="margin:0 0 24px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+      <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">text</span></span></section>
+      <section style="padding:11px 14px;">
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">扫描 ~/.codex/skills（含软链/镜像），结合最近 session 日志：</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf=""><br></span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">1) 列出：30 天内未使用 / 功能重复 / 只做发现与安装的 skill</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">2) 建议：保留 / 隔离 / 删除，每条写清理由与替代项</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">3) 经我确认后，把建议移除的移到 ~/.codex/skills/_quarantine/</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">4) 不要碰 .system 里的官方 skill，除非我点名</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">5) 限制 find-skills：只发现，不自动 install</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf=""><br></span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">先给 diff 计划，我确认后再执行。</span></p>
+      </section>
+    </section>
+
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:32px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">2）Codex：日志驱动的「自进化」维护</span></span></p>
+    <p style="font-size:13px;color:#374151;margin:0 0 10px;line-height:1.8;"><span style="display:inline-block;background:#059669;color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:3px;margin-right:6px;vertical-align:middle;letter-spacing:0.5px;"><span leaf="">PROMPT 02</span></span><span style="font-size:12px;color:#9CA3AF;font-weight:700;"><span leaf="">保留英文原文</span></span></p>
+    <section style="margin:0 0 24px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+      <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">text</span></span></section>
+      <section style="padding:11px 14px;">
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">scan my local codex session logs, look for common failure patterns,</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">then find, create, install, remove and/or modify skills to address those patterns.</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf=""><br></span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">Show a plan and file diffs first. Do not apply until I approve.</span></p>
+      </section>
+    </section>
+
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:32px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">3）Claude Code：原生体检</span></span></p>
+    <p style="font-size:13px;color:#374151;margin:0 0 10px;line-height:1.8;"><span style="display:inline-block;background:#059669;color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:3px;margin-right:6px;vertical-align:middle;letter-spacing:0.5px;"><span leaf="">PROMPT 03</span></span><span style="font-size:12px;color:#9CA3AF;font-weight:700;"><span leaf="">命令与检查范围一起复制</span></span></p>
+    <section style="margin:0 0 24px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+      <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">text</span></span></section>
+      <section style="padding:11px 14px;">
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">运行 /doctor（或 /checkup）。</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">重点：unused skills、MCP、plugins 冗余；CLAUDE.md 去重；能省 context 的项列清单。</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">先报告，再按我的确认清理。</span></p>
+      </section>
+    </section>
+
+    <section style="background:#FFF;border:1px dashed #BBF7D0;border-radius:8px;padding:14px 16px;margin-bottom:24px;text-align:center;">
+      <p style="font-size:12px;color:#9CA3AF;margin:0 0 6px;line-height:1.5;"><span leaf="">记住一句</span></p>
+      <p style="margin:0;line-height:1.6;"><span style="font-size:15px;color:#059669;font-weight:bold;border-bottom:3px solid #FDE68A;padding-bottom:2px;"><span leaf="">Claude 的 cleanup 在命令里；Codex 的 cleanup 在你的 Prompt 里</span></span></p>
+      <p style="font-size:13px;color:#9CA3AF;margin:8px 0 0;line-height:1.5;"><span leaf="">两边都先计划、后执行。</span></p>
+    </section>
+  </section>
+
+  <section style="margin-top:48px;margin-bottom:32px;padding:0 20px;">
+    <section style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <section style="text-align:center;flex-shrink:0;"><p style="margin:0;font-size:28px;font-weight:900;color:#059669;line-height:1;letter-spacing:-2px;"><span leaf="">02</span></p><p style="margin:0;font-size:8px;font-weight:700;color:#D1D5DB;letter-spacing:2px;"><span leaf="">PART</span></p></section>
+      <span style="width:1px;height:36px;background:#E5E7EB;flex-shrink:0;"><span leaf=""><br></span></span>
+      <section><p style="margin:0 0 1px;font-size:17px;font-weight:900;color:#111827;letter-spacing:0.3px;"><span leaf="">为什么 5.6 之后更该清</span></p><p style="margin:0;font-size:11px;font-weight:600;color:#9CA3AF;letter-spacing:1.5px;"><span leaf="">WHY · LESS IS MORE</span></p></section>
+    </section>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">社区有一句几乎成了口令：</span></p>
+    <section style="background:#F9FAFB;border:1px dashed #D1D5DB;border-radius:8px;padding:12px 16px;margin-bottom:24px;text-align:justify;"><p style="font-size:13px;color:#374151;margin:0;line-height:1.8;"><span leaf="">GPT-5.5：加 skill</span><br><span leaf="">GPT-5.6：删 skill</span></p></section>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">不是段子。高强度用完 Sol 之后，很多人第一件事是 </span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">gut skills</span></span><span leaf="">——砍掉野心过大的流程 Skill，把 </span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">AGENTS.md 删掉大半</span></span><span leaf="">。因为约束太多，开始干扰模型；流程太重，强模型会「勤快地跑偏」。</span></p>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">最贵的 Token，经常不是偷懒花掉的，而是花在 </span><strong style="color:#059669;"><span leaf="">错误交付物上的正确劳动</span></strong><span leaf=""> 上：每一步都很认真，交出来的却不是你要的东西。</span></p>
+  </section>
+
+  <section style="margin-top:48px;margin-bottom:32px;padding:0 20px;">
+    <section style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <section style="text-align:center;flex-shrink:0;"><p style="margin:0;font-size:28px;font-weight:900;color:#059669;line-height:1;letter-spacing:-2px;"><span leaf="">03</span></p><p style="margin:0;font-size:8px;font-weight:700;color:#D1D5DB;letter-spacing:2px;"><span leaf="">PART</span></p></section>
+      <span style="width:1px;height:36px;background:#E5E7EB;flex-shrink:0;"><span leaf=""><br></span></span>
+      <section><p style="margin:0 0 1px;font-size:17px;font-weight:900;color:#111827;letter-spacing:0.3px;"><span leaf="">Claude Code 的 cleanup vs Codex 的自定义提示词</span></p><p style="margin:0;font-size:11px;font-weight:600;color:#9CA3AF;letter-spacing:1.5px;"><span leaf="">COMPARE · TWO PATHS</span></p></section>
+    </section>
+    <section style="margin-bottom:24px;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr><th style="background:#059669;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">维度</span></th><th style="background:#059669;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">Claude Code</span></th><th style="background:#059669;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">Codex</span></th></tr></thead>
+        <tbody>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;"><span leaf="">入口</span></td><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;"><span style="background:#F3F4F6;color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">/doctor</span></span><span leaf="">、</span><span style="background:#F3F4F6;color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">/checkup</span></span></td><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;"><span leaf="">没有对等原生体检命令</span></td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;background:#F9FAFB;"><span leaf="">做什么</span></td><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;background:#F9FAFB;"><span leaf="">诊断配置、清 unused skills／MCP／plugins、配置去重、省 context</span></td><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;background:#F9FAFB;"><span leaf="">扫 ~/.codex/skills 与日志，自己增删改</span></td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;"><span leaf="">体验</span></td><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;"><span leaf="">菜单／命令稳定</span></td><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;"><span leaf="">灵活：可按失败模式改 skill 库存</span></td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;background:#F9FAFB;"><span leaf="">你要补的</span></td><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;background:#F9FAFB;"><span leaf="">定期跑</span></td><td style="padding:8px 12px;border-bottom:1px solid #E5E7EB;color:#374151;background:#F9FAFB;"><span leaf="">把「清理 Prompt」当成常驻运维</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">推上有开发者写得很直白：Claude 有 </span><span style="background:#F3F4F6;color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">/doctor</span></span><span leaf="">，Codex 没有原生版，所以要么社区补 cleanup skill，要么——更常见——</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">直接用自定义提示词让 Codex 自己干</span></span><span leaf="">。</span></p>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">对多数人，第二种就够用：Codex 本来就能读写本地 skill 目录，缺的不是能力，是你有没有把 </span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">维护话说清楚</span></span><span leaf="">。</span></p>
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:28px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">另外两条容易踩坑</span></span></p>
+    <section style="margin-bottom:24px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">Skill 一多，Codex 会变慢</span></span><span leaf="">。有人减到十来个，速度明显回来。</span></p></section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span style="background:#F3F4F6;color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">find-skills</span></span><span leaf=""> 会按需下载。清理时要么拿掉，要么限制成「</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">只发现、不自动装</span></span><span leaf="">」。</span></p></section>
+    </section>
+  </section>
+
+  <section style="margin-top:48px;margin-bottom:32px;padding:0 20px;">
+    <section style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <section style="text-align:center;flex-shrink:0;"><p style="margin:0;font-size:28px;font-weight:900;color:#059669;line-height:1;letter-spacing:-2px;"><span leaf="">04</span></p><p style="margin:0;font-size:8px;font-weight:700;color:#D1D5DB;letter-spacing:2px;"><span leaf="">PART</span></p></section>
+      <span style="width:1px;height:36px;background:#E5E7EB;flex-shrink:0;"><span leaf=""><br></span></span>
+      <section><p style="margin:0 0 1px;font-size:17px;font-weight:900;color:#111827;letter-spacing:0.3px;"><span leaf="">推上高赞／高频的观点与建议</span></p><p style="margin:0;font-size:11px;font-weight:600;color:#9CA3AF;letter-spacing:1.5px;"><span leaf="">SIGNALS · PRACTICES</span></p></section>
+    </section>
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:0 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">1．模型变强，默认做减法</span></span></p>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:13px;font-weight:700;color:#059669;background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span leaf="">清理旧 skill</span></span></p><p style="font-size:13px;color:#4B5563;margin:0;line-height:1.7;text-align:justify;"><span leaf="">5.6 之后清理旧 skill，有些 skill 反而拖慢模型。</span></p></section>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:13px;font-weight:700;color:#059669;background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span leaf="">约束瘦身</span></span></p><p style="font-size:13px;color:#4B5563;margin:0;line-height:1.7;text-align:justify;"><span leaf="">AGENTS.md 删大半：约束过多成干扰。</span></p></section>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:13px;font-weight:700;color:#059669;background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span leaf="">流程降级</span></span></p><p style="font-size:13px;color:#4B5563;margin:0;line-height:1.7;text-align:justify;"><span leaf="">去掉 superpowers 一类「过于野心」的流程 skill。</span></p></section>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:13px;font-weight:700;color:#059669;background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span leaf="">分层打杂</span></span></p><p style="font-size:13px;color:#4B5563;margin:0;line-height:1.7;text-align:justify;"><span leaf="">甚至有人删光 skill，用 Sol 带 Terra／Luna 分层打杂。</span></p></section>
+    <section style="background:#F0FDF4;padding:12px 16px;border-radius:8px;border:1px solid #BBF7D0;margin-bottom:24px;"><p style="font-size:13px;color:#374151;margin:0;line-height:1.7;text-align:justify;"><strong style="color:#059669;"><span leaf="">建议：</span></strong><span leaf="">先减再调；不要用更多 skill 解决 skill 过多。</span></p></section>
+
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:32px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">2．给库存设上限</span></span></p>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">Skills 过多会变慢；减到少量常用后更快。把 </span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">发现通道与安装通道分离</span></span><span leaf="">，防止越清越装。</span></p>
+    <section style="background:#F0FDF4;padding:12px 16px;border-radius:8px;border:1px solid #BBF7D0;margin-bottom:24px;"><p style="font-size:13px;color:#374151;margin:0;line-height:1.7;text-align:justify;"><strong style="color:#059669;"><span leaf="">建议：</span></strong><span leaf="">个人库设硬顶（例如核心十来个），其余一律隔离区。</span></p></section>
+
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:32px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">3．让 Agent 自己维护 Skill</span></span></p>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">高互动提示结构是：</span></p>
+    <section style="background:#F9FAFB;border:1px dashed #D1D5DB;border-radius:8px;padding:12px 16px;margin-bottom:16px;text-align:justify;"><p style="font-size:13px;color:#374151;margin:0;line-height:1.8;"><span leaf="">扫 session 日志 → 找常见失败模式 → find／create／install／</span><strong style="color:#059669;"><span leaf="">remove</span></strong><span leaf="">／modify skills</span><br><span leaf="">经常跑，agent 会随时间变好。</span></p></section>
+    <section style="background:#F0FDF4;padding:12px 16px;border-radius:8px;border:1px solid #BBF7D0;margin-bottom:24px;"><p style="font-size:13px;color:#374151;margin:0;line-height:1.7;text-align:justify;"><strong style="color:#059669;"><span leaf="">建议：</span></strong><span leaf="">清理是</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">日志驱动的小循环</span></span><span leaf="">，不是年底大扫除。</span></p></section>
+
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:32px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">4．编排变薄，模型变厚</span></span></p>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:13px;font-weight:700;color:#059669;background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span leaf="">默认单 Agent</span></span></p><p style="font-size:13px;color:#4B5563;margin:0;line-height:1.7;text-align:justify;"><span leaf="">Skill 按需开启。</span></p></section>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:13px;font-weight:700;color:#059669;background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span leaf="">开 Skill 前只问</span></span></p><p style="font-size:13px;color:#4B5563;margin:0;line-height:1.7;text-align:justify;"><span leaf="">会不会改变当前任务的做法？</span></p></section>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:13px;font-weight:700;color:#059669;background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span leaf="">只留红线</span></span></p><p style="font-size:13px;color:#4B5563;margin:0;line-height:1.7;text-align:justify;"><span leaf="">AGENTS.md 只留「防反复错误」的红线，口号删掉。</span></p></section>
+    <section style="background:#F0FDF4;padding:12px 16px;border-radius:8px;border:1px solid #BBF7D0;margin-bottom:24px;"><p style="font-size:13px;color:#374151;margin:0;line-height:1.7;text-align:justify;"><strong style="color:#059669;"><span leaf="">建议：</span></strong><span leaf="">省 Token 先管</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">任务边界</span></span><span leaf="">，再管参数表。</span></p></section>
+
+    <p style="font-size:15px;font-weight:900;color:#111827;margin:32px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">5．安装纪律也是清理</span></span></p>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">让模型去 GitHub 找 skill，不等于原样全装。正确顺序是：</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">license → pin commit → 查依赖权限 → 只留贴合自己的 → 再测</span></span><span leaf="">。</span></p>
+    <section style="background:#F0FDF4;padding:12px 16px;border-radius:8px;border:1px solid #BBF7D0;margin-bottom:20px;"><p style="font-size:13px;color:#374151;margin:0;line-height:1.7;text-align:justify;"><strong style="color:#059669;"><span leaf="">建议：</span></strong><span leaf="">More Skills ≠ better agent。</span></p></section>
+  </section>
+
+  <section style="margin-top:48px;margin-bottom:32px;padding:0 20px;">
+    <section style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <section style="text-align:center;flex-shrink:0;"><p style="margin:0;font-size:28px;font-weight:900;color:#059669;line-height:1;letter-spacing:-2px;"><span leaf="">05</span></p><p style="margin:0;font-size:8px;font-weight:700;color:#D1D5DB;letter-spacing:2px;"><span leaf="">PART</span></p></section>
+      <span style="width:1px;height:36px;background:#E5E7EB;flex-shrink:0;"><span leaf=""><br></span></span>
+      <section><p style="margin:0 0 1px;font-size:17px;font-weight:900;color:#111827;letter-spacing:0.3px;"><span leaf="">今晚就能做的 8 步</span></p><p style="margin:0;font-size:11px;font-weight:600;color:#9CA3AF;letter-spacing:1.5px;"><span leaf="">ACTION · TONIGHT</span></p></section>
+    </section>
+    <section style="margin-bottom:24px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span leaf="">打开 Codex，粘贴文首清理 Prompt，</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">只要报告</span></span><span leaf="">。</span></p></section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span leaf="">Claude 用户同步跑一遍 </span><span style="background:#F3F4F6;color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">/doctor</span></span><span leaf="">。</span></p></section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span leaf="">标出：未使用／重复／纯发现安装。</span></p></section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">4</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span leaf="">处理 </span><span style="background:#F3F4F6;color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">find-skills</span></span><span leaf="">：删或 discovery-only。</span></p></section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">5</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span leaf="">AGENTS.md 瘦身。</span></p></section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">6</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span leaf="">超级流程 skill 默认关。</span></p></section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">7</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span leaf="">你确认后，再允许写入</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">隔离目录</span></span><span leaf="">。</span></p></section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#059669;color:#fff;font-size:11px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">8</span></span><p style="font-size:14px;color:#374151;margin:0;line-height:1.9;flex:1;"><span leaf="">把这段 Prompt 存进个人运维笔记，大版本升级后再跑。</span></p></section>
+    </section>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">清理不是反 Skill。固定路径、验收标准、安全红线该留。该删的是「</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">无边界的正确流程</span></span><span leaf="">」。</span></p>
+  </section>
+
+  <section style="margin-top:48px;margin-bottom:32px;padding:0 20px;">
+    <section style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <section style="text-align:center;flex-shrink:0;"><p style="margin:0;font-size:28px;font-weight:900;color:#059669;line-height:1;letter-spacing:-2px;"><span leaf="">06</span></p><p style="margin:0;font-size:8px;font-weight:700;color:#D1D5DB;letter-spacing:2px;"><span leaf="">PART</span></p></section>
+      <span style="width:1px;height:36px;background:#E5E7EB;flex-shrink:0;"><span leaf=""><br></span></span>
+      <section><p style="margin:0 0 1px;font-size:17px;font-weight:900;color:#111827;letter-spacing:0.3px;"><span leaf="">收尾</span></p><p style="margin:0;font-size:11px;font-weight:600;color:#9CA3AF;letter-spacing:1.5px;"><span leaf="">THE END · STOP WELL</span></p></section>
+    </section>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">GPT-5.6 不缺能力。它缺的是一个知道 </span><strong style="color:#059669;"><span leaf="">什么时候该让它停下来</span></strong><span leaf=""> 的使用者。</span></p>
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">真正该外包给 Agent 的是</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">执行</span></span><span leaf="">。不该外包的，是</span><span style="border-bottom:2px solid #A7F3D0;font-weight:600;"><span leaf="">目标、品味</span></span><span leaf="">，以及——停的时机。</span></p>
+    <section style="background:#FFF;border:1px dashed #BBF7D0;border-radius:8px;padding:14px 16px;margin-bottom:24px;text-align:center;"><p style="margin:0;line-height:1.6;"><span style="font-size:15px;color:#059669;font-weight:bold;border-bottom:3px solid #FDE68A;padding-bottom:2px;"><span leaf="">今晚只做一件事：把文首 Prompt 跑一遍</span></span></p><p style="font-size:13px;color:#9CA3AF;margin:8px 0 0;line-height:1.5;"><span leaf="">先看报告，先别急着再装新 skill。</span></p></section>
+  </section>
+
+  <section style="padding:0 20px 8px;">
+    <p style="margin-bottom:16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">我是 {{作者名}}，{{简介}}。</span></p>
+  </section>
+
+  <section style="background:#ECFDF5;border:1px solid #BBF7D0;border-radius:8px;padding:14px 16px;margin:20px 20px 16px;text-align:center;">
+    <section style="display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 10px;">
+      <span style="font-size:17px;font-weight:900;color:#111827;letter-spacing:0.08em;"><span leaf="">Ziikoo</span></span>
+      <span style="font-size:12px;font-weight:800;color:#111827;letter-spacing:0.14em;"><span leaf="">有话说</span></span>
+    </section>
+    <p style="margin:0;line-height:1.7;"><span style="font-size:15px;color:#059669;font-weight:bold;"><span leaf="">模型越勤快，harness 越要懂得及时收手</span></span></p>
+    <p style="margin:10px 0 0;font-size:11px;line-height:1.6;color:#8b8b8b;letter-spacing:0.08em;"><span leaf="">企业 AI 生产力管理平台 · ai.ziikoo.com</span></p>
+  </section>
+
+  <section style="background:radial-gradient(circle at center,#F9FAFB 0%,#FFFFFF 100%);border:1px solid #E5E7EB;border-radius:16px;padding:28px 20px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.03);margin:0 20px 24px;">
+    <p style="font-size:13px;font-weight:bold;color:#111827;margin:0 0 16px;line-height:1.6;"><span leaf="">如果你觉得今天这篇有收获，欢迎点赞、在看、转发三连，我们下篇见。</span></p>
+    <section style="display:flex;justify-content:center;gap:12px;margin-bottom:14px;">
+      <span style="display:inline-block;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:7px 12px;font-size:11px;color:#4B5563;font-weight:700;"><span leaf="">点赞</span></span>
+      <span style="display:inline-block;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:7px 12px;font-size:11px;color:#4B5563;font-weight:700;"><span leaf="">在看</span></span>
+      <span style="display:inline-block;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:12px;padding:7px 12px;font-size:11px;color:#059669;font-weight:700;"><span leaf="">转发</span></span>
+    </section>
+    <p style="font-size:10px;color:#9CA3AF;letter-spacing:1px;margin:0;"><span leaf="">THANKS FOR READING</span></p>
+  </section>
+</section>
+  </div>
+</div>
+<script>
+  function gzhShowToast(msg){
+    var t=document.getElementById('gzhToast');
+    t.textContent=msg;t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer=setTimeout(function(){t.classList.remove('show');},2800);
+  }
+  function gzhCopy(){
+    var el=document.getElementById('gzh-content');
+    // 选中渲染后的富文本节点并复制（等价于手动 Ctrl+A / Ctrl+C，保留全部样式）
+    var range=document.createRange();
+    range.selectNodeContents(el);
+    var sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var ok=false;
+    try{ok=document.execCommand('copy');}catch(e){ok=false;}
+    sel.removeAllRanges();
+    var btn=document.getElementById('gzhCopyBtn');
+    if(ok){
+      gzhShowToast('✅ 已复制！去公众号编辑器按 Ctrl/⌘+V 粘贴即可');
+      var old=btn.textContent;btn.textContent='✅ 已复制';
+      setTimeout(function(){btn.textContent=old;},2200);
+    }else{
+      gzhShowToast('⚠ 自动复制失败，请手动全选(Ctrl/⌘+A)再复制(Ctrl/⌘+C)');
+    }
+  }
+</script>
+</body>
+</html>

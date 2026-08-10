@@ -1,0 +1,24 @@
+{
+  "id": "2080304328695284171",
+  "url": "https://x.com/xing_eth/status/2080304328695284171",
+  "username": "xing_eth",
+  "name": "18168",
+  "created_at": "2026-07-23T14:49:36.000Z",
+  "metrics": {
+    "bookmark_count": 93,
+    "impression_count": 17837,
+    "like_count": 47,
+    "quote_count": 1,
+    "reply_count": 3,
+    "retweet_count": 10
+  },
+  "text": "50 个账号迁到 OpenCodex，难道要手动登录 50 次？\n打开浏览器、登录账号、完成 OAuth、等待回调，然后再重复 49 遍。\n\n账号池越大，越容易把时间浪费在搬账号上，而更多时候你可能很多账号已无法再次登录。\n\n既然 CPA、Sub2API 和 Antigravity 已经能导出凭证，为什么不能一条命令直接迁进 OpenCodex？\n\n所以，我开源了 OpenCodex Account Importer。\n我不想再重复做这件事，所以刚刚开源了：\nhttps://t.co/cZ7rnf5vI0\n一个轻量、无 GUI 的本地 CLI，可以把已有认证导出 JSON 转换成 OpenCodex 能识别的账号池。\n目前支持：\nCLIProxyAPI / CPA 的 Codex OAuth JSON\nSub2API 的 OpenAI OAuth、Agent Identity、Grok / xAI OAuth\nAntigravity Tools 的账号数组和 refresh-only 导出\n一句话告诉codex：\n\n请安装并使用 GitHub 仓库 github:feiyulc/opencodex-account-importer，\n把我在本次消息中附加或指定的 Sub2API、CLIProxyAPI/CPA 或 Antigravity Tools 导出 JSON 转换并正式导入本机 OpenCodex：\n先确认 Node.js 版本不低于 20 并执行 npm install -g github:feiyulc/opencodex-account-importer，\n单个 JSON 用 ocx-import --file \"<JSON完整路径>\" --dry-run、文件夹用 ocx-import --dir \"<文件夹完整路径>\" --dry-run 做格式和写入前校验；\n校验成功后不要停在预览，也不需要再次询问，立即用相同命令去掉 --dry-run 完成正式导入，最后执行 ocx-import --verify；\n不要打印、上传、复制或提交任何 access_token、refresh_token、id_token、私钥、邮箱或原始 JSON 内容，\n只向我报告识别到的来源格式、导入/更新/跳过数量、备份目录和最终验证结果。\n\n#OpenCodex #Codex #Sub2API #OpenSource #CLI #AI工具",
+  "media": [
+    {
+      "file": "media/2080304328695284171_13_2080301746455269376.mp4",
+      "url": "https://video.twimg.com/amplify_video/2080301746455269376/vid/avc1/1920x1080/85wA0SeboGz6A0rF.mp4",
+      "type": "video",
+      "media_key": "13_2080301746455269376"
+    }
+  ]
+}

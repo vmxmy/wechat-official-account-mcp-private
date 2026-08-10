@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "status": "freepublish_submitted",
+  "title": "Fable当脑子，Sol做牛马？",
+  "author": "大徐",
+  "digest": "只记两句：Fable 写指令、Sol 写代码；GPT-5.6 默认 Sol medium，重活 Ultra，闲聊 Luna。",
+  "accountId": "acct_31c623c5709b451b996c500c",
+  "accountName": "智蔲科技",
+  "thumbMediaId": "xv9tsA2b6d4MzpARc-AiwEhyHZQZ_I1od1VIKc4OtqCbm2h-K8TtYDQHmqrRI7Pk",
+  "draftMediaId": "xv9tsA2b6d4MzpARc-AiwKJe-xP9el1W9JbaoNHDwTorUU0y8L7bNPn8JKZ2FCrx",
+  "sourceHtml": "fable5-gpt56-sol-workflow_排版_摸鱼绿(moyu-green).html",
+  "contentChars": 11645,
+  "pipeline": "gzh-design moyu-green · focus layout · mmbiz images",
+  "validation": "validate_gzh_html 0 ERROR",
+  "note": "freepublish 已提交；最终以公众号后台/wechat_publish 查询为准",
+  "publishId": "2247488183",
+  "msgDataId": "2247488183"
+}

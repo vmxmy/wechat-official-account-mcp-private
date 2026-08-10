@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #111;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+.cover {
+  position: relative;
+  width: 2350px;
+  height: 1000px;
+  overflow: hidden;
+  background: #f7f1e6 url("file:///Users/xumingyang/github/wechat-official-account-mcp/articles/assets/emil-skills-cover-handletter-nologo-base.jpg") center/cover no-repeat;
+}
+/* Exact pixel wordmark from official SVG — no re-draw */
+.logo-slot {
+  position: absolute;
+  /* tuned to empty cream band left of 「有话说」 on 2350×1000 */
+  left: 520px;
+  top: 42px;
+  width: 480px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  z-index: 5;
+}
+.logo-slot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* keep pixel blocks crisp */
+  shape-rendering: crispEdges;
+  image-rendering: pixelated;
+}
+</style>
+</head>
+<body>
+  <div class="cover" id="cover">
+    <div class="logo-slot" aria-label="ziikoo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" width="480" height="96" shape-rendering="crispEdges" preserveAspectRatio="xMidYMid meet">
+        <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>
+        <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

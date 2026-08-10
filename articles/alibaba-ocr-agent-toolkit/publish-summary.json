@@ -1,0 +1,15 @@
+{
+  "draft_media_id": "xv9tsA2b6d4MzpARc-AiwO6hn4uiNCe63UqyB7anLHSqvIP0PjbkKBqCMzFzdq0f",
+  "thumb_media_id": "xv9tsA2b6d4MzpARc-AiwKHF1vCIolmeE0fXsTJkkRAe0zAN20H631pkq9XL0-bL",
+  "title": "别再让 Agent「口头 review」了：把阿里 Open Code Review 装进你的 coding 流水线",
+  "author": "ZIIKOO有话说",
+  "digest": "通用 Agent 口头 review 会漏文件、飘行号。阿里开源 OCR 用混合架构专岗审代码，文内附安装到配置完成的一键 Prompt。",
+  "account": "智蔲科技 acct_31c623c5709b451b996c500c",
+  "tenant": "tenant_default",
+  "html": "articles/alibaba-ocr-agent-toolkit/01-wechat.html",
+  "md": "articles/alibaba-ocr-agent-toolkit/01-wechat.md",
+  "cover_wechat": "articles/alibaba-ocr-agent-toolkit/imgs/cover-wechat-900x383.jpg",
+  "cover_thumb_upload": "articles/alibaba-ocr-agent-toolkit/imgs/cover-thumb-lt64k.jpg",
+  "created_at": "2026-07-21T05:01:45Z",
+  "note": "draft only via woa draft add; not published; thumb compressed <64KB for permanent media limit"
+}

@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "tenantId": "tenant_default",
+    "accountId": "acct_31c623c5709b451b996c500c",
+    "userId": "op_8e688dd9b04944c389ff1aea",
+    "requestId": "req_6ca522163e6a4a8ea535d97c",
+    "quota": {
+      "plan": "plus",
+      "checks": [
+        {
+          "metric": "tool_calls_day",
+          "label": "每日 MCP 工具调用次数",
+          "used": 14,
+          "limit": 500,
+          "remaining": 486,
+          "amount": 1,
+          "period": "2026-07-26",
+          "resetAt": 1785110400000
+        },
+        {
+          "metric": "tool_calls_month",
+          "label": "每月 MCP 工具调用次数",
+          "used": 101,
+          "limit": 3000,
+          "remaining": 2899,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        },
+        {
+          "metric": "media_uploads_month",
+          "label": "每月素材上传次数",
+          "used": 20,
+          "limit": 500,
+          "remaining": 480,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        }
+      ],
+      "refunded": false
+    }
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "永久素材上传成功！
+素材ID: xv9tsA2b6d4MzpARc-AiwBlOCFpPJyZtHL7qSbpRDX3g3QiDpnQpAwdYJedz9VgO
+素材URL: http://mmbiz.qpic.cn/sz_mmbiz_jpg/G54UQVjjFickVq1BDhfC0ODuMS6QjcqHZto7YHjEdTVzYOqXFzuLnZLLyfk4QLJmAGmreG3nJkHS8N6NDxPjavXUDvIMtvsMO0ZjFRvoPia9Q/0?wx_fmt=jpeg
+文件名: cover-thumb-ok.jpg
+来源: r2Key"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+[1;34m> POST[0m https://api.x.com/2/tweets
+[1;36m> Content-Type[0m: application/json
+[1;36m> Authorization[0m: Bearer b2FEbHFTSG9lSzJxSnAwZVhMV3NNREZGS2VPYVZLZUpIS2lMcENNN2hHdmhJOjE3ODUwMzYxNjc3MzY6MToxOmF0OjE
+[1;36m> User-Agent[0m: xurl/1.2.3
+
+[1;31m< 201 Created[0m
+[1;32m< X-Rate-Limit-Reset[0m: 1785041931
+[1;32m< Content-Disposition[0m: attachment; filename=json.json
+[1;32m< X-Content-Type-Options[0m: nosniff
+[1;32m< Vary[0m: accept-encoding
+[1;32m< X-Transaction-Id[0m: 148e2b2ccd47961c
+[1;32m< Perf[0m: 7402827104
+[1;32m< X-Frame-Options[0m: SAMEORIGIN
+[1;32m< Cf-Cache-Status[0m: DYNAMIC
+[1;32m< Date[0m: Sun, 26 Jul 2026 04:50:08 GMT
+[1;32m< Content-Type[0m: application/json; charset=utf-8
+[1;32m< X-Xss-Protection[0m: 0
+[1;32m< Set-Cookie[0m: guest_id_marketing=v1%3A178504140789947337; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:50:08 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: guest_id_ads=v1%3A178504140789947337; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:50:08 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: personalization_id="v1_twYiuMkZzCEipNq4Ln27ng=="; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:50:08 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: guest_id=v1%3A178504140789947337; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:50:08 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: __cf_bm=maum_EedbgAI0tvTiakCcvCBWFqlPhQgcq6dzayWK0k-1785041407.838642-1.0.1.1-eU.u27NwiUFgwbIZUh.3gWYgBNHiYTBOUXXx4dem7_2scurQYxS5qU1uDqcJI7rynH84UgQxFVWuVsnW2LYYkl90OXrqf5GUsLtXxARANNMyiIu4W4.OzSzbkHq2b2Z2; HttpOnly; SameSite=None; Secure; Path=/; Domain=x.com; Expires=Sun, 26 Jul 2026 05:20:08 GMT
+[1;32m< X-Rate-Limit-Remaining[0m: 92
+[1;32m< Origin-Cf-Ray[0m: a210c81ef9d24cb5-NRT
+[1;32m< Server[0m: cloudflare envoy
+[1;32m< Cache-Control[0m: no-cache, no-store, max-age=0
+[1;32m< X-Access-Level[0m: read-write-directmessages
+[1;32m< Strict-Transport-Security[0m: max-age=631138519; includeSubdomains
+[1;32m< Location[0m: https://api.x.com/2/tweets/2081240628395135087
+[1;32m< Api-Version[0m: 2.167
+[1;32m< X-Response-Time[0m: 447
+[1;32m< X-Served-By[0m: t4_p
+[1;32m< Cf-Ray[0m: a210c81ef9d24cb5-NRT
+[1;32m< X-Rate-Limit-Limit[0m: 100
+
+{
+  "data":{
+    "edit_history_tweet_ids":[
+      ""
+    ],
+    "id":"2081240628395135087",
+    "text":"@wandermist 核心交付在这里：中文信息图（不是纯翻译）\n\n① 总览六原则\n② 图工程词汇表  \n③ 串行 vs 并行\n④ 菱形模式\n\n扫图即懂。ziikoo 研究院 · 中文配图 https://t.co/YJmjAm1UCB"
+  }
+}

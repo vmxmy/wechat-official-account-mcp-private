@@ -1,0 +1,5 @@
+status: submitted
+type: quote
+source: https://x.com/wandermist/status/2080974834851340400
+account: baoyu-skills chrome profile session
+comment_file: x-quote-zh.txt

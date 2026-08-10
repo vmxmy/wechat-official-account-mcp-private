@@ -1,0 +1,3176 @@
+<!DOCTYPE html>
+<html lang="zh_CN">
+<head>
+<meta charset="utf-8">
+<title>Compare</title>
+<style>
+body { margin: 0; background: #ECECEC; font-family: -apple-system, sans-serif; }
+.compare { display: grid; grid-template-columns: repeat(6, minmax(320px, 1fr)); gap: 16px; padding: 16px; }
+.panel { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 16px; }
+.panel-head { font-weight: bold; font-size: 14px; margin-bottom: 12px; color: #666; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="compare">
+<div class="panel"><div class="panel-head">Electric Studio</div><style>/* electric-studio · from frontend-slides Electric Studio */
+:root {
+  --wa-color-accent: #4361ee;
+  --wa-color-accent-faint: rgba(67, 97, 238, 0.10);
+  --wa-color-accent-border: rgba(67, 97, 238, 0.35);
+  --wa-color-accent-ghost: rgba(67, 97, 238, 0.45);
+  --wa-color-text: #0a0a0a;
+  --wa-color-text-muted: #525252;
+  --wa-color-inline-code-fg: #4361ee;
+  --wa-color-inline-code-bg: rgba(67, 97, 238, 0.08);
+
+  --wa-color-code-bg: #0a0a0a;
+  --wa-color-code-fg: #ffffff;
+  --wa-color-code-shadow: rgba(10, 10, 10, 0.35);
+  --wa-color-code-keyword: #8ab4ff;
+  --wa-color-code-string: #a5d6a7;
+  --wa-color-code-number: #ffcc80;
+  --wa-color-code-comment: #9e9e9e;
+  --wa-color-code-builtin: #80deea;
+  --wa-color-code-fn: #ce93d8;
+  --wa-color-code-class: #ffab91;
+
+  --wa-color-figure-shadow: rgba(10, 10, 10, 0.12);
+
+  --wa-font-body: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --wa-font-code: "SF Mono", Consolas, Monaco, Menlo, monospace;
+  --wa-font-accent: system-ui, -apple-system, "PingFang SC", sans-serif;
+
+  --wa-text-body: 14px;
+  --wa-text-lede: 22px;
+  --wa-text-h2: 20px;
+  --wa-text-h3: 17px;
+  --wa-text-strong: 14px;
+  --wa-text-code-inline: 13px;
+  --wa-text-code-block: 12px;
+  --wa-text-figure-caption: 12px;
+  --wa-line-height-body: 1.8em;
+  --wa-letter-spacing-body: 0.01em;
+
+  --wa-gap-paragraph: 8px;
+  --wa-gap-section: 32px;
+  --wa-gap-sub-section: 22px;
+  --wa-gap-block: 16px;
+  --wa-gap-list-item: 5px;
+
+  --wa-radius-card: 4px;
+  --wa-radius-code: 6px;
+  --wa-radius-pill: 4px;
+
+  --wa-code-block-shadow: 0 4px 18px var(--wa-color-code-shadow);
+  --wa-figure-shadow: 0 2px 10px var(--wa-color-figure-shadow);
+  --wa-code-inline-margin: 0 2px;
+}
+
+
+/* ===========================================
+   electric-studio · blocks.css
+   Implements the 13-block contract. Palette/type from Frontend Slides presets, adapted for WeChat long-form.
+   =========================================== */
+
+/* --- 1. series-nav: top intro with prior articles list --- */
+.wa-electric-studio .wa-series-nav {
+  margin: 0 0 24px 0;
+  padding: 10px;
+  font-family: var(--wa-font-accent);
+  font-size: 16px;
+  color: #000;
+  line-height: 1.5em;
+  word-spacing: 0;
+  letter-spacing: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+  background:
+    linear-gradient(90deg, rgba(50, 0, 0, 0.03) 0%, rgba(255, 255, 255, 0) 11.49%),
+    linear-gradient(360deg, rgba(50, 0, 0, 0.04) 0%, rgba(255, 255, 255, 0) 12.16%);
+  background-repeat: repeat, repeat;
+  background-size: 20px 20px, 20px 20px;
+}
+.wa-electric-studio .wa-series-nav-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.wa-electric-studio .wa-series-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wa-electric-studio .wa-series-nav-item {
+  margin: 2px 0;
+}
+
+/* --- 2. paragraph --- */
+.wa-electric-studio .wa-paragraph {
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: var(--wa-letter-spacing-body);
+  text-align: left;
+  text-indent: 0;
+  margin: 0;
+  padding: var(--wa-gap-paragraph) 0;
+}
+
+/* --- 3. callout: 蓝色引用框 --- */
+.wa-electric-studio .wa-callout-blue {
+  position: relative;
+  margin: 20px 0;
+  padding: 10px 20px 10px 10px;
+  border: 1px solid var(--wa-color-accent-border);
+  border-radius: var(--wa-radius-card);
+  background: var(--wa-color-accent-faint);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+.wa-electric-studio .wa-callout-blue::before {
+  content: "\275D"; /* ❝ */
+  display: block;
+  color: var(--wa-color-accent-ghost);
+  font-size: 28px;
+  line-height: 1.5em;
+  font-weight: bold;
+  text-align: left;
+}
+.wa-electric-studio .wa-callout-blue p {
+  margin: 0;
+  padding: 0;
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-electric-studio .wa-callout-blue p + p {
+  margin-top: 8px;
+}
+
+/* --- 4. h2: section title with bottom rule --- */
+.wa-electric-studio .wa-h2 {
+  display: flex;
+  margin-top: var(--wa-gap-section);
+  margin-bottom: 15px;
+  padding-bottom: 0;
+  border-bottom: 4px solid var(--wa-color-accent);
+  font-size: var(--wa-text-h2);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+.wa-electric-studio .wa-h2-inner {
+  flex: 1;
+}
+
+/* --- 5. h3: sub-section with leading icon --- */
+.wa-electric-studio .wa-h3 {
+  display: flex;
+  align-items: center;
+  margin-top: var(--wa-gap-sub-section);
+  margin-bottom: 15px;
+  padding: 0;
+  font-size: var(--wa-text-h3);
+  color: var(--wa-color-text);
+  font-weight: bold;
+  line-height: 1.5em;
+}
+.wa-electric-studio .wa-h3-inner {
+  display: inline-block;
+  height: 38px;
+  line-height: 2.4em;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  text-align: center;
+  text-indent: 0;
+}
+
+/* --- 6. strong: inline emphasis --- */
+.wa-electric-studio .wa-strong {
+  color: var(--wa-color-inline-code-fg);
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- 7. inline code --- */
+.wa-electric-studio .wa-code-inline {
+  color: var(--wa-color-inline-code-fg);
+  font-size: var(--wa-text-code-inline);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: 0;
+  background: var(--wa-color-inline-code-bg);
+  font-family: var(--wa-font-code);
+  padding: 2px 4px;
+  margin: var(--wa-code-inline-margin);
+  border-radius: var(--wa-radius-pill);
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+/* --- 8. code block: dark, One Dark theme --- */
+.wa-electric-studio .wa-code-block {
+  display: block;
+  margin: 10px 0;
+  padding: 0;
+  border-radius: var(--wa-radius-code);
+  box-shadow: var(--wa-code-block-shadow);
+  text-align: left;
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  color: var(--wa-color-code-fg);
+  background: var(--wa-color-code-bg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.wa-electric-studio .wa-code-block-inner {
+  display: block;
+  padding: 16px;
+  background: var(--wa-color-code-bg);
+  color: var(--wa-color-code-fg);
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  white-space: pre;
+}
+.wa-electric-studio .wa-code-block .tok-keyword  { color: var(--wa-color-code-keyword); }
+.wa-electric-studio .wa-code-block .tok-string   { color: var(--wa-color-code-string); }
+.wa-electric-studio .wa-code-block .tok-number   { color: var(--wa-color-code-number); }
+.wa-electric-studio .wa-code-block .tok-comment  { color: var(--wa-color-code-comment); font-style: italic; }
+.wa-electric-studio .wa-code-block .tok-builtin  { color: var(--wa-color-code-builtin); }
+.wa-electric-studio .wa-code-block .tok-fn       { color: var(--wa-color-code-fn); }
+.wa-electric-studio .wa-code-block .tok-class    { color: var(--wa-color-code-class); }
+
+/* --- 9. lists --- */
+.wa-electric-studio .wa-list-ul,
+.wa-electric-studio .wa-list-ol {
+  margin: 8px 0;
+  padding-left: 25px;
+  color: #000;
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-electric-studio .wa-list-ul {
+  list-style-type: disc;
+}
+.wa-electric-studio .wa-list-ol {
+  list-style-type: decimal;
+}
+.wa-electric-studio .wa-list-ul li,
+.wa-electric-studio .wa-list-ol li {
+  margin: var(--wa-gap-list-item) 0;
+  padding: 0;
+}
+
+/* --- 10. figure: image --- */
+.wa-electric-studio .wa-figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+  padding: 0;
+}
+.wa-electric-studio .wa-figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border-radius: var(--wa-radius-card);
+  object-fit: fill;
+  box-shadow: var(--wa-figure-shadow);
+}
+
+/* --- 11. figure caption --- */
+.wa-electric-studio .wa-figure-caption {
+  margin-top: 6px;
+  font-size: var(--wa-text-figure-caption);
+  color: var(--wa-color-text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+/* --- 12. lede: 20px accent (used for "如下图：" labels and section openers) --- */
+.wa-electric-studio .wa-lede {
+  margin: 16px 0 8px 0;
+  padding: 0;
+  font-size: var(--wa-text-lede);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+
+/* --- 13. divider --- */
+.wa-electric-studio .wa-divider {
+  border: none;
+  border-top: 1px solid var(--wa-color-text-muted);
+  margin: 32px 0;
+  height: 0;
+}
+
+/* --- 14. fixed brand hook: ziikoo(SVG) + 有话说 --- */
+.wa-electric-studio .wa-ziikoo-hook {
+  margin: 40px 0 12px 0;
+  padding: 28px 12px 8px;
+  text-align: center;
+  border-top: 1px solid rgba(43, 43, 43, 0.1);
+}
+.wa-electric-studio .wa-ziikoo-hook-row {
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wa-electric-studio .wa-ziikoo-hook-logo {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 10px 0 0;
+  line-height: 0;
+}
+.wa-electric-studio .wa-ziikoo-hook-logo svg {
+  display: block;
+  width: 112px;
+  height: 22px;
+  /* pixel logo: keep crisp edges when scaled */
+  shape-rendering: crispEdges;
+}
+/* 有话说：系统标准字体，跨端稳定 */
+.wa-electric-studio .wa-ziikoo-hook-phrase {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  color: #2b2b2b;
+  font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+}
+/* 本篇冷笑话 / 金句：独立容器，与正文气质区分 */
+.wa-electric-studio .wa-ziikoo-hook-bubble {
+  margin: 18px auto 0;
+  padding: 14px 16px 16px;
+  max-width: 94%;
+  box-sizing: border-box;
+  text-align: center;
+  /* 暖灰底 + 细描边，比正文 callout 更轻、更口语 */
+  background: #f7f4ef;
+  border: 1px solid rgba(43, 43, 43, 0.06);
+  border-radius: 10px;
+}
+.wa-electric-studio .wa-ziikoo-hook-line {
+  margin: 0;
+  padding: 0;
+  color: #3d3a36;
+  /* 略偏人文/口语：系统宋体优先，正文是无衬线 */
+  font-family:
+    "Songti SC",
+    "STSong",
+    "Noto Serif CJK SC",
+    "Source Han Serif SC",
+    "PingFang SC",
+    serif;
+  font-size: 15px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  line-height: 1.85;
+  text-align: center;
+}
+.wa-electric-studio .wa-ziikoo-hook-line + .wa-electric-studio .wa-ziikoo-hook-line {
+  margin-top: 8px;
+}
+.wa-electric-studio .wa-ziikoo-hook-slogan {
+  margin: 18px 0 0 0;
+  padding: 0;
+  color: #595959;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
+}
+.wa-electric-studio .wa-ziikoo-hook-domain {
+  margin: 4px 0 0 0;
+  padding: 0;
+  color: #8a8a8a;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  line-height: 1.5;
+}
+
+.wa-electric-studio .wa-series-nav { background: #f5f6ff; border-left: 4px solid #4361ee; border-radius: 0 8px 8px 0; }
+.wa-electric-studio .wa-h2 { border-bottom-width: 4px; }
+.wa-electric-studio .wa-lede { letter-spacing: -0.01em; }
+.wa-electric-studio .wa-callout-blue::before { content: "“"; font-size: 32px; line-height: 1; }
+.wa-electric-studio .wa-ziikoo-hook-bubble { background: #eef1ff; border: 1px solid rgba(67,97,238,0.18); border-radius: 8px; }
+.wa-electric-studio .wa-ziikoo-hook-line { font-family: system-ui, -apple-system, "PingFang SC", sans-serif; letter-spacing: 0.03em; }</style><div class="wa-electric-studio"><div class="wa-electric-studio">
+<h1 class="wa-lede">Fable当Boss，Sol做牛马？</h1>
+<p class="wa-paragraph">GPT-5.6 出来后，大家吵的不是「谁更强」。</p>
+<p class="wa-paragraph">而是两件事：</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Fable 5 和 Sol，怎么一起用</strong></li></ol>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Luna / Terra / Sol，各自开在哪</strong></li></ol>
+<p class="wa-paragraph">日本开发者圈给了双模型分工。 著名 AI Newsletter 博主 <strong class="wa-strong">Ben</strong> 又补了一套 GPT-5.6 三档搭配。</p>
+<p class="wa-paragraph">下面合在一起，方便直接抄。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">先记两句</strong></p><p>跨生态：Fable 写指令，Sol 去干活。  
+单栈 OpenAI：主开发 Sol medium，聊天 Luna xhigh，复杂再开 Ultra。</p></blockquote>
+<h2 class="wa-h2"><span class="wa-h2-inner">先跨生态：猫头鹰 × 罗威纳</span></h2>
+<p class="wa-paragraph">日推里最好记的说法：</p>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Fable ≈ 猫头鹰</strong>：看得深，会问「该不该做」。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Sol ≈ 罗威纳</strong>：咬住任务，默默干到结束。</li></ul>
+<p class="wa-paragraph">所以：</p>
+<p class="wa-paragraph"><strong class="wa-strong">想清楚 → Fable</strong> <strong class="wa-strong">干完 → Sol</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">七种几乎被统一的用法</span></h2>
+<h3 class="wa-h3"><span class="wa-h3-inner">1. Fable 写指示，Sol 去执行</span></h3>
+<p class="wa-paragraph">别自己写超长 prompt。 也别让 Fable 直接改生产代码。</p>
+<ol class="wa-list-ol"><li>你说目标、边界、不能做什么。</li></ol>
+<ol class="wa-list-ol"><li>Fable 写成：验收、影响范围、测试、风险。</li></ol>
+<ol class="wa-list-ol"><li>原样丢给 Codex + Sol。</li></ol>
+<p class="wa-paragraph">中间少一层「人手翻译」。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">2. 设计归 Fable，实现归 Sol</span></h3>
+<ul class="wa-list-ul"><li>Fable：拆 Issue、定方案、做评审</li></ul>
+<ul class="wa-list-ul"><li>Sol：写代码、补测试、贴合现有风格</li></ul>
+<ul class="wa-list-ul"><li>可选：便宜模型做旁路杂活</li></ul>
+<p class="wa-paragraph">硬规矩：</p>
+<p class="wa-paragraph"><strong class="wa-strong">实现的人，不要自己终审。</strong></p>
+<h3 class="wa-h3"><span class="wa-h3-inner">3. 商量找 Fable，写码找 Sol</span></h3>
+<p class="wa-paragraph">Fable 更会先查再动。 Sol 实现更快、更贴代码、更能收尾。</p>
+<ul class="wa-list-ul"><li>架构、产品边界 → Fable</li></ul>
+<ul class="wa-list-ul"><li>跨文件实现、长清单 → Sol</li></ul>
+<h3 class="wa-h3"><span class="wa-h3-inner">4. 有意让 Fable 指挥 Sol</span></h3>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">Fable 规划 → 目标 / 非目标 / 验收
+Sol 执行   → 代码 + 测试
+换模型只读 → 能不能合</code></pre>
+<p class="wa-paragraph">别在一个窗口从聊天聊到上线。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">5. 长文偏 Fable；研究有时选 Sol</span></h3>
+<p class="wa-paragraph">写文章、写文档：Fable 往往更稳。 部分垂直研究：有人反馈 Sol 更少「误杀」。</p>
+<p class="wa-paragraph">别默认：最强编程模型 = 最强写手。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">6. 按任务选，不按信仰选</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Fable</strong>：架构、体验、文案、「懂不懂」式评审 <strong class="wa-strong">Sol</strong>：实现、重构、长时程、子 Agent、贴合存量代码</p>
+<p class="wa-paragraph">Fable 聪明，偶尔让人慌：「好像漏了什么」。 Sol 不总是最机灵，但交代的事会做完。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">7. 日常就三步</span></h3>
+<ol class="wa-list-ol"><li>Fable 对稿</li></ol>
+<ol class="wa-list-ol"><li>Sol 干重活</li></ol>
+<ol class="wa-list-ol"><li>便宜模型当手脚</li></ol>
+<p class="wa-paragraph">这是额度、速度、风险的选择，不是情怀。</p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">再叠 Ben 的 GPT-5.6 三档</span></h2>
+<p class="wa-paragraph">只在 OpenAI 栈里干活时，Ben 的组合很实用：</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">他的默认搭配</span></h3>
+<ol class="wa-list-ol"><li><strong class="wa-strong">主要开发 + 创意</strong> → <strong class="wa-strong">Sol medium</strong></li></ol>
+<p class="wa-paragraph">日常主力。够强，又没那么烧。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">复杂任务</strong> → <strong class="wa-strong">开 Ultra</strong></li></ol>
+<p class="wa-paragraph">用大量 Subagent 处理后台代理。 子代理可能是 <strong class="wa-strong">Sol</strong>，也可能是 <strong class="wa-strong">Terra</strong>。 主脑扛难题，手脚分摊杂活。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">日常对话</strong> → <strong class="wa-strong">Luna xhigh</strong></li></ol>
+<p class="wa-paragraph">聊天、轻问轻答，把贵模型省下来。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">和日推分工怎么拼</strong></p><p>有 Claude 时：Fable 对稿 → Sol medium 执行。  
+复杂且可并行：Sol / Terra 挂 Ultra 子代理。  
+闲聊、澄清、小问题：Luna xhigh。</p></blockquote>
+<h3 class="wa-h3"><span class="wa-h3-inner">Ben 对三档的点评</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Sol</strong></p>
+<ul class="wa-list-ul"><li>UI 可以；给参考稿，效果更好。</li></ul>
+<ul class="wa-list-ul"><li>Max 等级写作强，聊起来也有意思。</li></ul>
+<ul class="wa-list-ul"><li>适合当「主开发 + 重创意」的默认脑。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Terra</strong></p>
+<ul class="wa-list-ul"><li>像 GPT-5.5 的升级版。</li></ul>
+<ul class="wa-list-ul"><li>UI、写作有小幅提升。</li></ul>
+<ul class="wa-list-ul"><li>更「听话」，更容易被提示词带着走。</li></ul>
+<ul class="wa-list-ul"><li>很适合当 Ultra 里的执行子代理。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Luna</strong></p>
+<ul class="wa-list-ul"><li>有点「小模型味」。</li></ul>
+<ul class="wa-list-ul"><li>提示词糊时，容易 get 不到。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">任务定义清楚</strong>，才不掉链子。</li></ul>
+<ul class="wa-list-ul"><li>所以日常对话可以 Luna xhigh；模糊大活别硬塞。</li></ul>
+<p class="wa-paragraph">这和前文一致：</p>
+<p class="wa-paragraph"><strong class="wa-strong">不是模型不行，是规格还糊。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">合成一张作战卡</span></h2>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">【跨生态】
+意图糊 → Fable 对稿
+规格清 → Sol 执行（建议 medium）
+终审   → 换模型只读
+
+【纯 OpenAI / Ben 搭配】
+主开发·创意 → Sol medium
+复杂可并行 → Ultra + Sol/Terra 子代理
+日常对话   → Luna xhigh
+
+【三档直觉】
+Luna  → 任务必须清楚
+Terra → 听话、好引导、当手脚
+Sol   → 主力脑；UI 给参考，写作可上 Max</code></pre>
+<p class="wa-paragraph">再压成一句：</p>
+<p class="wa-paragraph"><strong class="wa-strong">Fable 写指令，Sol 去干活。</strong> <strong class="wa-strong">聊天 Luna，复杂 Ultra，Terra 当听话的手。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">别踩的坑</span></h2>
+<ul class="wa-list-ul"><li>全程 Sol Ultra 吃到饱</li></ul>
+<ul class="wa-list-ul"><li>模糊需求硬塞 Luna</li></ul>
+<ul class="wa-list-ul"><li>Full Access + 无沙箱</li></ul>
+<ul class="wa-list-ul"><li>实现会话自己终审</li></ul>
+<ul class="wa-list-ul"><li>一个对话从闲聊做到上线</li></ul>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">停手句，直接复制</strong></p><p>请先只做：影响范围 + 简短规格（行为、组件、非目标、验收、测试）。</p><p>写完规格后停止，等我确认。  
+不要直接改代码。</p></blockquote>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">本周就能落地</span></h2>
+<ol class="wa-list-ol"><li>双模型规则做成 Skill，别塞进所有聊天。</li></ol>
+<ol class="wa-list-ol"><li>主开发默认 <strong class="wa-strong">Sol medium</strong>，别一上来 Max / Ultra。</li></ol>
+<ol class="wa-list-ol"><li>子 Agent 预先钉死：重活 Sol，听话执行 Terra，清楚杂活 Luna。</li></ol>
+<ol class="wa-list-ol"><li>给 Sol 做 UI 时，附参考，不要只丢形容词。</li></ol>
+<ol class="wa-list-ol"><li>看可合并的 diff，不看 tool 调用次数。</li></ol>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">结语</span></h2>
+<p class="wa-paragraph">编排时代，胜负手不是榜单第一，是产线设计。</p>
+<p class="wa-paragraph">Fable 和 Sol 不是信仰之战。 Luna / Terra / Sol 也不是面子工程。</p>
+<p class="wa-paragraph">它们是同一条产线上的不同工位。</p>
+<hr class="wa-divider" />
+<p class="wa-paragraph"><em>综合日推实践与 AI Newsletter 博主 Ben 的 GPT-5.6 搭配点评改写，非官方文档。能力与安全策略会随版本变化，请以官方说明和沙箱策略为准。</em></p>
+<section class="wa-ziikoo-hook"><div class="wa-ziikoo-hook-row"><span class="wa-ziikoo-hook-logo"><svg role="img" aria-label="ziikoo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" shape-rendering="crispEdges">
+  <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>  <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/></svg></span><span class="wa-ziikoo-hook-phrase">有话说</span></div><div class="wa-ziikoo-hook-bubble"><p class="wa-ziikoo-hook-line">小朋友才做选择，大人的Claud都被封了🐶</p></div><p class="wa-ziikoo-hook-slogan">企业 AI 生产力管理平台</p><p class="wa-ziikoo-hook-domain">ziikoo.com</p></section>
+</div></div></div><div class="panel"><div class="panel-head">Bold Signal</div><style>/* bold-signal · from frontend-slides Bold Signal (light long-form adaptation) */
+:root {
+  --wa-color-accent: #FF5722;
+  --wa-color-accent-faint: rgba(255, 87, 34, 0.10);
+  --wa-color-accent-border: rgba(255, 87, 34, 0.40);
+  --wa-color-accent-ghost: rgba(255, 87, 34, 0.50);
+  --wa-color-text: #1a1a1a;
+  --wa-color-text-muted: #5a5a5a;
+  --wa-color-inline-code-fg: #E64A19;
+  --wa-color-inline-code-bg: rgba(255, 87, 34, 0.08);
+
+  --wa-color-code-bg: #1a1a1a;
+  --wa-color-code-fg: #f5f5f5;
+  --wa-color-code-shadow: rgba(26, 26, 26, 0.35);
+  --wa-color-code-keyword: #FF8A65;
+  --wa-color-code-string: #AED581;
+  --wa-color-code-number: #FFD54F;
+  --wa-color-code-comment: #9e9e9e;
+  --wa-color-code-builtin: #4DD0E1;
+  --wa-color-code-fn: #CE93D8;
+  --wa-color-code-class: #FFAB91;
+
+  --wa-color-figure-shadow: rgba(26, 26, 26, 0.15);
+
+  --wa-font-body: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --wa-font-code: "SF Mono", Consolas, Monaco, Menlo, monospace;
+  --wa-font-accent: system-ui, -apple-system, "PingFang SC", sans-serif;
+
+  --wa-text-body: 14px;
+  --wa-text-lede: 22px;
+  --wa-text-h2: 21px;
+  --wa-text-h3: 17px;
+  --wa-text-strong: 14px;
+  --wa-text-code-inline: 13px;
+  --wa-text-code-block: 12px;
+  --wa-text-figure-caption: 12px;
+  --wa-line-height-body: 1.8em;
+  --wa-letter-spacing-body: 0.01em;
+
+  --wa-gap-paragraph: 8px;
+  --wa-gap-section: 34px;
+  --wa-gap-sub-section: 22px;
+  --wa-gap-block: 16px;
+  --wa-gap-list-item: 5px;
+
+  --wa-radius-card: 10px;
+  --wa-radius-code: 8px;
+  --wa-radius-pill: 4px;
+
+  --wa-code-block-shadow: 0 4px 16px var(--wa-color-code-shadow);
+  --wa-figure-shadow: 0 2px 10px var(--wa-color-figure-shadow);
+  --wa-code-inline-margin: 0 2px;
+}
+
+
+/* ===========================================
+   bold-signal · blocks.css
+   Implements the 13-block contract. Palette/type from Frontend Slides presets, adapted for WeChat long-form.
+   =========================================== */
+
+/* --- 1. series-nav: top intro with prior articles list --- */
+.wa-bold-signal .wa-series-nav {
+  margin: 0 0 24px 0;
+  padding: 10px;
+  font-family: var(--wa-font-accent);
+  font-size: 16px;
+  color: #000;
+  line-height: 1.5em;
+  word-spacing: 0;
+  letter-spacing: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+  background:
+    linear-gradient(90deg, rgba(50, 0, 0, 0.03) 0%, rgba(255, 255, 255, 0) 11.49%),
+    linear-gradient(360deg, rgba(50, 0, 0, 0.04) 0%, rgba(255, 255, 255, 0) 12.16%);
+  background-repeat: repeat, repeat;
+  background-size: 20px 20px, 20px 20px;
+}
+.wa-bold-signal .wa-series-nav-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.wa-bold-signal .wa-series-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wa-bold-signal .wa-series-nav-item {
+  margin: 2px 0;
+}
+
+/* --- 2. paragraph --- */
+.wa-bold-signal .wa-paragraph {
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: var(--wa-letter-spacing-body);
+  text-align: left;
+  text-indent: 0;
+  margin: 0;
+  padding: var(--wa-gap-paragraph) 0;
+}
+
+/* --- 3. callout: 蓝色引用框 --- */
+.wa-bold-signal .wa-callout-blue {
+  position: relative;
+  margin: 20px 0;
+  padding: 10px 20px 10px 10px;
+  border: 1px solid var(--wa-color-accent-border);
+  border-radius: var(--wa-radius-card);
+  background: var(--wa-color-accent-faint);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+.wa-bold-signal .wa-callout-blue::before {
+  content: "\275D"; /* ❝ */
+  display: block;
+  color: var(--wa-color-accent-ghost);
+  font-size: 28px;
+  line-height: 1.5em;
+  font-weight: bold;
+  text-align: left;
+}
+.wa-bold-signal .wa-callout-blue p {
+  margin: 0;
+  padding: 0;
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-bold-signal .wa-callout-blue p + p {
+  margin-top: 8px;
+}
+
+/* --- 4. h2: section title with bottom rule --- */
+.wa-bold-signal .wa-h2 {
+  display: flex;
+  margin-top: var(--wa-gap-section);
+  margin-bottom: 15px;
+  padding-bottom: 0;
+  border-bottom: 4px solid var(--wa-color-accent);
+  font-size: var(--wa-text-h2);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+.wa-bold-signal .wa-h2-inner {
+  flex: 1;
+}
+
+/* --- 5. h3: sub-section with leading icon --- */
+.wa-bold-signal .wa-h3 {
+  display: flex;
+  align-items: center;
+  margin-top: var(--wa-gap-sub-section);
+  margin-bottom: 15px;
+  padding: 0;
+  font-size: var(--wa-text-h3);
+  color: var(--wa-color-text);
+  font-weight: bold;
+  line-height: 1.5em;
+}
+.wa-bold-signal .wa-h3-inner {
+  display: inline-block;
+  height: 38px;
+  line-height: 2.4em;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  text-align: center;
+  text-indent: 0;
+}
+
+/* --- 6. strong: inline emphasis --- */
+.wa-bold-signal .wa-strong {
+  color: var(--wa-color-inline-code-fg);
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- 7. inline code --- */
+.wa-bold-signal .wa-code-inline {
+  color: var(--wa-color-inline-code-fg);
+  font-size: var(--wa-text-code-inline);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: 0;
+  background: var(--wa-color-inline-code-bg);
+  font-family: var(--wa-font-code);
+  padding: 2px 4px;
+  margin: var(--wa-code-inline-margin);
+  border-radius: var(--wa-radius-pill);
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+/* --- 8. code block: dark, One Dark theme --- */
+.wa-bold-signal .wa-code-block {
+  display: block;
+  margin: 10px 0;
+  padding: 0;
+  border-radius: var(--wa-radius-code);
+  box-shadow: var(--wa-code-block-shadow);
+  text-align: left;
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  color: var(--wa-color-code-fg);
+  background: var(--wa-color-code-bg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.wa-bold-signal .wa-code-block-inner {
+  display: block;
+  padding: 16px;
+  background: var(--wa-color-code-bg);
+  color: var(--wa-color-code-fg);
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  white-space: pre;
+}
+.wa-bold-signal .wa-code-block .tok-keyword  { color: var(--wa-color-code-keyword); }
+.wa-bold-signal .wa-code-block .tok-string   { color: var(--wa-color-code-string); }
+.wa-bold-signal .wa-code-block .tok-number   { color: var(--wa-color-code-number); }
+.wa-bold-signal .wa-code-block .tok-comment  { color: var(--wa-color-code-comment); font-style: italic; }
+.wa-bold-signal .wa-code-block .tok-builtin  { color: var(--wa-color-code-builtin); }
+.wa-bold-signal .wa-code-block .tok-fn       { color: var(--wa-color-code-fn); }
+.wa-bold-signal .wa-code-block .tok-class    { color: var(--wa-color-code-class); }
+
+/* --- 9. lists --- */
+.wa-bold-signal .wa-list-ul,
+.wa-bold-signal .wa-list-ol {
+  margin: 8px 0;
+  padding-left: 25px;
+  color: #000;
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-bold-signal .wa-list-ul {
+  list-style-type: disc;
+}
+.wa-bold-signal .wa-list-ol {
+  list-style-type: decimal;
+}
+.wa-bold-signal .wa-list-ul li,
+.wa-bold-signal .wa-list-ol li {
+  margin: var(--wa-gap-list-item) 0;
+  padding: 0;
+}
+
+/* --- 10. figure: image --- */
+.wa-bold-signal .wa-figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+  padding: 0;
+}
+.wa-bold-signal .wa-figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border-radius: var(--wa-radius-card);
+  object-fit: fill;
+  box-shadow: var(--wa-figure-shadow);
+}
+
+/* --- 11. figure caption --- */
+.wa-bold-signal .wa-figure-caption {
+  margin-top: 6px;
+  font-size: var(--wa-text-figure-caption);
+  color: var(--wa-color-text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+/* --- 12. lede: 20px accent (used for "如下图：" labels and section openers) --- */
+.wa-bold-signal .wa-lede {
+  margin: 16px 0 8px 0;
+  padding: 0;
+  font-size: var(--wa-text-lede);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+
+/* --- 13. divider --- */
+.wa-bold-signal .wa-divider {
+  border: none;
+  border-top: 1px solid var(--wa-color-text-muted);
+  margin: 32px 0;
+  height: 0;
+}
+
+/* --- 14. fixed brand hook: ziikoo(SVG) + 有话说 --- */
+.wa-bold-signal .wa-ziikoo-hook {
+  margin: 40px 0 12px 0;
+  padding: 28px 12px 8px;
+  text-align: center;
+  border-top: 1px solid rgba(43, 43, 43, 0.1);
+}
+.wa-bold-signal .wa-ziikoo-hook-row {
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wa-bold-signal .wa-ziikoo-hook-logo {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 10px 0 0;
+  line-height: 0;
+}
+.wa-bold-signal .wa-ziikoo-hook-logo svg {
+  display: block;
+  width: 112px;
+  height: 22px;
+  /* pixel logo: keep crisp edges when scaled */
+  shape-rendering: crispEdges;
+}
+/* 有话说：系统标准字体，跨端稳定 */
+.wa-bold-signal .wa-ziikoo-hook-phrase {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  color: #2b2b2b;
+  font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+}
+/* 本篇冷笑话 / 金句：独立容器，与正文气质区分 */
+.wa-bold-signal .wa-ziikoo-hook-bubble {
+  margin: 18px auto 0;
+  padding: 14px 16px 16px;
+  max-width: 94%;
+  box-sizing: border-box;
+  text-align: center;
+  /* 暖灰底 + 细描边，比正文 callout 更轻、更口语 */
+  background: #f7f4ef;
+  border: 1px solid rgba(43, 43, 43, 0.06);
+  border-radius: 10px;
+}
+.wa-bold-signal .wa-ziikoo-hook-line {
+  margin: 0;
+  padding: 0;
+  color: #3d3a36;
+  /* 略偏人文/口语：系统宋体优先，正文是无衬线 */
+  font-family:
+    "Songti SC",
+    "STSong",
+    "Noto Serif CJK SC",
+    "Source Han Serif SC",
+    "PingFang SC",
+    serif;
+  font-size: 15px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  line-height: 1.85;
+  text-align: center;
+}
+.wa-bold-signal .wa-ziikoo-hook-line + .wa-bold-signal .wa-ziikoo-hook-line {
+  margin-top: 8px;
+}
+.wa-bold-signal .wa-ziikoo-hook-slogan {
+  margin: 18px 0 0 0;
+  padding: 0;
+  color: #595959;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
+}
+.wa-bold-signal .wa-ziikoo-hook-domain {
+  margin: 4px 0 0 0;
+  padding: 0;
+  color: #8a8a8a;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  line-height: 1.5;
+}
+
+.wa-bold-signal .wa-series-nav { background: #1a1a1a; color: #fff; border-radius: 10px; }
+.wa-bold-signal .wa-series-nav, .wa-bold-signal .wa-series-nav a { color: #fff; }
+.wa-bold-signal .wa-h2 { border-bottom-width: 5px; color: #1a1a1a; }
+.wa-bold-signal .wa-lede { font-weight: 800; letter-spacing: -0.02em; }
+.wa-bold-signal .wa-callout-blue { background: #FF5722; border-color: #FF5722; color: #1a1a1a; }
+.wa-bold-signal .wa-callout-blue::before { color: #1a1a1a; content: "01"; font-size: 14px; font-weight: 800; letter-spacing: 0.08em; }
+.wa-bold-signal .wa-callout-blue p { color: #1a1a1a; }
+.wa-bold-signal .wa-strong { color: #FF5722; }
+.wa-bold-signal .wa-ziikoo-hook-bubble { background: #fff3ee; border: 1px solid rgba(255,87,34,0.25); border-radius: 10px; }
+.wa-bold-signal .wa-ziikoo-hook-line { font-family: system-ui, -apple-system, "PingFang SC", sans-serif; font-weight: 500; }</style><div class="wa-bold-signal"><div class="wa-bold-signal">
+<h1 class="wa-lede">Fable当Boss，Sol做牛马？</h1>
+<p class="wa-paragraph">GPT-5.6 出来后，大家吵的不是「谁更强」。</p>
+<p class="wa-paragraph">而是两件事：</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Fable 5 和 Sol，怎么一起用</strong></li></ol>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Luna / Terra / Sol，各自开在哪</strong></li></ol>
+<p class="wa-paragraph">日本开发者圈给了双模型分工。 著名 AI Newsletter 博主 <strong class="wa-strong">Ben</strong> 又补了一套 GPT-5.6 三档搭配。</p>
+<p class="wa-paragraph">下面合在一起，方便直接抄。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">先记两句</strong></p><p>跨生态：Fable 写指令，Sol 去干活。  
+单栈 OpenAI：主开发 Sol medium，聊天 Luna xhigh，复杂再开 Ultra。</p></blockquote>
+<h2 class="wa-h2"><span class="wa-h2-inner">先跨生态：猫头鹰 × 罗威纳</span></h2>
+<p class="wa-paragraph">日推里最好记的说法：</p>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Fable ≈ 猫头鹰</strong>：看得深，会问「该不该做」。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Sol ≈ 罗威纳</strong>：咬住任务，默默干到结束。</li></ul>
+<p class="wa-paragraph">所以：</p>
+<p class="wa-paragraph"><strong class="wa-strong">想清楚 → Fable</strong> <strong class="wa-strong">干完 → Sol</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">七种几乎被统一的用法</span></h2>
+<h3 class="wa-h3"><span class="wa-h3-inner">1. Fable 写指示，Sol 去执行</span></h3>
+<p class="wa-paragraph">别自己写超长 prompt。 也别让 Fable 直接改生产代码。</p>
+<ol class="wa-list-ol"><li>你说目标、边界、不能做什么。</li></ol>
+<ol class="wa-list-ol"><li>Fable 写成：验收、影响范围、测试、风险。</li></ol>
+<ol class="wa-list-ol"><li>原样丢给 Codex + Sol。</li></ol>
+<p class="wa-paragraph">中间少一层「人手翻译」。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">2. 设计归 Fable，实现归 Sol</span></h3>
+<ul class="wa-list-ul"><li>Fable：拆 Issue、定方案、做评审</li></ul>
+<ul class="wa-list-ul"><li>Sol：写代码、补测试、贴合现有风格</li></ul>
+<ul class="wa-list-ul"><li>可选：便宜模型做旁路杂活</li></ul>
+<p class="wa-paragraph">硬规矩：</p>
+<p class="wa-paragraph"><strong class="wa-strong">实现的人，不要自己终审。</strong></p>
+<h3 class="wa-h3"><span class="wa-h3-inner">3. 商量找 Fable，写码找 Sol</span></h3>
+<p class="wa-paragraph">Fable 更会先查再动。 Sol 实现更快、更贴代码、更能收尾。</p>
+<ul class="wa-list-ul"><li>架构、产品边界 → Fable</li></ul>
+<ul class="wa-list-ul"><li>跨文件实现、长清单 → Sol</li></ul>
+<h3 class="wa-h3"><span class="wa-h3-inner">4. 有意让 Fable 指挥 Sol</span></h3>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">Fable 规划 → 目标 / 非目标 / 验收
+Sol 执行   → 代码 + 测试
+换模型只读 → 能不能合</code></pre>
+<p class="wa-paragraph">别在一个窗口从聊天聊到上线。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">5. 长文偏 Fable；研究有时选 Sol</span></h3>
+<p class="wa-paragraph">写文章、写文档：Fable 往往更稳。 部分垂直研究：有人反馈 Sol 更少「误杀」。</p>
+<p class="wa-paragraph">别默认：最强编程模型 = 最强写手。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">6. 按任务选，不按信仰选</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Fable</strong>：架构、体验、文案、「懂不懂」式评审 <strong class="wa-strong">Sol</strong>：实现、重构、长时程、子 Agent、贴合存量代码</p>
+<p class="wa-paragraph">Fable 聪明，偶尔让人慌：「好像漏了什么」。 Sol 不总是最机灵，但交代的事会做完。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">7. 日常就三步</span></h3>
+<ol class="wa-list-ol"><li>Fable 对稿</li></ol>
+<ol class="wa-list-ol"><li>Sol 干重活</li></ol>
+<ol class="wa-list-ol"><li>便宜模型当手脚</li></ol>
+<p class="wa-paragraph">这是额度、速度、风险的选择，不是情怀。</p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">再叠 Ben 的 GPT-5.6 三档</span></h2>
+<p class="wa-paragraph">只在 OpenAI 栈里干活时，Ben 的组合很实用：</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">他的默认搭配</span></h3>
+<ol class="wa-list-ol"><li><strong class="wa-strong">主要开发 + 创意</strong> → <strong class="wa-strong">Sol medium</strong></li></ol>
+<p class="wa-paragraph">日常主力。够强，又没那么烧。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">复杂任务</strong> → <strong class="wa-strong">开 Ultra</strong></li></ol>
+<p class="wa-paragraph">用大量 Subagent 处理后台代理。 子代理可能是 <strong class="wa-strong">Sol</strong>，也可能是 <strong class="wa-strong">Terra</strong>。 主脑扛难题，手脚分摊杂活。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">日常对话</strong> → <strong class="wa-strong">Luna xhigh</strong></li></ol>
+<p class="wa-paragraph">聊天、轻问轻答，把贵模型省下来。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">和日推分工怎么拼</strong></p><p>有 Claude 时：Fable 对稿 → Sol medium 执行。  
+复杂且可并行：Sol / Terra 挂 Ultra 子代理。  
+闲聊、澄清、小问题：Luna xhigh。</p></blockquote>
+<h3 class="wa-h3"><span class="wa-h3-inner">Ben 对三档的点评</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Sol</strong></p>
+<ul class="wa-list-ul"><li>UI 可以；给参考稿，效果更好。</li></ul>
+<ul class="wa-list-ul"><li>Max 等级写作强，聊起来也有意思。</li></ul>
+<ul class="wa-list-ul"><li>适合当「主开发 + 重创意」的默认脑。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Terra</strong></p>
+<ul class="wa-list-ul"><li>像 GPT-5.5 的升级版。</li></ul>
+<ul class="wa-list-ul"><li>UI、写作有小幅提升。</li></ul>
+<ul class="wa-list-ul"><li>更「听话」，更容易被提示词带着走。</li></ul>
+<ul class="wa-list-ul"><li>很适合当 Ultra 里的执行子代理。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Luna</strong></p>
+<ul class="wa-list-ul"><li>有点「小模型味」。</li></ul>
+<ul class="wa-list-ul"><li>提示词糊时，容易 get 不到。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">任务定义清楚</strong>，才不掉链子。</li></ul>
+<ul class="wa-list-ul"><li>所以日常对话可以 Luna xhigh；模糊大活别硬塞。</li></ul>
+<p class="wa-paragraph">这和前文一致：</p>
+<p class="wa-paragraph"><strong class="wa-strong">不是模型不行，是规格还糊。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">合成一张作战卡</span></h2>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">【跨生态】
+意图糊 → Fable 对稿
+规格清 → Sol 执行（建议 medium）
+终审   → 换模型只读
+
+【纯 OpenAI / Ben 搭配】
+主开发·创意 → Sol medium
+复杂可并行 → Ultra + Sol/Terra 子代理
+日常对话   → Luna xhigh
+
+【三档直觉】
+Luna  → 任务必须清楚
+Terra → 听话、好引导、当手脚
+Sol   → 主力脑；UI 给参考，写作可上 Max</code></pre>
+<p class="wa-paragraph">再压成一句：</p>
+<p class="wa-paragraph"><strong class="wa-strong">Fable 写指令，Sol 去干活。</strong> <strong class="wa-strong">聊天 Luna，复杂 Ultra，Terra 当听话的手。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">别踩的坑</span></h2>
+<ul class="wa-list-ul"><li>全程 Sol Ultra 吃到饱</li></ul>
+<ul class="wa-list-ul"><li>模糊需求硬塞 Luna</li></ul>
+<ul class="wa-list-ul"><li>Full Access + 无沙箱</li></ul>
+<ul class="wa-list-ul"><li>实现会话自己终审</li></ul>
+<ul class="wa-list-ul"><li>一个对话从闲聊做到上线</li></ul>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">停手句，直接复制</strong></p><p>请先只做：影响范围 + 简短规格（行为、组件、非目标、验收、测试）。</p><p>写完规格后停止，等我确认。  
+不要直接改代码。</p></blockquote>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">本周就能落地</span></h2>
+<ol class="wa-list-ol"><li>双模型规则做成 Skill，别塞进所有聊天。</li></ol>
+<ol class="wa-list-ol"><li>主开发默认 <strong class="wa-strong">Sol medium</strong>，别一上来 Max / Ultra。</li></ol>
+<ol class="wa-list-ol"><li>子 Agent 预先钉死：重活 Sol，听话执行 Terra，清楚杂活 Luna。</li></ol>
+<ol class="wa-list-ol"><li>给 Sol 做 UI 时，附参考，不要只丢形容词。</li></ol>
+<ol class="wa-list-ol"><li>看可合并的 diff，不看 tool 调用次数。</li></ol>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">结语</span></h2>
+<p class="wa-paragraph">编排时代，胜负手不是榜单第一，是产线设计。</p>
+<p class="wa-paragraph">Fable 和 Sol 不是信仰之战。 Luna / Terra / Sol 也不是面子工程。</p>
+<p class="wa-paragraph">它们是同一条产线上的不同工位。</p>
+<hr class="wa-divider" />
+<p class="wa-paragraph"><em>综合日推实践与 AI Newsletter 博主 Ben 的 GPT-5.6 搭配点评改写，非官方文档。能力与安全策略会随版本变化，请以官方说明和沙箱策略为准。</em></p>
+<section class="wa-ziikoo-hook"><div class="wa-ziikoo-hook-row"><span class="wa-ziikoo-hook-logo"><svg role="img" aria-label="ziikoo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" shape-rendering="crispEdges">
+  <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>  <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/></svg></span><span class="wa-ziikoo-hook-phrase">有话说</span></div><div class="wa-ziikoo-hook-bubble"><p class="wa-ziikoo-hook-line">小朋友才做选择，大人的Claud都被封了🐶</p></div><p class="wa-ziikoo-hook-slogan">企业 AI 生产力管理平台</p><p class="wa-ziikoo-hook-domain">ziikoo.com</p></section>
+</div></div></div><div class="panel"><div class="panel-head">Notebook Tabs</div><style>/* notebook-tabs · from frontend-slides Notebook Tabs */
+:root {
+  --wa-color-accent: #5a9e86;              /* deepened mint tab */
+  --wa-color-accent-faint: rgba(152, 212, 187, 0.28);
+  --wa-color-accent-border: rgba(90, 158, 134, 0.35);
+  --wa-color-accent-ghost: rgba(90, 158, 134, 0.45);
+  --wa-color-text: #1a1a1a;
+  --wa-color-text-muted: #5c5c5c;
+  --wa-color-inline-code-fg: #3d7a66;
+  --wa-color-inline-code-bg: rgba(152, 212, 187, 0.22);
+
+  --wa-color-code-bg: #2d2d2d;             /* outer dark from preset */
+  --wa-color-code-fg: #f8f6f1;
+  --wa-color-code-shadow: rgba(45, 45, 45, 0.25);
+  --wa-color-code-keyword: #f4b8c5;
+  --wa-color-code-string: #98d4bb;
+  --wa-color-code-number: #ffe6a7;
+  --wa-color-code-comment: #9a9590;
+  --wa-color-code-builtin: #a8d8ea;
+  --wa-color-code-fn: #c7b8ea;
+  --wa-color-code-class: #f4b8c5;
+
+  --wa-color-figure-shadow: rgba(45, 45, 45, 0.12);
+
+  --wa-font-body: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --wa-font-code: "SF Mono", Consolas, Monaco, Menlo, monospace;
+  --wa-font-accent: "Songti SC", "STSong", "PingFang SC", serif;
+
+  --wa-text-body: 15px;
+  --wa-text-lede: 22px;
+  --wa-text-h2: 21px;
+  --wa-text-h3: 18px;
+  --wa-text-strong: 15px;
+  --wa-text-code-inline: 13px;
+  --wa-text-code-block: 12px;
+  --wa-text-figure-caption: 13px;
+  --wa-line-height-body: 1.85em;
+  --wa-letter-spacing-body: 0.02em;
+
+  --wa-gap-paragraph: 10px;
+  --wa-gap-section: 32px;
+  --wa-gap-sub-section: 22px;
+  --wa-gap-block: 16px;
+  --wa-gap-list-item: 6px;
+
+  --wa-radius-card: 10px;
+  --wa-radius-code: 8px;
+  --wa-radius-pill: 999px;
+
+  --wa-code-block-shadow: 0 3px 14px var(--wa-color-code-shadow);
+  --wa-figure-shadow: 0 2px 12px var(--wa-color-figure-shadow);
+  --wa-code-inline-margin: 0 2px;
+}
+
+
+/* ===========================================
+   notebook-tabs · blocks.css
+   Implements the 13-block contract. Palette/type from Frontend Slides presets, adapted for WeChat long-form.
+   =========================================== */
+
+/* --- 1. series-nav: top intro with prior articles list --- */
+.wa-notebook-tabs .wa-series-nav {
+  margin: 0 0 24px 0;
+  padding: 10px;
+  font-family: var(--wa-font-accent);
+  font-size: 16px;
+  color: #000;
+  line-height: 1.5em;
+  word-spacing: 0;
+  letter-spacing: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+  background:
+    linear-gradient(90deg, rgba(50, 0, 0, 0.03) 0%, rgba(255, 255, 255, 0) 11.49%),
+    linear-gradient(360deg, rgba(50, 0, 0, 0.04) 0%, rgba(255, 255, 255, 0) 12.16%);
+  background-repeat: repeat, repeat;
+  background-size: 20px 20px, 20px 20px;
+}
+.wa-notebook-tabs .wa-series-nav-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.wa-notebook-tabs .wa-series-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wa-notebook-tabs .wa-series-nav-item {
+  margin: 2px 0;
+}
+
+/* --- 2. paragraph --- */
+.wa-notebook-tabs .wa-paragraph {
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: var(--wa-letter-spacing-body);
+  text-align: left;
+  text-indent: 0;
+  margin: 0;
+  padding: var(--wa-gap-paragraph) 0;
+}
+
+/* --- 3. callout: 蓝色引用框 --- */
+.wa-notebook-tabs .wa-callout-blue {
+  position: relative;
+  margin: 20px 0;
+  padding: 10px 20px 10px 10px;
+  border: 1px solid var(--wa-color-accent-border);
+  border-radius: var(--wa-radius-card);
+  background: var(--wa-color-accent-faint);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+.wa-notebook-tabs .wa-callout-blue::before {
+  content: "\275D"; /* ❝ */
+  display: block;
+  color: var(--wa-color-accent-ghost);
+  font-size: 28px;
+  line-height: 1.5em;
+  font-weight: bold;
+  text-align: left;
+}
+.wa-notebook-tabs .wa-callout-blue p {
+  margin: 0;
+  padding: 0;
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-notebook-tabs .wa-callout-blue p + p {
+  margin-top: 8px;
+}
+
+/* --- 4. h2: section title with bottom rule --- */
+.wa-notebook-tabs .wa-h2 {
+  display: flex;
+  margin-top: var(--wa-gap-section);
+  margin-bottom: 15px;
+  padding-bottom: 0;
+  border-bottom: 4px solid var(--wa-color-accent);
+  font-size: var(--wa-text-h2);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+.wa-notebook-tabs .wa-h2-inner {
+  flex: 1;
+}
+
+/* --- 5. h3: sub-section with leading icon --- */
+.wa-notebook-tabs .wa-h3 {
+  display: flex;
+  align-items: center;
+  margin-top: var(--wa-gap-sub-section);
+  margin-bottom: 15px;
+  padding: 0;
+  font-size: var(--wa-text-h3);
+  color: var(--wa-color-text);
+  font-weight: bold;
+  line-height: 1.5em;
+}
+.wa-notebook-tabs .wa-h3-inner {
+  display: inline-block;
+  height: 38px;
+  line-height: 2.4em;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  text-align: center;
+  text-indent: 0;
+}
+
+/* --- 6. strong: inline emphasis --- */
+.wa-notebook-tabs .wa-strong {
+  color: var(--wa-color-inline-code-fg);
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- 7. inline code --- */
+.wa-notebook-tabs .wa-code-inline {
+  color: var(--wa-color-inline-code-fg);
+  font-size: var(--wa-text-code-inline);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: 0;
+  background: var(--wa-color-inline-code-bg);
+  font-family: var(--wa-font-code);
+  padding: 2px 4px;
+  margin: var(--wa-code-inline-margin);
+  border-radius: var(--wa-radius-pill);
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+/* --- 8. code block: dark, One Dark theme --- */
+.wa-notebook-tabs .wa-code-block {
+  display: block;
+  margin: 10px 0;
+  padding: 0;
+  border-radius: var(--wa-radius-code);
+  box-shadow: var(--wa-code-block-shadow);
+  text-align: left;
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  color: var(--wa-color-code-fg);
+  background: var(--wa-color-code-bg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.wa-notebook-tabs .wa-code-block-inner {
+  display: block;
+  padding: 16px;
+  background: var(--wa-color-code-bg);
+  color: var(--wa-color-code-fg);
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  white-space: pre;
+}
+.wa-notebook-tabs .wa-code-block .tok-keyword  { color: var(--wa-color-code-keyword); }
+.wa-notebook-tabs .wa-code-block .tok-string   { color: var(--wa-color-code-string); }
+.wa-notebook-tabs .wa-code-block .tok-number   { color: var(--wa-color-code-number); }
+.wa-notebook-tabs .wa-code-block .tok-comment  { color: var(--wa-color-code-comment); font-style: italic; }
+.wa-notebook-tabs .wa-code-block .tok-builtin  { color: var(--wa-color-code-builtin); }
+.wa-notebook-tabs .wa-code-block .tok-fn       { color: var(--wa-color-code-fn); }
+.wa-notebook-tabs .wa-code-block .tok-class    { color: var(--wa-color-code-class); }
+
+/* --- 9. lists --- */
+.wa-notebook-tabs .wa-list-ul,
+.wa-notebook-tabs .wa-list-ol {
+  margin: 8px 0;
+  padding-left: 25px;
+  color: #000;
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-notebook-tabs .wa-list-ul {
+  list-style-type: disc;
+}
+.wa-notebook-tabs .wa-list-ol {
+  list-style-type: decimal;
+}
+.wa-notebook-tabs .wa-list-ul li,
+.wa-notebook-tabs .wa-list-ol li {
+  margin: var(--wa-gap-list-item) 0;
+  padding: 0;
+}
+
+/* --- 10. figure: image --- */
+.wa-notebook-tabs .wa-figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+  padding: 0;
+}
+.wa-notebook-tabs .wa-figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border-radius: var(--wa-radius-card);
+  object-fit: fill;
+  box-shadow: var(--wa-figure-shadow);
+}
+
+/* --- 11. figure caption --- */
+.wa-notebook-tabs .wa-figure-caption {
+  margin-top: 6px;
+  font-size: var(--wa-text-figure-caption);
+  color: var(--wa-color-text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+/* --- 12. lede: 20px accent (used for "如下图：" labels and section openers) --- */
+.wa-notebook-tabs .wa-lede {
+  margin: 16px 0 8px 0;
+  padding: 0;
+  font-size: var(--wa-text-lede);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+
+/* --- 13. divider --- */
+.wa-notebook-tabs .wa-divider {
+  border: none;
+  border-top: 1px solid var(--wa-color-text-muted);
+  margin: 32px 0;
+  height: 0;
+}
+
+/* --- 14. fixed brand hook: ziikoo(SVG) + 有话说 --- */
+.wa-notebook-tabs .wa-ziikoo-hook {
+  margin: 40px 0 12px 0;
+  padding: 28px 12px 8px;
+  text-align: center;
+  border-top: 1px solid rgba(43, 43, 43, 0.1);
+}
+.wa-notebook-tabs .wa-ziikoo-hook-row {
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wa-notebook-tabs .wa-ziikoo-hook-logo {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 10px 0 0;
+  line-height: 0;
+}
+.wa-notebook-tabs .wa-ziikoo-hook-logo svg {
+  display: block;
+  width: 112px;
+  height: 22px;
+  /* pixel logo: keep crisp edges when scaled */
+  shape-rendering: crispEdges;
+}
+/* 有话说：系统标准字体，跨端稳定 */
+.wa-notebook-tabs .wa-ziikoo-hook-phrase {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  color: #2b2b2b;
+  font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+}
+/* 本篇冷笑话 / 金句：独立容器，与正文气质区分 */
+.wa-notebook-tabs .wa-ziikoo-hook-bubble {
+  margin: 18px auto 0;
+  padding: 14px 16px 16px;
+  max-width: 94%;
+  box-sizing: border-box;
+  text-align: center;
+  /* 暖灰底 + 细描边，比正文 callout 更轻、更口语 */
+  background: #f7f4ef;
+  border: 1px solid rgba(43, 43, 43, 0.06);
+  border-radius: 10px;
+}
+.wa-notebook-tabs .wa-ziikoo-hook-line {
+  margin: 0;
+  padding: 0;
+  color: #3d3a36;
+  /* 略偏人文/口语：系统宋体优先，正文是无衬线 */
+  font-family:
+    "Songti SC",
+    "STSong",
+    "Noto Serif CJK SC",
+    "Source Han Serif SC",
+    "PingFang SC",
+    serif;
+  font-size: 15px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  line-height: 1.85;
+  text-align: center;
+}
+.wa-notebook-tabs .wa-ziikoo-hook-line + .wa-notebook-tabs .wa-ziikoo-hook-line {
+  margin-top: 8px;
+}
+.wa-notebook-tabs .wa-ziikoo-hook-slogan {
+  margin: 18px 0 0 0;
+  padding: 0;
+  color: #595959;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
+}
+.wa-notebook-tabs .wa-ziikoo-hook-domain {
+  margin: 4px 0 0 0;
+  padding: 0;
+  color: #8a8a8a;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  line-height: 1.5;
+}
+
+.wa-notebook-tabs .wa-series-nav { background: #f8f6f1; border-radius: 10px; border-left: 4px solid #98d4bb; }
+.wa-notebook-tabs .wa-h2 { border-bottom-width: 3px; border-radius: 0; color: #1a1a1a; border-bottom-color: #98d4bb; }
+.wa-notebook-tabs .wa-lede { font-family: var(--wa-font-accent); font-weight: 600; color: #1a1a1a; }
+.wa-notebook-tabs .wa-callout-blue { border-radius: 12px; background: rgba(199, 184, 234, 0.22); border-color: rgba(199, 184, 234, 0.55); }
+.wa-notebook-tabs .wa-callout-blue::before { color: #9b8dc4; }
+.wa-notebook-tabs .wa-ziikoo-hook-bubble { background: #f8f6f1; border: 1px solid rgba(152, 212, 187, 0.45); border-radius: 12px; }
+.wa-notebook-tabs .wa-ziikoo-hook-line { font-family: "Songti SC", "STSong", "PingFang SC", serif; }
+.wa-notebook-tabs .wa-ziikoo-hook { border-top-color: rgba(45,45,45,0.08); }</style><div class="wa-notebook-tabs"><div class="wa-notebook-tabs">
+<h1 class="wa-lede">Fable当Boss，Sol做牛马？</h1>
+<p class="wa-paragraph">GPT-5.6 出来后，大家吵的不是「谁更强」。</p>
+<p class="wa-paragraph">而是两件事：</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Fable 5 和 Sol，怎么一起用</strong></li></ol>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Luna / Terra / Sol，各自开在哪</strong></li></ol>
+<p class="wa-paragraph">日本开发者圈给了双模型分工。 著名 AI Newsletter 博主 <strong class="wa-strong">Ben</strong> 又补了一套 GPT-5.6 三档搭配。</p>
+<p class="wa-paragraph">下面合在一起，方便直接抄。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">先记两句</strong></p><p>跨生态：Fable 写指令，Sol 去干活。  
+单栈 OpenAI：主开发 Sol medium，聊天 Luna xhigh，复杂再开 Ultra。</p></blockquote>
+<h2 class="wa-h2"><span class="wa-h2-inner">先跨生态：猫头鹰 × 罗威纳</span></h2>
+<p class="wa-paragraph">日推里最好记的说法：</p>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Fable ≈ 猫头鹰</strong>：看得深，会问「该不该做」。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Sol ≈ 罗威纳</strong>：咬住任务，默默干到结束。</li></ul>
+<p class="wa-paragraph">所以：</p>
+<p class="wa-paragraph"><strong class="wa-strong">想清楚 → Fable</strong> <strong class="wa-strong">干完 → Sol</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">七种几乎被统一的用法</span></h2>
+<h3 class="wa-h3"><span class="wa-h3-inner">1. Fable 写指示，Sol 去执行</span></h3>
+<p class="wa-paragraph">别自己写超长 prompt。 也别让 Fable 直接改生产代码。</p>
+<ol class="wa-list-ol"><li>你说目标、边界、不能做什么。</li></ol>
+<ol class="wa-list-ol"><li>Fable 写成：验收、影响范围、测试、风险。</li></ol>
+<ol class="wa-list-ol"><li>原样丢给 Codex + Sol。</li></ol>
+<p class="wa-paragraph">中间少一层「人手翻译」。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">2. 设计归 Fable，实现归 Sol</span></h3>
+<ul class="wa-list-ul"><li>Fable：拆 Issue、定方案、做评审</li></ul>
+<ul class="wa-list-ul"><li>Sol：写代码、补测试、贴合现有风格</li></ul>
+<ul class="wa-list-ul"><li>可选：便宜模型做旁路杂活</li></ul>
+<p class="wa-paragraph">硬规矩：</p>
+<p class="wa-paragraph"><strong class="wa-strong">实现的人，不要自己终审。</strong></p>
+<h3 class="wa-h3"><span class="wa-h3-inner">3. 商量找 Fable，写码找 Sol</span></h3>
+<p class="wa-paragraph">Fable 更会先查再动。 Sol 实现更快、更贴代码、更能收尾。</p>
+<ul class="wa-list-ul"><li>架构、产品边界 → Fable</li></ul>
+<ul class="wa-list-ul"><li>跨文件实现、长清单 → Sol</li></ul>
+<h3 class="wa-h3"><span class="wa-h3-inner">4. 有意让 Fable 指挥 Sol</span></h3>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">Fable 规划 → 目标 / 非目标 / 验收
+Sol 执行   → 代码 + 测试
+换模型只读 → 能不能合</code></pre>
+<p class="wa-paragraph">别在一个窗口从聊天聊到上线。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">5. 长文偏 Fable；研究有时选 Sol</span></h3>
+<p class="wa-paragraph">写文章、写文档：Fable 往往更稳。 部分垂直研究：有人反馈 Sol 更少「误杀」。</p>
+<p class="wa-paragraph">别默认：最强编程模型 = 最强写手。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">6. 按任务选，不按信仰选</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Fable</strong>：架构、体验、文案、「懂不懂」式评审 <strong class="wa-strong">Sol</strong>：实现、重构、长时程、子 Agent、贴合存量代码</p>
+<p class="wa-paragraph">Fable 聪明，偶尔让人慌：「好像漏了什么」。 Sol 不总是最机灵，但交代的事会做完。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">7. 日常就三步</span></h3>
+<ol class="wa-list-ol"><li>Fable 对稿</li></ol>
+<ol class="wa-list-ol"><li>Sol 干重活</li></ol>
+<ol class="wa-list-ol"><li>便宜模型当手脚</li></ol>
+<p class="wa-paragraph">这是额度、速度、风险的选择，不是情怀。</p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">再叠 Ben 的 GPT-5.6 三档</span></h2>
+<p class="wa-paragraph">只在 OpenAI 栈里干活时，Ben 的组合很实用：</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">他的默认搭配</span></h3>
+<ol class="wa-list-ol"><li><strong class="wa-strong">主要开发 + 创意</strong> → <strong class="wa-strong">Sol medium</strong></li></ol>
+<p class="wa-paragraph">日常主力。够强，又没那么烧。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">复杂任务</strong> → <strong class="wa-strong">开 Ultra</strong></li></ol>
+<p class="wa-paragraph">用大量 Subagent 处理后台代理。 子代理可能是 <strong class="wa-strong">Sol</strong>，也可能是 <strong class="wa-strong">Terra</strong>。 主脑扛难题，手脚分摊杂活。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">日常对话</strong> → <strong class="wa-strong">Luna xhigh</strong></li></ol>
+<p class="wa-paragraph">聊天、轻问轻答，把贵模型省下来。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">和日推分工怎么拼</strong></p><p>有 Claude 时：Fable 对稿 → Sol medium 执行。  
+复杂且可并行：Sol / Terra 挂 Ultra 子代理。  
+闲聊、澄清、小问题：Luna xhigh。</p></blockquote>
+<h3 class="wa-h3"><span class="wa-h3-inner">Ben 对三档的点评</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Sol</strong></p>
+<ul class="wa-list-ul"><li>UI 可以；给参考稿，效果更好。</li></ul>
+<ul class="wa-list-ul"><li>Max 等级写作强，聊起来也有意思。</li></ul>
+<ul class="wa-list-ul"><li>适合当「主开发 + 重创意」的默认脑。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Terra</strong></p>
+<ul class="wa-list-ul"><li>像 GPT-5.5 的升级版。</li></ul>
+<ul class="wa-list-ul"><li>UI、写作有小幅提升。</li></ul>
+<ul class="wa-list-ul"><li>更「听话」，更容易被提示词带着走。</li></ul>
+<ul class="wa-list-ul"><li>很适合当 Ultra 里的执行子代理。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Luna</strong></p>
+<ul class="wa-list-ul"><li>有点「小模型味」。</li></ul>
+<ul class="wa-list-ul"><li>提示词糊时，容易 get 不到。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">任务定义清楚</strong>，才不掉链子。</li></ul>
+<ul class="wa-list-ul"><li>所以日常对话可以 Luna xhigh；模糊大活别硬塞。</li></ul>
+<p class="wa-paragraph">这和前文一致：</p>
+<p class="wa-paragraph"><strong class="wa-strong">不是模型不行，是规格还糊。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">合成一张作战卡</span></h2>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">【跨生态】
+意图糊 → Fable 对稿
+规格清 → Sol 执行（建议 medium）
+终审   → 换模型只读
+
+【纯 OpenAI / Ben 搭配】
+主开发·创意 → Sol medium
+复杂可并行 → Ultra + Sol/Terra 子代理
+日常对话   → Luna xhigh
+
+【三档直觉】
+Luna  → 任务必须清楚
+Terra → 听话、好引导、当手脚
+Sol   → 主力脑；UI 给参考，写作可上 Max</code></pre>
+<p class="wa-paragraph">再压成一句：</p>
+<p class="wa-paragraph"><strong class="wa-strong">Fable 写指令，Sol 去干活。</strong> <strong class="wa-strong">聊天 Luna，复杂 Ultra，Terra 当听话的手。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">别踩的坑</span></h2>
+<ul class="wa-list-ul"><li>全程 Sol Ultra 吃到饱</li></ul>
+<ul class="wa-list-ul"><li>模糊需求硬塞 Luna</li></ul>
+<ul class="wa-list-ul"><li>Full Access + 无沙箱</li></ul>
+<ul class="wa-list-ul"><li>实现会话自己终审</li></ul>
+<ul class="wa-list-ul"><li>一个对话从闲聊做到上线</li></ul>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">停手句，直接复制</strong></p><p>请先只做：影响范围 + 简短规格（行为、组件、非目标、验收、测试）。</p><p>写完规格后停止，等我确认。  
+不要直接改代码。</p></blockquote>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">本周就能落地</span></h2>
+<ol class="wa-list-ol"><li>双模型规则做成 Skill，别塞进所有聊天。</li></ol>
+<ol class="wa-list-ol"><li>主开发默认 <strong class="wa-strong">Sol medium</strong>，别一上来 Max / Ultra。</li></ol>
+<ol class="wa-list-ol"><li>子 Agent 预先钉死：重活 Sol，听话执行 Terra，清楚杂活 Luna。</li></ol>
+<ol class="wa-list-ol"><li>给 Sol 做 UI 时，附参考，不要只丢形容词。</li></ol>
+<ol class="wa-list-ol"><li>看可合并的 diff，不看 tool 调用次数。</li></ol>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">结语</span></h2>
+<p class="wa-paragraph">编排时代，胜负手不是榜单第一，是产线设计。</p>
+<p class="wa-paragraph">Fable 和 Sol 不是信仰之战。 Luna / Terra / Sol 也不是面子工程。</p>
+<p class="wa-paragraph">它们是同一条产线上的不同工位。</p>
+<hr class="wa-divider" />
+<p class="wa-paragraph"><em>综合日推实践与 AI Newsletter 博主 Ben 的 GPT-5.6 搭配点评改写，非官方文档。能力与安全策略会随版本变化，请以官方说明和沙箱策略为准。</em></p>
+<section class="wa-ziikoo-hook"><div class="wa-ziikoo-hook-row"><span class="wa-ziikoo-hook-logo"><svg role="img" aria-label="ziikoo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" shape-rendering="crispEdges">
+  <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>  <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/></svg></span><span class="wa-ziikoo-hook-phrase">有话说</span></div><div class="wa-ziikoo-hook-bubble"><p class="wa-ziikoo-hook-line">小朋友才做选择，大人的Claud都被封了🐶</p></div><p class="wa-ziikoo-hook-slogan">企业 AI 生产力管理平台</p><p class="wa-ziikoo-hook-domain">ziikoo.com</p></section>
+</div></div></div><div class="panel"><div class="panel-head">Soft Editorial</div><style>/* soft-editorial · Soft Editorial + Dark Botanical accents */
+:root {
+  --wa-color-accent: #c9a27a;              /* warm gold */
+  --wa-color-accent-faint: rgba(232, 180, 184, 0.18); /* botanical pink wash */
+  --wa-color-accent-border: rgba(201, 162, 122, 0.40);
+  --wa-color-accent-ghost: rgba(201, 162, 122, 0.55);
+  --wa-color-text: #2a2623;
+  --wa-color-text-muted: #7a736c;
+  --wa-color-inline-code-fg: #9a6b45;
+  --wa-color-inline-code-bg: rgba(201, 162, 122, 0.14);
+
+  --wa-color-code-bg: #2a2623;
+  --wa-color-code-fg: #e8e4df;
+  --wa-color-code-shadow: rgba(42, 38, 35, 0.25);
+  --wa-color-code-keyword: #e8b4b8;
+  --wa-color-code-string: #c9b896;
+  --wa-color-code-number: #d4a574;
+  --wa-color-code-comment: #9a9590;
+  --wa-color-code-builtin: #e8e4df;
+  --wa-color-code-fn: #e8b4b8;
+  --wa-color-code-class: #d4a574;
+
+  --wa-color-figure-shadow: rgba(42, 38, 35, 0.12);
+
+  --wa-font-body: "Songti SC", "STSong", "Noto Serif CJK SC", "PingFang SC", serif;
+  --wa-font-code: Consolas, Monaco, Menlo, monospace;
+  --wa-font-accent: "Songti SC", "STSong", serif;
+
+  --wa-text-body: 15px;
+  --wa-text-lede: 22px;
+  --wa-text-h2: 21px;
+  --wa-text-h3: 18px;
+  --wa-text-strong: 15px;
+  --wa-text-code-inline: 13px;
+  --wa-text-code-block: 12px;
+  --wa-text-figure-caption: 13px;
+  --wa-line-height-body: 1.9em;
+  --wa-letter-spacing-body: 0.03em;
+
+  --wa-gap-paragraph: 12px;
+  --wa-gap-section: 34px;
+  --wa-gap-sub-section: 24px;
+  --wa-gap-block: 18px;
+  --wa-gap-list-item: 6px;
+
+  --wa-radius-card: 8px;
+  --wa-radius-code: 8px;
+  --wa-radius-pill: 4px;
+
+  --wa-code-block-shadow: 0 2px 12px var(--wa-color-code-shadow);
+  --wa-figure-shadow: 0 2px 10px var(--wa-color-figure-shadow);
+  --wa-code-inline-margin: 0 2px;
+}
+
+
+/* ===========================================
+   soft-editorial · blocks.css
+   Implements the 13-block contract. Palette/type from Frontend Slides presets, adapted for WeChat long-form.
+   =========================================== */
+
+/* --- 1. series-nav: top intro with prior articles list --- */
+.wa-soft-editorial .wa-series-nav {
+  margin: 0 0 24px 0;
+  padding: 10px;
+  font-family: var(--wa-font-accent);
+  font-size: 16px;
+  color: #000;
+  line-height: 1.5em;
+  word-spacing: 0;
+  letter-spacing: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+  background:
+    linear-gradient(90deg, rgba(50, 0, 0, 0.03) 0%, rgba(255, 255, 255, 0) 11.49%),
+    linear-gradient(360deg, rgba(50, 0, 0, 0.04) 0%, rgba(255, 255, 255, 0) 12.16%);
+  background-repeat: repeat, repeat;
+  background-size: 20px 20px, 20px 20px;
+}
+.wa-soft-editorial .wa-series-nav-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.wa-soft-editorial .wa-series-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wa-soft-editorial .wa-series-nav-item {
+  margin: 2px 0;
+}
+
+/* --- 2. paragraph --- */
+.wa-soft-editorial .wa-paragraph {
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: var(--wa-letter-spacing-body);
+  text-align: left;
+  text-indent: 0;
+  margin: 0;
+  padding: var(--wa-gap-paragraph) 0;
+}
+
+/* --- 3. callout: 蓝色引用框 --- */
+.wa-soft-editorial .wa-callout-blue {
+  position: relative;
+  margin: 20px 0;
+  padding: 10px 20px 10px 10px;
+  border: 1px solid var(--wa-color-accent-border);
+  border-radius: var(--wa-radius-card);
+  background: var(--wa-color-accent-faint);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+.wa-soft-editorial .wa-callout-blue::before {
+  content: "\275D"; /* ❝ */
+  display: block;
+  color: var(--wa-color-accent-ghost);
+  font-size: 28px;
+  line-height: 1.5em;
+  font-weight: bold;
+  text-align: left;
+}
+.wa-soft-editorial .wa-callout-blue p {
+  margin: 0;
+  padding: 0;
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-soft-editorial .wa-callout-blue p + p {
+  margin-top: 8px;
+}
+
+/* --- 4. h2: section title with bottom rule --- */
+.wa-soft-editorial .wa-h2 {
+  display: flex;
+  margin-top: var(--wa-gap-section);
+  margin-bottom: 15px;
+  padding-bottom: 0;
+  border-bottom: 4px solid var(--wa-color-accent);
+  font-size: var(--wa-text-h2);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+.wa-soft-editorial .wa-h2-inner {
+  flex: 1;
+}
+
+/* --- 5. h3: sub-section with leading icon --- */
+.wa-soft-editorial .wa-h3 {
+  display: flex;
+  align-items: center;
+  margin-top: var(--wa-gap-sub-section);
+  margin-bottom: 15px;
+  padding: 0;
+  font-size: var(--wa-text-h3);
+  color: var(--wa-color-text);
+  font-weight: bold;
+  line-height: 1.5em;
+}
+.wa-soft-editorial .wa-h3-inner {
+  display: inline-block;
+  height: 38px;
+  line-height: 2.4em;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  text-align: center;
+  text-indent: 0;
+}
+
+/* --- 6. strong: inline emphasis --- */
+.wa-soft-editorial .wa-strong {
+  color: var(--wa-color-inline-code-fg);
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- 7. inline code --- */
+.wa-soft-editorial .wa-code-inline {
+  color: var(--wa-color-inline-code-fg);
+  font-size: var(--wa-text-code-inline);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: 0;
+  background: var(--wa-color-inline-code-bg);
+  font-family: var(--wa-font-code);
+  padding: 2px 4px;
+  margin: var(--wa-code-inline-margin);
+  border-radius: var(--wa-radius-pill);
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+/* --- 8. code block: dark, One Dark theme --- */
+.wa-soft-editorial .wa-code-block {
+  display: block;
+  margin: 10px 0;
+  padding: 0;
+  border-radius: var(--wa-radius-code);
+  box-shadow: var(--wa-code-block-shadow);
+  text-align: left;
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  color: var(--wa-color-code-fg);
+  background: var(--wa-color-code-bg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.wa-soft-editorial .wa-code-block-inner {
+  display: block;
+  padding: 16px;
+  background: var(--wa-color-code-bg);
+  color: var(--wa-color-code-fg);
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  white-space: pre;
+}
+.wa-soft-editorial .wa-code-block .tok-keyword  { color: var(--wa-color-code-keyword); }
+.wa-soft-editorial .wa-code-block .tok-string   { color: var(--wa-color-code-string); }
+.wa-soft-editorial .wa-code-block .tok-number   { color: var(--wa-color-code-number); }
+.wa-soft-editorial .wa-code-block .tok-comment  { color: var(--wa-color-code-comment); font-style: italic; }
+.wa-soft-editorial .wa-code-block .tok-builtin  { color: var(--wa-color-code-builtin); }
+.wa-soft-editorial .wa-code-block .tok-fn       { color: var(--wa-color-code-fn); }
+.wa-soft-editorial .wa-code-block .tok-class    { color: var(--wa-color-code-class); }
+
+/* --- 9. lists --- */
+.wa-soft-editorial .wa-list-ul,
+.wa-soft-editorial .wa-list-ol {
+  margin: 8px 0;
+  padding-left: 25px;
+  color: #000;
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-soft-editorial .wa-list-ul {
+  list-style-type: disc;
+}
+.wa-soft-editorial .wa-list-ol {
+  list-style-type: decimal;
+}
+.wa-soft-editorial .wa-list-ul li,
+.wa-soft-editorial .wa-list-ol li {
+  margin: var(--wa-gap-list-item) 0;
+  padding: 0;
+}
+
+/* --- 10. figure: image --- */
+.wa-soft-editorial .wa-figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+  padding: 0;
+}
+.wa-soft-editorial .wa-figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border-radius: var(--wa-radius-card);
+  object-fit: fill;
+  box-shadow: var(--wa-figure-shadow);
+}
+
+/* --- 11. figure caption --- */
+.wa-soft-editorial .wa-figure-caption {
+  margin-top: 6px;
+  font-size: var(--wa-text-figure-caption);
+  color: var(--wa-color-text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+/* --- 12. lede: 20px accent (used for "如下图：" labels and section openers) --- */
+.wa-soft-editorial .wa-lede {
+  margin: 16px 0 8px 0;
+  padding: 0;
+  font-size: var(--wa-text-lede);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+
+/* --- 13. divider --- */
+.wa-soft-editorial .wa-divider {
+  border: none;
+  border-top: 1px solid var(--wa-color-text-muted);
+  margin: 32px 0;
+  height: 0;
+}
+
+/* --- 14. fixed brand hook: ziikoo(SVG) + 有话说 --- */
+.wa-soft-editorial .wa-ziikoo-hook {
+  margin: 40px 0 12px 0;
+  padding: 28px 12px 8px;
+  text-align: center;
+  border-top: 1px solid rgba(43, 43, 43, 0.1);
+}
+.wa-soft-editorial .wa-ziikoo-hook-row {
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wa-soft-editorial .wa-ziikoo-hook-logo {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 10px 0 0;
+  line-height: 0;
+}
+.wa-soft-editorial .wa-ziikoo-hook-logo svg {
+  display: block;
+  width: 112px;
+  height: 22px;
+  /* pixel logo: keep crisp edges when scaled */
+  shape-rendering: crispEdges;
+}
+/* 有话说：系统标准字体，跨端稳定 */
+.wa-soft-editorial .wa-ziikoo-hook-phrase {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  color: #2b2b2b;
+  font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+}
+/* 本篇冷笑话 / 金句：独立容器，与正文气质区分 */
+.wa-soft-editorial .wa-ziikoo-hook-bubble {
+  margin: 18px auto 0;
+  padding: 14px 16px 16px;
+  max-width: 94%;
+  box-sizing: border-box;
+  text-align: center;
+  /* 暖灰底 + 细描边，比正文 callout 更轻、更口语 */
+  background: #f7f4ef;
+  border: 1px solid rgba(43, 43, 43, 0.06);
+  border-radius: 10px;
+}
+.wa-soft-editorial .wa-ziikoo-hook-line {
+  margin: 0;
+  padding: 0;
+  color: #3d3a36;
+  /* 略偏人文/口语：系统宋体优先，正文是无衬线 */
+  font-family:
+    "Songti SC",
+    "STSong",
+    "Noto Serif CJK SC",
+    "Source Han Serif SC",
+    "PingFang SC",
+    serif;
+  font-size: 15px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  line-height: 1.85;
+  text-align: center;
+}
+.wa-soft-editorial .wa-ziikoo-hook-line + .wa-soft-editorial .wa-ziikoo-hook-line {
+  margin-top: 8px;
+}
+.wa-soft-editorial .wa-ziikoo-hook-slogan {
+  margin: 18px 0 0 0;
+  padding: 0;
+  color: #595959;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
+}
+.wa-soft-editorial .wa-ziikoo-hook-domain {
+  margin: 4px 0 0 0;
+  padding: 0;
+  color: #8a8a8a;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  line-height: 1.5;
+}
+
+.wa-soft-editorial .wa-series-nav { background: #f4efe8; border-radius: 8px; }
+.wa-soft-editorial .wa-h2 { border-bottom-width: 2px; color: #2a2623; border-bottom-color: #e8b4b8; }
+.wa-soft-editorial .wa-lede { font-weight: 600; color: #2a2623; }
+.wa-soft-editorial .wa-paragraph { text-align: justify; }
+.wa-soft-editorial .wa-callout-blue { background: rgba(232, 180, 184, 0.18); border-color: rgba(232, 180, 184, 0.45); border-radius: 10px; }
+.wa-soft-editorial .wa-callout-blue::before { color: #d4a574; content: "※"; font-size: 18px; }
+.wa-soft-editorial .wa-ziikoo-hook-bubble { background: #f4efe8; border: 1px solid rgba(201,162,122,0.28); border-radius: 10px; }
+.wa-soft-editorial .wa-ziikoo-hook-line { font-family: "Songti SC", "STSong", "PingFang SC", serif; font-size: 15px; }
+.wa-soft-editorial .wa-ziikoo-hook { border-top-color: rgba(42,38,35,0.08); }</style><div class="wa-soft-editorial"><div class="wa-soft-editorial">
+<h1 class="wa-lede">Fable当Boss，Sol做牛马？</h1>
+<p class="wa-paragraph">GPT-5.6 出来后，大家吵的不是「谁更强」。</p>
+<p class="wa-paragraph">而是两件事：</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Fable 5 和 Sol，怎么一起用</strong></li></ol>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Luna / Terra / Sol，各自开在哪</strong></li></ol>
+<p class="wa-paragraph">日本开发者圈给了双模型分工。 著名 AI Newsletter 博主 <strong class="wa-strong">Ben</strong> 又补了一套 GPT-5.6 三档搭配。</p>
+<p class="wa-paragraph">下面合在一起，方便直接抄。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">先记两句</strong></p><p>跨生态：Fable 写指令，Sol 去干活。  
+单栈 OpenAI：主开发 Sol medium，聊天 Luna xhigh，复杂再开 Ultra。</p></blockquote>
+<h2 class="wa-h2"><span class="wa-h2-inner">先跨生态：猫头鹰 × 罗威纳</span></h2>
+<p class="wa-paragraph">日推里最好记的说法：</p>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Fable ≈ 猫头鹰</strong>：看得深，会问「该不该做」。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Sol ≈ 罗威纳</strong>：咬住任务，默默干到结束。</li></ul>
+<p class="wa-paragraph">所以：</p>
+<p class="wa-paragraph"><strong class="wa-strong">想清楚 → Fable</strong> <strong class="wa-strong">干完 → Sol</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">七种几乎被统一的用法</span></h2>
+<h3 class="wa-h3"><span class="wa-h3-inner">1. Fable 写指示，Sol 去执行</span></h3>
+<p class="wa-paragraph">别自己写超长 prompt。 也别让 Fable 直接改生产代码。</p>
+<ol class="wa-list-ol"><li>你说目标、边界、不能做什么。</li></ol>
+<ol class="wa-list-ol"><li>Fable 写成：验收、影响范围、测试、风险。</li></ol>
+<ol class="wa-list-ol"><li>原样丢给 Codex + Sol。</li></ol>
+<p class="wa-paragraph">中间少一层「人手翻译」。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">2. 设计归 Fable，实现归 Sol</span></h3>
+<ul class="wa-list-ul"><li>Fable：拆 Issue、定方案、做评审</li></ul>
+<ul class="wa-list-ul"><li>Sol：写代码、补测试、贴合现有风格</li></ul>
+<ul class="wa-list-ul"><li>可选：便宜模型做旁路杂活</li></ul>
+<p class="wa-paragraph">硬规矩：</p>
+<p class="wa-paragraph"><strong class="wa-strong">实现的人，不要自己终审。</strong></p>
+<h3 class="wa-h3"><span class="wa-h3-inner">3. 商量找 Fable，写码找 Sol</span></h3>
+<p class="wa-paragraph">Fable 更会先查再动。 Sol 实现更快、更贴代码、更能收尾。</p>
+<ul class="wa-list-ul"><li>架构、产品边界 → Fable</li></ul>
+<ul class="wa-list-ul"><li>跨文件实现、长清单 → Sol</li></ul>
+<h3 class="wa-h3"><span class="wa-h3-inner">4. 有意让 Fable 指挥 Sol</span></h3>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">Fable 规划 → 目标 / 非目标 / 验收
+Sol 执行   → 代码 + 测试
+换模型只读 → 能不能合</code></pre>
+<p class="wa-paragraph">别在一个窗口从聊天聊到上线。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">5. 长文偏 Fable；研究有时选 Sol</span></h3>
+<p class="wa-paragraph">写文章、写文档：Fable 往往更稳。 部分垂直研究：有人反馈 Sol 更少「误杀」。</p>
+<p class="wa-paragraph">别默认：最强编程模型 = 最强写手。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">6. 按任务选，不按信仰选</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Fable</strong>：架构、体验、文案、「懂不懂」式评审 <strong class="wa-strong">Sol</strong>：实现、重构、长时程、子 Agent、贴合存量代码</p>
+<p class="wa-paragraph">Fable 聪明，偶尔让人慌：「好像漏了什么」。 Sol 不总是最机灵，但交代的事会做完。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">7. 日常就三步</span></h3>
+<ol class="wa-list-ol"><li>Fable 对稿</li></ol>
+<ol class="wa-list-ol"><li>Sol 干重活</li></ol>
+<ol class="wa-list-ol"><li>便宜模型当手脚</li></ol>
+<p class="wa-paragraph">这是额度、速度、风险的选择，不是情怀。</p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">再叠 Ben 的 GPT-5.6 三档</span></h2>
+<p class="wa-paragraph">只在 OpenAI 栈里干活时，Ben 的组合很实用：</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">他的默认搭配</span></h3>
+<ol class="wa-list-ol"><li><strong class="wa-strong">主要开发 + 创意</strong> → <strong class="wa-strong">Sol medium</strong></li></ol>
+<p class="wa-paragraph">日常主力。够强，又没那么烧。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">复杂任务</strong> → <strong class="wa-strong">开 Ultra</strong></li></ol>
+<p class="wa-paragraph">用大量 Subagent 处理后台代理。 子代理可能是 <strong class="wa-strong">Sol</strong>，也可能是 <strong class="wa-strong">Terra</strong>。 主脑扛难题，手脚分摊杂活。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">日常对话</strong> → <strong class="wa-strong">Luna xhigh</strong></li></ol>
+<p class="wa-paragraph">聊天、轻问轻答，把贵模型省下来。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">和日推分工怎么拼</strong></p><p>有 Claude 时：Fable 对稿 → Sol medium 执行。  
+复杂且可并行：Sol / Terra 挂 Ultra 子代理。  
+闲聊、澄清、小问题：Luna xhigh。</p></blockquote>
+<h3 class="wa-h3"><span class="wa-h3-inner">Ben 对三档的点评</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Sol</strong></p>
+<ul class="wa-list-ul"><li>UI 可以；给参考稿，效果更好。</li></ul>
+<ul class="wa-list-ul"><li>Max 等级写作强，聊起来也有意思。</li></ul>
+<ul class="wa-list-ul"><li>适合当「主开发 + 重创意」的默认脑。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Terra</strong></p>
+<ul class="wa-list-ul"><li>像 GPT-5.5 的升级版。</li></ul>
+<ul class="wa-list-ul"><li>UI、写作有小幅提升。</li></ul>
+<ul class="wa-list-ul"><li>更「听话」，更容易被提示词带着走。</li></ul>
+<ul class="wa-list-ul"><li>很适合当 Ultra 里的执行子代理。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Luna</strong></p>
+<ul class="wa-list-ul"><li>有点「小模型味」。</li></ul>
+<ul class="wa-list-ul"><li>提示词糊时，容易 get 不到。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">任务定义清楚</strong>，才不掉链子。</li></ul>
+<ul class="wa-list-ul"><li>所以日常对话可以 Luna xhigh；模糊大活别硬塞。</li></ul>
+<p class="wa-paragraph">这和前文一致：</p>
+<p class="wa-paragraph"><strong class="wa-strong">不是模型不行，是规格还糊。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">合成一张作战卡</span></h2>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">【跨生态】
+意图糊 → Fable 对稿
+规格清 → Sol 执行（建议 medium）
+终审   → 换模型只读
+
+【纯 OpenAI / Ben 搭配】
+主开发·创意 → Sol medium
+复杂可并行 → Ultra + Sol/Terra 子代理
+日常对话   → Luna xhigh
+
+【三档直觉】
+Luna  → 任务必须清楚
+Terra → 听话、好引导、当手脚
+Sol   → 主力脑；UI 给参考，写作可上 Max</code></pre>
+<p class="wa-paragraph">再压成一句：</p>
+<p class="wa-paragraph"><strong class="wa-strong">Fable 写指令，Sol 去干活。</strong> <strong class="wa-strong">聊天 Luna，复杂 Ultra，Terra 当听话的手。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">别踩的坑</span></h2>
+<ul class="wa-list-ul"><li>全程 Sol Ultra 吃到饱</li></ul>
+<ul class="wa-list-ul"><li>模糊需求硬塞 Luna</li></ul>
+<ul class="wa-list-ul"><li>Full Access + 无沙箱</li></ul>
+<ul class="wa-list-ul"><li>实现会话自己终审</li></ul>
+<ul class="wa-list-ul"><li>一个对话从闲聊做到上线</li></ul>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">停手句，直接复制</strong></p><p>请先只做：影响范围 + 简短规格（行为、组件、非目标、验收、测试）。</p><p>写完规格后停止，等我确认。  
+不要直接改代码。</p></blockquote>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">本周就能落地</span></h2>
+<ol class="wa-list-ol"><li>双模型规则做成 Skill，别塞进所有聊天。</li></ol>
+<ol class="wa-list-ol"><li>主开发默认 <strong class="wa-strong">Sol medium</strong>，别一上来 Max / Ultra。</li></ol>
+<ol class="wa-list-ol"><li>子 Agent 预先钉死：重活 Sol，听话执行 Terra，清楚杂活 Luna。</li></ol>
+<ol class="wa-list-ol"><li>给 Sol 做 UI 时，附参考，不要只丢形容词。</li></ol>
+<ol class="wa-list-ol"><li>看可合并的 diff，不看 tool 调用次数。</li></ol>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">结语</span></h2>
+<p class="wa-paragraph">编排时代，胜负手不是榜单第一，是产线设计。</p>
+<p class="wa-paragraph">Fable 和 Sol 不是信仰之战。 Luna / Terra / Sol 也不是面子工程。</p>
+<p class="wa-paragraph">它们是同一条产线上的不同工位。</p>
+<hr class="wa-divider" />
+<p class="wa-paragraph"><em>综合日推实践与 AI Newsletter 博主 Ben 的 GPT-5.6 搭配点评改写，非官方文档。能力与安全策略会随版本变化，请以官方说明和沙箱策略为准。</em></p>
+<section class="wa-ziikoo-hook"><div class="wa-ziikoo-hook-row"><span class="wa-ziikoo-hook-logo"><svg role="img" aria-label="ziikoo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" shape-rendering="crispEdges">
+  <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>  <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/></svg></span><span class="wa-ziikoo-hook-phrase">有话说</span></div><div class="wa-ziikoo-hook-bubble"><p class="wa-ziikoo-hook-line">小朋友才做选择，大人的Claud都被封了🐶</p></div><p class="wa-ziikoo-hook-slogan">企业 AI 生产力管理平台</p><p class="wa-ziikoo-hook-domain">ziikoo.com</p></section>
+</div></div></div><div class="panel"><div class="panel-head">Swiss Modern</div><style>/* swiss-grid · Swiss Modern grammar */
+:root {
+  --wa-color-accent: #D62828;
+  --wa-color-accent-faint: rgba(214, 40, 40, 0.08);
+  --wa-color-accent-border: rgba(214, 40, 40, 0.35);
+  --wa-color-accent-ghost: rgba(214, 40, 40, 0.45);
+  --wa-color-text: #0A0A0A;
+  --wa-color-text-muted: #525252;
+  --wa-color-inline-code-fg: #D62828;
+  --wa-color-inline-code-bg: rgba(10, 10, 10, 0.05);
+
+  --wa-color-code-bg: #F4F4F5;
+  --wa-color-code-fg: #0A0A0A;
+  --wa-color-code-shadow: transparent;
+  --wa-color-code-keyword: #9F1239;
+  --wa-color-code-string: #166534;
+  --wa-color-code-number: #9A3412;
+  --wa-color-code-comment: #737373;
+  --wa-color-code-builtin: #1D4ED8;
+  --wa-color-code-fn: #B91C1C;
+  --wa-color-code-class: #A16207;
+
+  --wa-color-figure-shadow: transparent;
+
+  --wa-font-body: system-ui, -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  --wa-font-code: "SF Mono", Consolas, Monaco, Menlo, monospace;
+  --wa-font-accent: system-ui, -apple-system, "PingFang SC", sans-serif;
+
+  --wa-text-body: 14px;
+  --wa-text-lede: 22px;
+  --wa-text-h2: 20px;
+  --wa-text-h3: 17px;
+  --wa-text-strong: 14px;
+  --wa-text-code-inline: 13px;
+  --wa-text-code-block: 12px;
+  --wa-text-figure-caption: 12px;
+  --wa-line-height-body: 1.75em;
+  --wa-letter-spacing-body: 0.01em;
+
+  --wa-gap-paragraph: 10px;
+  --wa-gap-section: 36px;
+  --wa-gap-sub-section: 24px;
+  --wa-gap-block: 16px;
+  --wa-gap-list-item: 6px;
+
+  --wa-radius-card: 0px;
+  --wa-radius-code: 0px;
+  --wa-radius-pill: 0px;
+
+  --wa-code-block-shadow: none;
+  --wa-figure-shadow: none;
+  --wa-code-inline-margin: 0 2px;
+}
+
+
+/* ===========================================
+   swiss-grid · blocks.css
+   Implements the 13-block contract. Palette/type from Frontend Slides presets, adapted for WeChat long-form.
+   =========================================== */
+
+/* --- 1. series-nav: top intro with prior articles list --- */
+.wa-swiss-grid .wa-series-nav {
+  margin: 0 0 24px 0;
+  padding: 10px;
+  font-family: var(--wa-font-accent);
+  font-size: 16px;
+  color: #000;
+  line-height: 1.5em;
+  word-spacing: 0;
+  letter-spacing: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+  background:
+    linear-gradient(90deg, rgba(50, 0, 0, 0.03) 0%, rgba(255, 255, 255, 0) 11.49%),
+    linear-gradient(360deg, rgba(50, 0, 0, 0.04) 0%, rgba(255, 255, 255, 0) 12.16%);
+  background-repeat: repeat, repeat;
+  background-size: 20px 20px, 20px 20px;
+}
+.wa-swiss-grid .wa-series-nav-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.wa-swiss-grid .wa-series-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wa-swiss-grid .wa-series-nav-item {
+  margin: 2px 0;
+}
+
+/* --- 2. paragraph --- */
+.wa-swiss-grid .wa-paragraph {
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: var(--wa-letter-spacing-body);
+  text-align: left;
+  text-indent: 0;
+  margin: 0;
+  padding: var(--wa-gap-paragraph) 0;
+}
+
+/* --- 3. callout: 蓝色引用框 --- */
+.wa-swiss-grid .wa-callout-blue {
+  position: relative;
+  margin: 20px 0;
+  padding: 10px 20px 10px 10px;
+  border: 1px solid var(--wa-color-accent-border);
+  border-radius: var(--wa-radius-card);
+  background: var(--wa-color-accent-faint);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+.wa-swiss-grid .wa-callout-blue::before {
+  content: "\275D"; /* ❝ */
+  display: block;
+  color: var(--wa-color-accent-ghost);
+  font-size: 28px;
+  line-height: 1.5em;
+  font-weight: bold;
+  text-align: left;
+}
+.wa-swiss-grid .wa-callout-blue p {
+  margin: 0;
+  padding: 0;
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-swiss-grid .wa-callout-blue p + p {
+  margin-top: 8px;
+}
+
+/* --- 4. h2: section title with bottom rule --- */
+.wa-swiss-grid .wa-h2 {
+  display: flex;
+  margin-top: var(--wa-gap-section);
+  margin-bottom: 15px;
+  padding-bottom: 0;
+  border-bottom: 4px solid var(--wa-color-accent);
+  font-size: var(--wa-text-h2);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+.wa-swiss-grid .wa-h2-inner {
+  flex: 1;
+}
+
+/* --- 5. h3: sub-section with leading icon --- */
+.wa-swiss-grid .wa-h3 {
+  display: flex;
+  align-items: center;
+  margin-top: var(--wa-gap-sub-section);
+  margin-bottom: 15px;
+  padding: 0;
+  font-size: var(--wa-text-h3);
+  color: var(--wa-color-text);
+  font-weight: bold;
+  line-height: 1.5em;
+}
+.wa-swiss-grid .wa-h3-inner {
+  display: inline-block;
+  height: 38px;
+  line-height: 2.4em;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  text-align: center;
+  text-indent: 0;
+}
+
+/* --- 6. strong: inline emphasis --- */
+.wa-swiss-grid .wa-strong {
+  color: var(--wa-color-inline-code-fg);
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- 7. inline code --- */
+.wa-swiss-grid .wa-code-inline {
+  color: var(--wa-color-inline-code-fg);
+  font-size: var(--wa-text-code-inline);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: 0;
+  background: var(--wa-color-inline-code-bg);
+  font-family: var(--wa-font-code);
+  padding: 2px 4px;
+  margin: var(--wa-code-inline-margin);
+  border-radius: var(--wa-radius-pill);
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+/* --- 8. code block: dark, One Dark theme --- */
+.wa-swiss-grid .wa-code-block {
+  display: block;
+  margin: 10px 0;
+  padding: 0;
+  border-radius: var(--wa-radius-code);
+  box-shadow: var(--wa-code-block-shadow);
+  text-align: left;
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  color: var(--wa-color-code-fg);
+  background: var(--wa-color-code-bg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.wa-swiss-grid .wa-code-block-inner {
+  display: block;
+  padding: 16px;
+  background: var(--wa-color-code-bg);
+  color: var(--wa-color-code-fg);
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  white-space: pre;
+}
+.wa-swiss-grid .wa-code-block .tok-keyword  { color: var(--wa-color-code-keyword); }
+.wa-swiss-grid .wa-code-block .tok-string   { color: var(--wa-color-code-string); }
+.wa-swiss-grid .wa-code-block .tok-number   { color: var(--wa-color-code-number); }
+.wa-swiss-grid .wa-code-block .tok-comment  { color: var(--wa-color-code-comment); font-style: italic; }
+.wa-swiss-grid .wa-code-block .tok-builtin  { color: var(--wa-color-code-builtin); }
+.wa-swiss-grid .wa-code-block .tok-fn       { color: var(--wa-color-code-fn); }
+.wa-swiss-grid .wa-code-block .tok-class    { color: var(--wa-color-code-class); }
+
+/* --- 9. lists --- */
+.wa-swiss-grid .wa-list-ul,
+.wa-swiss-grid .wa-list-ol {
+  margin: 8px 0;
+  padding-left: 25px;
+  color: #000;
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-swiss-grid .wa-list-ul {
+  list-style-type: disc;
+}
+.wa-swiss-grid .wa-list-ol {
+  list-style-type: decimal;
+}
+.wa-swiss-grid .wa-list-ul li,
+.wa-swiss-grid .wa-list-ol li {
+  margin: var(--wa-gap-list-item) 0;
+  padding: 0;
+}
+
+/* --- 10. figure: image --- */
+.wa-swiss-grid .wa-figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+  padding: 0;
+}
+.wa-swiss-grid .wa-figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border-radius: var(--wa-radius-card);
+  object-fit: fill;
+  box-shadow: var(--wa-figure-shadow);
+}
+
+/* --- 11. figure caption --- */
+.wa-swiss-grid .wa-figure-caption {
+  margin-top: 6px;
+  font-size: var(--wa-text-figure-caption);
+  color: var(--wa-color-text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+/* --- 12. lede: 20px accent (used for "如下图：" labels and section openers) --- */
+.wa-swiss-grid .wa-lede {
+  margin: 16px 0 8px 0;
+  padding: 0;
+  font-size: var(--wa-text-lede);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+
+/* --- 13. divider --- */
+.wa-swiss-grid .wa-divider {
+  border: none;
+  border-top: 1px solid var(--wa-color-text-muted);
+  margin: 32px 0;
+  height: 0;
+}
+
+/* --- 14. fixed brand hook: ziikoo(SVG) + 有话说 --- */
+.wa-swiss-grid .wa-ziikoo-hook {
+  margin: 40px 0 12px 0;
+  padding: 28px 12px 8px;
+  text-align: center;
+  border-top: 1px solid rgba(43, 43, 43, 0.1);
+}
+.wa-swiss-grid .wa-ziikoo-hook-row {
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wa-swiss-grid .wa-ziikoo-hook-logo {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 10px 0 0;
+  line-height: 0;
+}
+.wa-swiss-grid .wa-ziikoo-hook-logo svg {
+  display: block;
+  width: 112px;
+  height: 22px;
+  /* pixel logo: keep crisp edges when scaled */
+  shape-rendering: crispEdges;
+}
+/* 有话说：系统标准字体，跨端稳定 */
+.wa-swiss-grid .wa-ziikoo-hook-phrase {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  color: #2b2b2b;
+  font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+}
+/* 本篇冷笑话 / 金句：独立容器，与正文气质区分 */
+.wa-swiss-grid .wa-ziikoo-hook-bubble {
+  margin: 18px auto 0;
+  padding: 14px 16px 16px;
+  max-width: 94%;
+  box-sizing: border-box;
+  text-align: center;
+  /* 暖灰底 + 细描边，比正文 callout 更轻、更口语 */
+  background: #f7f4ef;
+  border: 1px solid rgba(43, 43, 43, 0.06);
+  border-radius: 10px;
+}
+.wa-swiss-grid .wa-ziikoo-hook-line {
+  margin: 0;
+  padding: 0;
+  color: #3d3a36;
+  /* 略偏人文/口语：系统宋体优先，正文是无衬线 */
+  font-family:
+    "Songti SC",
+    "STSong",
+    "Noto Serif CJK SC",
+    "Source Han Serif SC",
+    "PingFang SC",
+    serif;
+  font-size: 15px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  line-height: 1.85;
+  text-align: center;
+}
+.wa-swiss-grid .wa-ziikoo-hook-line + .wa-swiss-grid .wa-ziikoo-hook-line {
+  margin-top: 8px;
+}
+.wa-swiss-grid .wa-ziikoo-hook-slogan {
+  margin: 18px 0 0 0;
+  padding: 0;
+  color: #595959;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
+}
+.wa-swiss-grid .wa-ziikoo-hook-domain {
+  margin: 4px 0 0 0;
+  padding: 0;
+  color: #8a8a8a;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  line-height: 1.5;
+}
+
+.wa-swiss-grid .wa-h2 { border-bottom-width: 2px; color: #0A0A0A; }
+.wa-swiss-grid .wa-lede { letter-spacing: -0.01em; }
+.wa-swiss-grid .wa-callout-blue::before { content: "■"; font-size: 14px; line-height: 1.8; }
+.wa-swiss-grid .wa-ziikoo-hook-bubble { background: #fafafa; border: 1px solid #e5e5e5; border-radius: 0; }
+.wa-swiss-grid .wa-ziikoo-hook-line { font-family: system-ui, -apple-system, "PingFang SC", sans-serif; letter-spacing: 0.02em; }</style><div class="wa-swiss-grid"><div class="wa-swiss-grid">
+<h1 class="wa-lede">Fable当Boss，Sol做牛马？</h1>
+<p class="wa-paragraph">GPT-5.6 出来后，大家吵的不是「谁更强」。</p>
+<p class="wa-paragraph">而是两件事：</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Fable 5 和 Sol，怎么一起用</strong></li></ol>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Luna / Terra / Sol，各自开在哪</strong></li></ol>
+<p class="wa-paragraph">日本开发者圈给了双模型分工。 著名 AI Newsletter 博主 <strong class="wa-strong">Ben</strong> 又补了一套 GPT-5.6 三档搭配。</p>
+<p class="wa-paragraph">下面合在一起，方便直接抄。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">先记两句</strong></p><p>跨生态：Fable 写指令，Sol 去干活。  
+单栈 OpenAI：主开发 Sol medium，聊天 Luna xhigh，复杂再开 Ultra。</p></blockquote>
+<h2 class="wa-h2"><span class="wa-h2-inner">先跨生态：猫头鹰 × 罗威纳</span></h2>
+<p class="wa-paragraph">日推里最好记的说法：</p>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Fable ≈ 猫头鹰</strong>：看得深，会问「该不该做」。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Sol ≈ 罗威纳</strong>：咬住任务，默默干到结束。</li></ul>
+<p class="wa-paragraph">所以：</p>
+<p class="wa-paragraph"><strong class="wa-strong">想清楚 → Fable</strong> <strong class="wa-strong">干完 → Sol</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">七种几乎被统一的用法</span></h2>
+<h3 class="wa-h3"><span class="wa-h3-inner">1. Fable 写指示，Sol 去执行</span></h3>
+<p class="wa-paragraph">别自己写超长 prompt。 也别让 Fable 直接改生产代码。</p>
+<ol class="wa-list-ol"><li>你说目标、边界、不能做什么。</li></ol>
+<ol class="wa-list-ol"><li>Fable 写成：验收、影响范围、测试、风险。</li></ol>
+<ol class="wa-list-ol"><li>原样丢给 Codex + Sol。</li></ol>
+<p class="wa-paragraph">中间少一层「人手翻译」。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">2. 设计归 Fable，实现归 Sol</span></h3>
+<ul class="wa-list-ul"><li>Fable：拆 Issue、定方案、做评审</li></ul>
+<ul class="wa-list-ul"><li>Sol：写代码、补测试、贴合现有风格</li></ul>
+<ul class="wa-list-ul"><li>可选：便宜模型做旁路杂活</li></ul>
+<p class="wa-paragraph">硬规矩：</p>
+<p class="wa-paragraph"><strong class="wa-strong">实现的人，不要自己终审。</strong></p>
+<h3 class="wa-h3"><span class="wa-h3-inner">3. 商量找 Fable，写码找 Sol</span></h3>
+<p class="wa-paragraph">Fable 更会先查再动。 Sol 实现更快、更贴代码、更能收尾。</p>
+<ul class="wa-list-ul"><li>架构、产品边界 → Fable</li></ul>
+<ul class="wa-list-ul"><li>跨文件实现、长清单 → Sol</li></ul>
+<h3 class="wa-h3"><span class="wa-h3-inner">4. 有意让 Fable 指挥 Sol</span></h3>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">Fable 规划 → 目标 / 非目标 / 验收
+Sol 执行   → 代码 + 测试
+换模型只读 → 能不能合</code></pre>
+<p class="wa-paragraph">别在一个窗口从聊天聊到上线。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">5. 长文偏 Fable；研究有时选 Sol</span></h3>
+<p class="wa-paragraph">写文章、写文档：Fable 往往更稳。 部分垂直研究：有人反馈 Sol 更少「误杀」。</p>
+<p class="wa-paragraph">别默认：最强编程模型 = 最强写手。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">6. 按任务选，不按信仰选</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Fable</strong>：架构、体验、文案、「懂不懂」式评审 <strong class="wa-strong">Sol</strong>：实现、重构、长时程、子 Agent、贴合存量代码</p>
+<p class="wa-paragraph">Fable 聪明，偶尔让人慌：「好像漏了什么」。 Sol 不总是最机灵，但交代的事会做完。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">7. 日常就三步</span></h3>
+<ol class="wa-list-ol"><li>Fable 对稿</li></ol>
+<ol class="wa-list-ol"><li>Sol 干重活</li></ol>
+<ol class="wa-list-ol"><li>便宜模型当手脚</li></ol>
+<p class="wa-paragraph">这是额度、速度、风险的选择，不是情怀。</p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">再叠 Ben 的 GPT-5.6 三档</span></h2>
+<p class="wa-paragraph">只在 OpenAI 栈里干活时，Ben 的组合很实用：</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">他的默认搭配</span></h3>
+<ol class="wa-list-ol"><li><strong class="wa-strong">主要开发 + 创意</strong> → <strong class="wa-strong">Sol medium</strong></li></ol>
+<p class="wa-paragraph">日常主力。够强，又没那么烧。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">复杂任务</strong> → <strong class="wa-strong">开 Ultra</strong></li></ol>
+<p class="wa-paragraph">用大量 Subagent 处理后台代理。 子代理可能是 <strong class="wa-strong">Sol</strong>，也可能是 <strong class="wa-strong">Terra</strong>。 主脑扛难题，手脚分摊杂活。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">日常对话</strong> → <strong class="wa-strong">Luna xhigh</strong></li></ol>
+<p class="wa-paragraph">聊天、轻问轻答，把贵模型省下来。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">和日推分工怎么拼</strong></p><p>有 Claude 时：Fable 对稿 → Sol medium 执行。  
+复杂且可并行：Sol / Terra 挂 Ultra 子代理。  
+闲聊、澄清、小问题：Luna xhigh。</p></blockquote>
+<h3 class="wa-h3"><span class="wa-h3-inner">Ben 对三档的点评</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Sol</strong></p>
+<ul class="wa-list-ul"><li>UI 可以；给参考稿，效果更好。</li></ul>
+<ul class="wa-list-ul"><li>Max 等级写作强，聊起来也有意思。</li></ul>
+<ul class="wa-list-ul"><li>适合当「主开发 + 重创意」的默认脑。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Terra</strong></p>
+<ul class="wa-list-ul"><li>像 GPT-5.5 的升级版。</li></ul>
+<ul class="wa-list-ul"><li>UI、写作有小幅提升。</li></ul>
+<ul class="wa-list-ul"><li>更「听话」，更容易被提示词带着走。</li></ul>
+<ul class="wa-list-ul"><li>很适合当 Ultra 里的执行子代理。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Luna</strong></p>
+<ul class="wa-list-ul"><li>有点「小模型味」。</li></ul>
+<ul class="wa-list-ul"><li>提示词糊时，容易 get 不到。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">任务定义清楚</strong>，才不掉链子。</li></ul>
+<ul class="wa-list-ul"><li>所以日常对话可以 Luna xhigh；模糊大活别硬塞。</li></ul>
+<p class="wa-paragraph">这和前文一致：</p>
+<p class="wa-paragraph"><strong class="wa-strong">不是模型不行，是规格还糊。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">合成一张作战卡</span></h2>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">【跨生态】
+意图糊 → Fable 对稿
+规格清 → Sol 执行（建议 medium）
+终审   → 换模型只读
+
+【纯 OpenAI / Ben 搭配】
+主开发·创意 → Sol medium
+复杂可并行 → Ultra + Sol/Terra 子代理
+日常对话   → Luna xhigh
+
+【三档直觉】
+Luna  → 任务必须清楚
+Terra → 听话、好引导、当手脚
+Sol   → 主力脑；UI 给参考，写作可上 Max</code></pre>
+<p class="wa-paragraph">再压成一句：</p>
+<p class="wa-paragraph"><strong class="wa-strong">Fable 写指令，Sol 去干活。</strong> <strong class="wa-strong">聊天 Luna，复杂 Ultra，Terra 当听话的手。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">别踩的坑</span></h2>
+<ul class="wa-list-ul"><li>全程 Sol Ultra 吃到饱</li></ul>
+<ul class="wa-list-ul"><li>模糊需求硬塞 Luna</li></ul>
+<ul class="wa-list-ul"><li>Full Access + 无沙箱</li></ul>
+<ul class="wa-list-ul"><li>实现会话自己终审</li></ul>
+<ul class="wa-list-ul"><li>一个对话从闲聊做到上线</li></ul>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">停手句，直接复制</strong></p><p>请先只做：影响范围 + 简短规格（行为、组件、非目标、验收、测试）。</p><p>写完规格后停止，等我确认。  
+不要直接改代码。</p></blockquote>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">本周就能落地</span></h2>
+<ol class="wa-list-ol"><li>双模型规则做成 Skill，别塞进所有聊天。</li></ol>
+<ol class="wa-list-ol"><li>主开发默认 <strong class="wa-strong">Sol medium</strong>，别一上来 Max / Ultra。</li></ol>
+<ol class="wa-list-ol"><li>子 Agent 预先钉死：重活 Sol，听话执行 Terra，清楚杂活 Luna。</li></ol>
+<ol class="wa-list-ol"><li>给 Sol 做 UI 时，附参考，不要只丢形容词。</li></ol>
+<ol class="wa-list-ol"><li>看可合并的 diff，不看 tool 调用次数。</li></ol>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">结语</span></h2>
+<p class="wa-paragraph">编排时代，胜负手不是榜单第一，是产线设计。</p>
+<p class="wa-paragraph">Fable 和 Sol 不是信仰之战。 Luna / Terra / Sol 也不是面子工程。</p>
+<p class="wa-paragraph">它们是同一条产线上的不同工位。</p>
+<hr class="wa-divider" />
+<p class="wa-paragraph"><em>综合日推实践与 AI Newsletter 博主 Ben 的 GPT-5.6 搭配点评改写，非官方文档。能力与安全策略会随版本变化，请以官方说明和沙箱策略为准。</em></p>
+<section class="wa-ziikoo-hook"><div class="wa-ziikoo-hook-row"><span class="wa-ziikoo-hook-logo"><svg role="img" aria-label="ziikoo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" shape-rendering="crispEdges">
+  <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>  <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/></svg></span><span class="wa-ziikoo-hook-phrase">有话说</span></div><div class="wa-ziikoo-hook-bubble"><p class="wa-ziikoo-hook-line">小朋友才做选择，大人的Claud都被封了🐶</p></div><p class="wa-ziikoo-hook-slogan">企业 AI 生产力管理平台</p><p class="wa-ziikoo-hook-domain">ziikoo.com</p></section>
+</div></div></div><div class="panel"><div class="panel-head">Blue Mono · mdnice</div><style>/* ===========================================
+   blue-mono · tokens.css
+   Transcribed from mp.weixin.qq.com/s/csRQ5E1B2fY_GMNiBjHEYA
+   Every value below is an exact extraction from the source article.
+   =========================================== */
+
+:root {
+  /* Palette — extracted from the article's inline styles */
+  --wa-color-accent: #40B8FA;                     /* rgb(64,184,250) — H2 / strong / callout border */
+  --wa-color-accent-faint: rgba(64, 184, 250, 0.1);   /* callout background */
+  --wa-color-accent-border: rgba(64, 184, 255, 0.4);  /* callout border */
+  --wa-color-accent-ghost: rgba(64, 184, 250, 0.5);   /* callout ❝ glyph */
+  --wa-color-text: #2B2B2B;                      /* rgb(43,43,43) — body */
+  --wa-color-text-muted: #595959;                /* rgb(89,89,89) — secondary */
+  --wa-color-inline-code-fg: #3594F7;            /* rgb(53,148,247) — inline code text */
+  --wa-color-inline-code-bg: rgba(27, 31, 35, 0.05);
+
+  /* Code-block surface (One Dark) */
+  --wa-color-code-bg: #282c34;
+  --wa-color-code-fg: #abb2bf;
+  --wa-color-code-shadow: rgba(0, 0, 0, 0.55);
+  --wa-color-code-keyword: #c678dd;              /* interface, type, const, return */
+  --wa-color-code-string: #98c379;               /* string literals */
+  --wa-color-code-number: #e6c07b;               /* numeric literals */
+  --wa-color-code-comment: #5c6370;              /* // comments */
+  --wa-color-code-builtin: #56b6c2;              /* teal identifiers */
+  --wa-color-code-fn: #e06c75;                   /* red function names */
+  --wa-color-code-class: #d19a66;                /* orange class/type names */
+
+  /* Image shadow — extracted from <img> style */
+  --wa-color-figure-shadow: rgb(153, 153, 153);
+
+  /* Typography */
+  --wa-font-body: system-ui, -apple-system, 'PingFang SC', sans-serif;
+  --wa-font-code: 'Operator Mono', Consolas, Monaco, Menlo, monospace;
+  --wa-font-accent: Optima, 'PingFangSC-light', serif;
+
+  --wa-text-body: 14px;
+  --wa-text-lede: 20px;
+  --wa-text-h2: 20px;
+  --wa-text-h3: 18px;
+  --wa-text-strong: 14px;
+  --wa-text-code-inline: 14px;
+  --wa-text-code-block: 12px;
+  --wa-text-figure-caption: 13px;
+  --wa-line-height-body: 1.8em;
+  --wa-letter-spacing-body: 0.02em;
+
+  /* Spacing */
+  --wa-gap-paragraph: 8px;
+  --wa-gap-section: 30px;
+  --wa-gap-sub-section: 22px;
+  --wa-gap-block: 16px;
+  --wa-gap-list-item: 5px;
+
+  /* Radii */
+  --wa-radius-card: 8px;
+  --wa-radius-code: 5px;
+  --wa-radius-pill: 4px;
+
+  /* Effects */
+  --wa-code-block-shadow: 0 2px 10px var(--wa-color-code-shadow);
+  --wa-figure-shadow: 2px 4px 8px 0 var(--wa-color-figure-shadow);
+  --wa-code-inline-margin: 0 2px;
+}
+
+
+/* ===========================================
+   blue-mono · blocks.css
+   Implements the 13-block contract using tokens from tokens.css.
+   Every value below matches the reference article.
+   =========================================== */
+
+/* --- 1. series-nav: top intro with prior articles list --- */
+.wa-blue-mono .wa-series-nav {
+  margin: 0 0 24px 0;
+  padding: 10px;
+  font-family: var(--wa-font-accent);
+  font-size: 16px;
+  color: #000;
+  line-height: 1.5em;
+  word-spacing: 0;
+  letter-spacing: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+  background:
+    linear-gradient(90deg, rgba(50, 0, 0, 0.03) 0%, rgba(255, 255, 255, 0) 11.49%),
+    linear-gradient(360deg, rgba(50, 0, 0, 0.04) 0%, rgba(255, 255, 255, 0) 12.16%);
+  background-repeat: repeat, repeat;
+  background-size: 20px 20px, 20px 20px;
+}
+.wa-blue-mono .wa-series-nav-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.wa-blue-mono .wa-series-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wa-blue-mono .wa-series-nav-item {
+  margin: 2px 0;
+}
+
+/* --- 2. paragraph --- */
+.wa-blue-mono .wa-paragraph {
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: var(--wa-letter-spacing-body);
+  text-align: left;
+  text-indent: 0;
+  margin: 0;
+  padding: var(--wa-gap-paragraph) 0;
+}
+
+/* --- 3. callout: 蓝色引用框 --- */
+.wa-blue-mono .wa-callout-blue {
+  position: relative;
+  margin: 20px 0;
+  padding: 10px 20px 10px 10px;
+  border: 1px solid var(--wa-color-accent-border);
+  border-radius: var(--wa-radius-card);
+  background: var(--wa-color-accent-faint);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+.wa-blue-mono .wa-callout-blue::before {
+  content: "\275D"; /* ❝ */
+  display: block;
+  color: var(--wa-color-accent-ghost);
+  font-size: 28px;
+  line-height: 1.5em;
+  font-weight: bold;
+  text-align: left;
+}
+.wa-blue-mono .wa-callout-blue p {
+  margin: 0;
+  padding: 0;
+  color: var(--wa-color-text);
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-blue-mono .wa-callout-blue p + p {
+  margin-top: 8px;
+}
+
+/* --- 4. h2: section title with bottom rule --- */
+.wa-blue-mono .wa-h2 {
+  display: flex;
+  margin-top: var(--wa-gap-section);
+  margin-bottom: 15px;
+  padding-bottom: 0;
+  border-bottom: 4px solid var(--wa-color-accent);
+  font-size: var(--wa-text-h2);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+.wa-blue-mono .wa-h2-inner {
+  flex: 1;
+}
+
+/* --- 5. h3: sub-section with leading icon --- */
+.wa-blue-mono .wa-h3 {
+  display: flex;
+  align-items: center;
+  margin-top: var(--wa-gap-sub-section);
+  margin-bottom: 15px;
+  padding: 0;
+  font-size: var(--wa-text-h3);
+  color: var(--wa-color-text);
+  font-weight: bold;
+  line-height: 1.5em;
+}
+.wa-blue-mono .wa-h3-inner {
+  display: inline-block;
+  height: 38px;
+  line-height: 2.4em;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  text-align: center;
+  text-indent: 0;
+}
+
+/* --- 6. strong: inline emphasis --- */
+.wa-blue-mono .wa-strong {
+  color: var(--wa-color-inline-code-fg);
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- 7. inline code --- */
+.wa-blue-mono .wa-code-inline {
+  color: var(--wa-color-inline-code-fg);
+  font-size: var(--wa-text-code-inline);
+  line-height: var(--wa-line-height-body);
+  letter-spacing: 0;
+  background: var(--wa-color-inline-code-bg);
+  font-family: var(--wa-font-code);
+  padding: 2px 4px;
+  margin: var(--wa-code-inline-margin);
+  border-radius: var(--wa-radius-pill);
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+/* --- 8. code block: dark, One Dark theme --- */
+.wa-blue-mono .wa-code-block {
+  display: block;
+  margin: 10px 0;
+  padding: 0;
+  border-radius: var(--wa-radius-code);
+  box-shadow: var(--wa-code-block-shadow);
+  text-align: left;
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  color: var(--wa-color-code-fg);
+  background: var(--wa-color-code-bg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.wa-blue-mono .wa-code-block-inner {
+  display: block;
+  padding: 16px;
+  background: var(--wa-color-code-bg);
+  color: var(--wa-color-code-fg);
+  font-family: var(--wa-font-code);
+  font-size: var(--wa-text-code-block);
+  line-height: 26px;
+  white-space: pre;
+}
+.wa-blue-mono .wa-code-block .tok-keyword  { color: var(--wa-color-code-keyword); }
+.wa-blue-mono .wa-code-block .tok-string   { color: var(--wa-color-code-string); }
+.wa-blue-mono .wa-code-block .tok-number   { color: var(--wa-color-code-number); }
+.wa-blue-mono .wa-code-block .tok-comment  { color: var(--wa-color-code-comment); font-style: italic; }
+.wa-blue-mono .wa-code-block .tok-builtin  { color: var(--wa-color-code-builtin); }
+.wa-blue-mono .wa-code-block .tok-fn       { color: var(--wa-color-code-fn); }
+.wa-blue-mono .wa-code-block .tok-class    { color: var(--wa-color-code-class); }
+
+/* --- 9. lists --- */
+.wa-blue-mono .wa-list-ul,
+.wa-blue-mono .wa-list-ol {
+  margin: 8px 0;
+  padding-left: 25px;
+  color: #000;
+  font-size: var(--wa-text-body);
+  line-height: var(--wa-line-height-body);
+}
+.wa-blue-mono .wa-list-ul {
+  list-style-type: disc;
+}
+.wa-blue-mono .wa-list-ol {
+  list-style-type: decimal;
+}
+.wa-blue-mono .wa-list-ul li,
+.wa-blue-mono .wa-list-ol li {
+  margin: var(--wa-gap-list-item) 0;
+  padding: 0;
+}
+
+/* --- 10. figure: image --- */
+.wa-blue-mono .wa-figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+  padding: 0;
+}
+.wa-blue-mono .wa-figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border-radius: var(--wa-radius-card);
+  object-fit: fill;
+  box-shadow: var(--wa-figure-shadow);
+}
+
+/* --- 11. figure caption --- */
+.wa-blue-mono .wa-figure-caption {
+  margin-top: 6px;
+  font-size: var(--wa-text-figure-caption);
+  color: var(--wa-color-text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+/* --- 12. lede: 20px accent (used for "如下图：" labels and section openers) --- */
+.wa-blue-mono .wa-lede {
+  margin: 16px 0 8px 0;
+  padding: 0;
+  font-size: var(--wa-text-lede);
+  color: var(--wa-color-accent);
+  font-weight: bold;
+  line-height: 1.5em;
+  letter-spacing: 0;
+}
+
+/* --- 13. divider --- */
+.wa-blue-mono .wa-divider {
+  border: none;
+  border-top: 1px solid var(--wa-color-text-muted);
+  margin: 32px 0;
+  height: 0;
+}
+
+/* --- 14. fixed brand hook: ziikoo(SVG) + 有话说 --- */
+.wa-blue-mono .wa-ziikoo-hook {
+  margin: 40px 0 12px 0;
+  padding: 28px 12px 8px;
+  text-align: center;
+  border-top: 1px solid rgba(43, 43, 43, 0.1);
+}
+.wa-blue-mono .wa-ziikoo-hook-row {
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+.wa-blue-mono .wa-ziikoo-hook-logo {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 10px 0 0;
+  line-height: 0;
+}
+.wa-blue-mono .wa-ziikoo-hook-logo svg {
+  display: block;
+  width: 112px;
+  height: 22px;
+  /* pixel logo: keep crisp edges when scaled */
+  shape-rendering: crispEdges;
+}
+/* 有话说：系统标准字体，跨端稳定 */
+.wa-blue-mono .wa-ziikoo-hook-phrase {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  color: #2b2b2b;
+  font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+}
+/* 本篇冷笑话 / 金句：独立容器，与正文气质区分 */
+.wa-blue-mono .wa-ziikoo-hook-bubble {
+  margin: 18px auto 0;
+  padding: 14px 16px 16px;
+  max-width: 94%;
+  box-sizing: border-box;
+  text-align: center;
+  /* 暖灰底 + 细描边，比正文 callout 更轻、更口语 */
+  background: #f7f4ef;
+  border: 1px solid rgba(43, 43, 43, 0.06);
+  border-radius: 10px;
+}
+.wa-blue-mono .wa-ziikoo-hook-line {
+  margin: 0;
+  padding: 0;
+  color: #3d3a36;
+  /* 略偏人文/口语：系统宋体优先，正文是无衬线 */
+  font-family:
+    "Songti SC",
+    "STSong",
+    "Noto Serif CJK SC",
+    "Source Han Serif SC",
+    "PingFang SC",
+    serif;
+  font-size: 15px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  line-height: 1.85;
+  text-align: center;
+}
+.wa-blue-mono .wa-ziikoo-hook-line + .wa-blue-mono .wa-ziikoo-hook-line {
+  margin-top: 8px;
+}
+.wa-blue-mono .wa-ziikoo-hook-slogan {
+  margin: 18px 0 0 0;
+  padding: 0;
+  color: #595959;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
+}
+.wa-blue-mono .wa-ziikoo-hook-domain {
+  margin: 4px 0 0 0;
+  padding: 0;
+  color: #8a8a8a;
+  font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  line-height: 1.5;
+}</style><div class="wa-blue-mono"><div class="wa-blue-mono">
+<h1 class="wa-lede">Fable当Boss，Sol做牛马？</h1>
+<p class="wa-paragraph">GPT-5.6 出来后，大家吵的不是「谁更强」。</p>
+<p class="wa-paragraph">而是两件事：</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Fable 5 和 Sol，怎么一起用</strong></li></ol>
+<ol class="wa-list-ol"><li><strong class="wa-strong">Luna / Terra / Sol，各自开在哪</strong></li></ol>
+<p class="wa-paragraph">日本开发者圈给了双模型分工。 著名 AI Newsletter 博主 <strong class="wa-strong">Ben</strong> 又补了一套 GPT-5.6 三档搭配。</p>
+<p class="wa-paragraph">下面合在一起，方便直接抄。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">先记两句</strong></p><p>跨生态：Fable 写指令，Sol 去干活。  
+单栈 OpenAI：主开发 Sol medium，聊天 Luna xhigh，复杂再开 Ultra。</p></blockquote>
+<h2 class="wa-h2"><span class="wa-h2-inner">先跨生态：猫头鹰 × 罗威纳</span></h2>
+<p class="wa-paragraph">日推里最好记的说法：</p>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Fable ≈ 猫头鹰</strong>：看得深，会问「该不该做」。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">Sol ≈ 罗威纳</strong>：咬住任务，默默干到结束。</li></ul>
+<p class="wa-paragraph">所以：</p>
+<p class="wa-paragraph"><strong class="wa-strong">想清楚 → Fable</strong> <strong class="wa-strong">干完 → Sol</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">七种几乎被统一的用法</span></h2>
+<h3 class="wa-h3"><span class="wa-h3-inner">1. Fable 写指示，Sol 去执行</span></h3>
+<p class="wa-paragraph">别自己写超长 prompt。 也别让 Fable 直接改生产代码。</p>
+<ol class="wa-list-ol"><li>你说目标、边界、不能做什么。</li></ol>
+<ol class="wa-list-ol"><li>Fable 写成：验收、影响范围、测试、风险。</li></ol>
+<ol class="wa-list-ol"><li>原样丢给 Codex + Sol。</li></ol>
+<p class="wa-paragraph">中间少一层「人手翻译」。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">2. 设计归 Fable，实现归 Sol</span></h3>
+<ul class="wa-list-ul"><li>Fable：拆 Issue、定方案、做评审</li></ul>
+<ul class="wa-list-ul"><li>Sol：写代码、补测试、贴合现有风格</li></ul>
+<ul class="wa-list-ul"><li>可选：便宜模型做旁路杂活</li></ul>
+<p class="wa-paragraph">硬规矩：</p>
+<p class="wa-paragraph"><strong class="wa-strong">实现的人，不要自己终审。</strong></p>
+<h3 class="wa-h3"><span class="wa-h3-inner">3. 商量找 Fable，写码找 Sol</span></h3>
+<p class="wa-paragraph">Fable 更会先查再动。 Sol 实现更快、更贴代码、更能收尾。</p>
+<ul class="wa-list-ul"><li>架构、产品边界 → Fable</li></ul>
+<ul class="wa-list-ul"><li>跨文件实现、长清单 → Sol</li></ul>
+<h3 class="wa-h3"><span class="wa-h3-inner">4. 有意让 Fable 指挥 Sol</span></h3>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">Fable 规划 → 目标 / 非目标 / 验收
+Sol 执行   → 代码 + 测试
+换模型只读 → 能不能合</code></pre>
+<p class="wa-paragraph">别在一个窗口从聊天聊到上线。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">5. 长文偏 Fable；研究有时选 Sol</span></h3>
+<p class="wa-paragraph">写文章、写文档：Fable 往往更稳。 部分垂直研究：有人反馈 Sol 更少「误杀」。</p>
+<p class="wa-paragraph">别默认：最强编程模型 = 最强写手。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">6. 按任务选，不按信仰选</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Fable</strong>：架构、体验、文案、「懂不懂」式评审 <strong class="wa-strong">Sol</strong>：实现、重构、长时程、子 Agent、贴合存量代码</p>
+<p class="wa-paragraph">Fable 聪明，偶尔让人慌：「好像漏了什么」。 Sol 不总是最机灵，但交代的事会做完。</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">7. 日常就三步</span></h3>
+<ol class="wa-list-ol"><li>Fable 对稿</li></ol>
+<ol class="wa-list-ol"><li>Sol 干重活</li></ol>
+<ol class="wa-list-ol"><li>便宜模型当手脚</li></ol>
+<p class="wa-paragraph">这是额度、速度、风险的选择，不是情怀。</p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">再叠 Ben 的 GPT-5.6 三档</span></h2>
+<p class="wa-paragraph">只在 OpenAI 栈里干活时，Ben 的组合很实用：</p>
+<h3 class="wa-h3"><span class="wa-h3-inner">他的默认搭配</span></h3>
+<ol class="wa-list-ol"><li><strong class="wa-strong">主要开发 + 创意</strong> → <strong class="wa-strong">Sol medium</strong></li></ol>
+<p class="wa-paragraph">日常主力。够强，又没那么烧。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">复杂任务</strong> → <strong class="wa-strong">开 Ultra</strong></li></ol>
+<p class="wa-paragraph">用大量 Subagent 处理后台代理。 子代理可能是 <strong class="wa-strong">Sol</strong>，也可能是 <strong class="wa-strong">Terra</strong>。 主脑扛难题，手脚分摊杂活。</p>
+<ol class="wa-list-ol"><li><strong class="wa-strong">日常对话</strong> → <strong class="wa-strong">Luna xhigh</strong></li></ol>
+<p class="wa-paragraph">聊天、轻问轻答，把贵模型省下来。</p>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">和日推分工怎么拼</strong></p><p>有 Claude 时：Fable 对稿 → Sol medium 执行。  
+复杂且可并行：Sol / Terra 挂 Ultra 子代理。  
+闲聊、澄清、小问题：Luna xhigh。</p></blockquote>
+<h3 class="wa-h3"><span class="wa-h3-inner">Ben 对三档的点评</span></h3>
+<p class="wa-paragraph"><strong class="wa-strong">Sol</strong></p>
+<ul class="wa-list-ul"><li>UI 可以；给参考稿，效果更好。</li></ul>
+<ul class="wa-list-ul"><li>Max 等级写作强，聊起来也有意思。</li></ul>
+<ul class="wa-list-ul"><li>适合当「主开发 + 重创意」的默认脑。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Terra</strong></p>
+<ul class="wa-list-ul"><li>像 GPT-5.5 的升级版。</li></ul>
+<ul class="wa-list-ul"><li>UI、写作有小幅提升。</li></ul>
+<ul class="wa-list-ul"><li>更「听话」，更容易被提示词带着走。</li></ul>
+<ul class="wa-list-ul"><li>很适合当 Ultra 里的执行子代理。</li></ul>
+<p class="wa-paragraph"><strong class="wa-strong">Luna</strong></p>
+<ul class="wa-list-ul"><li>有点「小模型味」。</li></ul>
+<ul class="wa-list-ul"><li>提示词糊时，容易 get 不到。</li></ul>
+<ul class="wa-list-ul"><li><strong class="wa-strong">任务定义清楚</strong>，才不掉链子。</li></ul>
+<ul class="wa-list-ul"><li>所以日常对话可以 Luna xhigh；模糊大活别硬塞。</li></ul>
+<p class="wa-paragraph">这和前文一致：</p>
+<p class="wa-paragraph"><strong class="wa-strong">不是模型不行，是规格还糊。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">合成一张作战卡</span></h2>
+<pre class="wa-code-block"><code class="wa-code-block-inner" data-lang="text">【跨生态】
+意图糊 → Fable 对稿
+规格清 → Sol 执行（建议 medium）
+终审   → 换模型只读
+
+【纯 OpenAI / Ben 搭配】
+主开发·创意 → Sol medium
+复杂可并行 → Ultra + Sol/Terra 子代理
+日常对话   → Luna xhigh
+
+【三档直觉】
+Luna  → 任务必须清楚
+Terra → 听话、好引导、当手脚
+Sol   → 主力脑；UI 给参考，写作可上 Max</code></pre>
+<p class="wa-paragraph">再压成一句：</p>
+<p class="wa-paragraph"><strong class="wa-strong">Fable 写指令，Sol 去干活。</strong> <strong class="wa-strong">聊天 Luna，复杂 Ultra，Terra 当听话的手。</strong></p>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">别踩的坑</span></h2>
+<ul class="wa-list-ul"><li>全程 Sol Ultra 吃到饱</li></ul>
+<ul class="wa-list-ul"><li>模糊需求硬塞 Luna</li></ul>
+<ul class="wa-list-ul"><li>Full Access + 无沙箱</li></ul>
+<ul class="wa-list-ul"><li>实现会话自己终审</li></ul>
+<ul class="wa-list-ul"><li>一个对话从闲聊做到上线</li></ul>
+<blockquote class="wa-callout-blue"><p><strong class="wa-strong">停手句，直接复制</strong></p><p>请先只做：影响范围 + 简短规格（行为、组件、非目标、验收、测试）。</p><p>写完规格后停止，等我确认。  
+不要直接改代码。</p></blockquote>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">本周就能落地</span></h2>
+<ol class="wa-list-ol"><li>双模型规则做成 Skill，别塞进所有聊天。</li></ol>
+<ol class="wa-list-ol"><li>主开发默认 <strong class="wa-strong">Sol medium</strong>，别一上来 Max / Ultra。</li></ol>
+<ol class="wa-list-ol"><li>子 Agent 预先钉死：重活 Sol，听话执行 Terra，清楚杂活 Luna。</li></ol>
+<ol class="wa-list-ol"><li>给 Sol 做 UI 时，附参考，不要只丢形容词。</li></ol>
+<ol class="wa-list-ol"><li>看可合并的 diff，不看 tool 调用次数。</li></ol>
+<hr class="wa-divider" />
+<h2 class="wa-h2"><span class="wa-h2-inner">结语</span></h2>
+<p class="wa-paragraph">编排时代，胜负手不是榜单第一，是产线设计。</p>
+<p class="wa-paragraph">Fable 和 Sol 不是信仰之战。 Luna / Terra / Sol 也不是面子工程。</p>
+<p class="wa-paragraph">它们是同一条产线上的不同工位。</p>
+<hr class="wa-divider" />
+<p class="wa-paragraph"><em>综合日推实践与 AI Newsletter 博主 Ben 的 GPT-5.6 搭配点评改写，非官方文档。能力与安全策略会随版本变化，请以官方说明和沙箱策略为准。</em></p>
+<section class="wa-ziikoo-hook"><div class="wa-ziikoo-hook-row"><span class="wa-ziikoo-hook-logo"><svg role="img" aria-label="ziikoo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" shape-rendering="crispEdges">
+  <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>  <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/></svg></span><span class="wa-ziikoo-hook-phrase">有话说</span></div><div class="wa-ziikoo-hook-bubble"><p class="wa-ziikoo-hook-line">小朋友才做选择，大人的Claud都被封了🐶</p></div><p class="wa-ziikoo-hook-slogan">企业 AI 生产力管理平台</p><p class="wa-ziikoo-hook-domain">ziikoo.com</p></section>
+</div></div></div>
+</div>
+</body>
+</html>

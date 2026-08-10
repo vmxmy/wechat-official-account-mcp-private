@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "tenantId": "tenant_default",
+    "accountId": "acct_31c623c5709b451b996c500c",
+    "userId": "op_8e688dd9b04944c389ff1aea",
+    "requestId": "req_aaafe2efffa24eadab9b1d0b",
+    "quota": {
+      "plan": "plus",
+      "checks": [
+        {
+          "metric": "tool_calls_day",
+          "label": "每日 MCP 工具调用次数",
+          "used": 11,
+          "limit": 500,
+          "remaining": 489,
+          "amount": 1,
+          "period": "2026-07-26",
+          "resetAt": 1785110400000
+        },
+        {
+          "metric": "tool_calls_month",
+          "label": "每月 MCP 工具调用次数",
+          "used": 98,
+          "limit": 3000,
+          "remaining": 2902,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        },
+        {
+          "metric": "media_uploads_month",
+          "label": "每月素材上传次数",
+          "used": 17,
+          "limit": 500,
+          "remaining": 483,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        }
+      ],
+      "refunded": false
+    }
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "图片上传成功！\n图片URL: http://mmbiz.qpic.cn/mmbiz_jpg/G54UQVjjFicmVfic0a9kKHlLzgjJGBOAYhZECHFgGtuVUnQhYcGibJOro3ymDVfCbHuMjrpeOHl5Eu7md4VkKYH0TIl3iaG4H4ZZ2Ty1ARqYaIU/0?from=appmsg\n文件名: cline-selfhost.jpg\n文件大小: 88001 字节\n格式: image/jpeg"
+    }
+  ]
+}

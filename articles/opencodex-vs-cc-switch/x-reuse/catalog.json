@@ -1,0 +1,422 @@
+[
+  {
+    "id": "2081197823966761215",
+    "url": "https://x.com/Jolyne_AI/status/2081197823966761215",
+    "username": "Jolyne_AI",
+    "name": "徐伦",
+    "created_at": "2026-07-26T02:00:02.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 157,
+      "like_count": 2,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+    },
+    "text": "用 Codex 写代码，模型被绑死在 OpenAI 官方那几个上，想换别的用不了。\n\nopencodex 是个跑在本地的小代理，把 Codex 接到任意大模型上，Claude Code 也一样能用。\n\n可接入 Claude、Gemini、Grok、DeepSeek、Kimi、Qwen 还有本地的 Ollama 模型。\n\nGitHub：https://t.co/HWtlx9qgzo\n\n支持流式输出、工具调用、图片这些都双向打通，换了模型原来的用法照旧。\n\n还能管理一组 ChatGPT 账号，新会话自动挑用量最低的那个，老会话则固定在原账号上。\n\n可原生运行 macOS、Windows 和 Linux 三大平台，只需要一条命令即可安装好。",
+    "media": [
+      {
+        "file": "media/2081197823966761215_3_2081197820158382080.jpg",
+        "url": "https://pbs.twimg.com/media/HOHmZAnbkAArz4u.jpg",
+        "type": "photo",
+        "media_key": "3_2081197820158382080"
+      }
+    ]
+  },
+  {
+    "id": "2081055248928629005",
+    "url": "https://x.com/claudeebum/status/2081055248928629005",
+    "username": "claudeebum",
+    "name": "claudebum",
+    "created_at": "2026-07-25T16:33:30.000Z",
+    "metrics": {
+      "bookmark_count": 2,
+      "impression_count": 108,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+    },
+    "text": "GO TO CLAUDE\n\nnow claude-opus-5  is unlimited\nIm using 20x plan in opencodex\nand regular limit is 1400$  per week \nand I spent about 960$ a day \nand It only spent 10% of weekly limit\n\nINSANE https://t.co/guhltQg8gq",
+    "media": [
+      {
+        "file": "media/2081055248928629005_3_2081055243220176896.png",
+        "url": "https://pbs.twimg.com/media/HOFkt8IaUAA1Ud_.png",
+        "type": "photo",
+        "media_key": "3_2081055243220176896"
+      }
+    ]
+  },
+  {
+    "id": "2081053381213528185",
+    "url": "https://x.com/xing_eth/status/2081053381213528185",
+    "username": "xing_eth",
+    "name": "18168",
+    "created_at": "2026-07-25T16:26:04.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 560,
+      "like_count": 2,
+      "quote_count": 1,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "不会命令行，codex没额度，也能给 opencodex 导入新账号。\n当 Codex 额度用完，手里有新的账号导出文件，却不知道怎么使用终端、执行命令和修改配置怎么办？\nOpenCodex Account Importer 的 macOS 应用端就是为这个场景做的：\n把 Sub2API、CPA、Cockpit Tools 或 Antigravity Tools 导出的 JSON 拖进 App，自动校验、一键导入 OpenCodex 账号池。\n不用终端，不用重新 OAuth，也不用手动改配置。\n下载 App → 拖入账号 →导入opencodex\n→ 继续使用 Codex。\n项目地址：\nhttps://t.co/cZ7rnf63xy\n#Codex #OpenCodex #AI工具 #开源项目",
+    "media": []
+  },
+  {
+    "id": "2080304328695284171",
+    "url": "https://x.com/xing_eth/status/2080304328695284171",
+    "username": "xing_eth",
+    "name": "18168",
+    "created_at": "2026-07-23T14:49:36.000Z",
+    "metrics": {
+      "bookmark_count": 93,
+      "impression_count": 17837,
+      "like_count": 47,
+      "quote_count": 1,
+      "reply_count": 3,
+      "retweet_count": 10
+    },
+    "text": "50 个账号迁到 OpenCodex，难道要手动登录 50 次？\n打开浏览器、登录账号、完成 OAuth、等待回调，然后再重复 49 遍。\n\n账号池越大，越容易把时间浪费在搬账号上，而更多时候你可能很多账号已无法再次登录。\n\n既然 CPA、Sub2API 和 Antigravity 已经能导出凭证，为什么不能一条命令直接迁进 OpenCodex？\n\n所以，我开源了 OpenCodex Account Importer。\n我不想再重复做这件事，所以刚刚开源了：\nhttps://t.co/cZ7rnf5vI0\n一个轻量、无 GUI 的本地 CLI，可以把已有认证导出 JSON 转换成 OpenCodex 能识别的账号池。\n目前支持：\nCLIProxyAPI / CPA 的 Codex OAuth JSON\nSub2API 的 OpenAI OAuth、Agent Identity、Grok / xAI OAuth\nAntigravity Tools 的账号数组和 refresh-only 导出\n一句话告诉codex：\n\n请安装并使用 GitHub 仓库 github:feiyulc/opencodex-account-importer，\n把我在本次消息中附加或指定的 Sub2API、CLIProxyAPI/CPA 或 Antigravity Tools 导出 JSON 转换并正式导入本机 OpenCodex：\n先确认 Node.js 版本不低于 20 并执行 npm install -g github:feiyulc/opencodex-account-importer，\n单个 JSON 用 ocx-import --file \"<JSON完整路径>\" --dry-run、文件夹用 ocx-import --dir \"<文件夹完整路径>\" --dry-run 做格式和写入前校验；\n校验成功后不要停在预览，也不需要再次询问，立即用相同命令去掉 --dry-run 完成正式导入，最后执行 ocx-import --verify；\n不要打印、上传、复制或提交任何 access_token、refresh_token、id_token、私钥、邮箱或原始 JSON 内容，\n只向我报告识别到的来源格式、导入/更新/跳过数量、备份目录和最终验证结果。\n\n#OpenCodex #Codex #Sub2API #OpenSource #CLI #AI工具",
+    "media": [
+      {
+        "file": "media/2080304328695284171_13_2080301746455269376.mp4",
+        "url": "https://video.twimg.com/amplify_video/2080301746455269376/vid/avc1/1920x1080/85wA0SeboGz6A0rF.mp4",
+        "type": "video",
+        "media_key": "13_2080301746455269376"
+      }
+    ]
+  },
+  {
+    "id": "2080976466674864214",
+    "url": "https://x.com/Wanyouyouounp/status/2080976466674864214",
+    "username": "Wanyouyouounp",
+    "name": "kar大头叔叔",
+    "created_at": "2026-07-25T11:20:26.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 10,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "装了 OpenCodex 之后发现一件挺离谱的事\n绑 Google 能用 Claude Sonnet 4.6\n和 Claude Opus 4.6 thinking\n\n是真 Claude，Google 通道供额度\n\n而且更要命的是   咸鱼9.9块就能冲Google AI Pro🤣 https://t.co/ygRKX59z5i https://t.co/8YK39mXqBN",
+    "media": [
+      {
+        "file": "media/2080976466674864214_3_2080974981371187200.jpg",
+        "url": "https://pbs.twimg.com/media/HOEbuFca0AAe6TV.jpg",
+        "type": "photo",
+        "media_key": "3_2080974981371187200"
+      }
+    ]
+  },
+  {
+    "id": "2080479206065266707",
+    "url": "https://x.com/Wanyouyouounp/status/2080479206065266707",
+    "username": "Wanyouyouounp",
+    "name": "kar大头叔叔",
+    "created_at": "2026-07-24T02:24:30.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 23,
+      "like_count": 0,
+      "quote_count": 1,
+      "reply_count": 1,
+      "retweet_count": 0
+    },
+    "text": "额度不够，模型还锁死\n这才是用 Codex 最烦的地方\n\nGPT 顶满了\nClaude、Grok、Gemini 还得另开客户端来回切\n\n今天装了OpenCodex   解决的就是这个\n不用写代码\nCodex 一个入口同事用多模型\n额度不够就切，密钥只在本机\n\n仓库放评论区 https://t.co/z8jOAz7gLY",
+    "media": [
+      {
+        "file": "media/2080479206065266707_3_2080478313525755905.jpg",
+        "url": "https://pbs.twimg.com/media/HN9YANibQAEWtUd.jpg",
+        "type": "photo",
+        "media_key": "3_2080478313525755905"
+      }
+    ]
+  },
+  {
+    "id": "2080973614690730029",
+    "url": "https://x.com/claudeebum/status/2080973614690730029",
+    "username": "claudeebum",
+    "name": "claudebum",
+    "created_at": "2026-07-25T11:09:07.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 100,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "Already not using codex models\nAny errors from opencodex https://t.co/PsDinOZ994",
+    "media": [
+      {
+        "file": "media/2080973614690730029_3_2080973609720573952.jpg",
+        "url": "https://pbs.twimg.com/media/HOEaePpbcAAzfOL.jpg",
+        "type": "photo",
+        "media_key": "3_2080973609720573952"
+      }
+    ]
+  },
+  {
+    "id": "2080927483424305234",
+    "url": "https://x.com/iBigQiang/status/2080927483424305234",
+    "username": "iBigQiang",
+    "name": "强子手记",
+    "created_at": "2026-07-25T08:05:48.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 176,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+    },
+    "text": "用了几天这个 #opencodex 插件体验是真不错，既能用上 #codex 的插件和顶级工作流逻辑，也能兼顾对接具体任务最优模型，opus-4-6 写文章还是最高性价比模型，成本低效果好不输肥波5👍 https://t.co/MdwI9F2Iz8 https://t.co/qed3Sfbqmj",
+    "media": [
+      {
+        "file": "media/2080927483424305234_3_2080927430903304192.jpg",
+        "url": "https://pbs.twimg.com/media/HODweSJbkAAKxgF.jpg",
+        "type": "photo",
+        "media_key": "3_2080927430903304192"
+      }
+    ]
+  },
+  {
+    "id": "2079751258538467773",
+    "url": "https://x.com/iBigQiang/status/2079751258538467773",
+    "username": "iBigQiang",
+    "name": "强子手记",
+    "created_at": "2026-07-22T02:11:54.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 349,
+      "like_count": 0,
+      "quote_count": 1,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "昨天看到多个推优都在分享推荐这个 #opencodex 开源项目，早上安装试了下确实不错，恰逢 #codex 重置成功续命，刚启动后就配置了下现有的 plan 渠道商，刚让 codex 把🌋火山的套餐也接进来了，晚点再去搞个 #Cursor 的Pro+ 把 Grok 4.5接进来听说这个量大管饱。 https://t.co/NcjwJXilQK https://t.co/GN0f5sWZFf",
+    "media": [
+      {
+        "file": "media/2079751258538467773_3_2079751125927104512.jpg",
+        "url": "https://pbs.twimg.com/media/HNzCoUoakAAjQ8_.jpg",
+        "type": "photo",
+        "media_key": "3_2079751125927104512"
+      },
+      {
+        "file": "media/2079751258538467773_3_2079751247863930880.jpg",
+        "url": "https://pbs.twimg.com/media/HNzCva4a4AAQe_G.jpg",
+        "type": "photo",
+        "media_key": "3_2079751247863930880"
+      }
+    ]
+  },
+  {
+    "id": "2080252333829628163",
+    "url": "https://x.com/cyrilXBT/status/2080252333829628163",
+    "username": "cyrilXBT",
+    "name": "CyrilXBT",
+    "created_at": "2026-07-23T11:23:00.000Z",
+    "metrics": {
+      "bookmark_count": 269,
+      "impression_count": 23593,
+      "like_count": 181,
+      "quote_count": 0,
+      "reply_count": 35,
+      "retweet_count": 28
+    },
+    "text": "Holy sh*t this is F*cking dangerous \n\nRUNNING FABLE 5, KIMI K3, AND GROK 4.5 INSIDE CODEX IS NOW ONE NPM INSTALL AWAY.\n\nThe tool is opencodex, a lightweight local proxy that translates Codex's own API format into whatever provider you actually want underneath it.\n\nSame Codex workflow. Different brain, picked per session.\n\nSetup is genuinely simple.\n\nnpm install -g @bitkyc08/opencodex\nocx init to add a provider\nocx start to run the proxy\n\nFrom there, Codex routes through it automatically, streaming, tool calls, images, all working in both directions.\n\nIt also works with Claude Code directly, auto-context up to 1M tokens, sub-agents included.\n\nBookmark this before you lose the setup steps.",
+    "media": [
+      {
+        "file": "media/2080252333829628163_13_2080146724157341696.mp4",
+        "url": "https://video.twimg.com/amplify_video/2080146724157341696/vid/avc1/1684x1080/mKv4usNOiarG0nqE.mp4",
+        "type": "video",
+        "media_key": "13_2080146724157341696"
+      }
+    ]
+  },
+  {
+    "id": "2079575576105373925",
+    "url": "https://x.com/verbscribe/status/2079575576105373925",
+    "username": "verbscribe",
+    "name": "Aleksander",
+    "created_at": "2026-07-21T14:33:48.000Z",
+    "metrics": {
+      "bookmark_count": 10,
+      "impression_count": 2446,
+      "like_count": 11,
+      "quote_count": 0,
+      "reply_count": 2,
+      "retweet_count": 2
+    },
+    "text": "@N_and_ni There is no need to switch; you can use Claude in Codex with OpenCodex.\n https://t.co/uBDSs0zwhf",
+    "media": []
+  },
+  {
+    "id": "2079684138496659750",
+    "url": "https://x.com/felix_snowylake/status/2079684138496659750",
+    "username": "felix_snowylake",
+    "name": "SnowyLake",
+    "created_at": "2026-07-21T21:45:11.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 31,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+    },
+    "text": "@lakix0 @DylanBurnette @sudo_goreng 我觉得你可以了解一下opencodex，它让你可以在codex中使用你的cursor订阅",
+    "media": []
+  },
+  {
+    "id": "2079526272787427570",
+    "url": "https://x.com/yongyuanaiBTC/status/2079526272787427570",
+    "username": "yongyuanaiBTC",
+    "name": "Ycpe",
+    "created_at": "2026-07-21T11:17:53.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 151,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+    },
+    "text": "https://t.co/jOK0BZPJQq\n试用了一下 OpenCodex感觉挺不错，不用像 CC-Switch一样切换模型需要重启客户端\n\n它还兼容OpenAI Responses API 格式，适合经常使用多个 Agent App，然后订阅了多个 AI 服务商的小伙伴\n\n在本地部署好这个项目，请求都经过代理转发，后续只需要在项目面板里维护 API 就可以了，不用每个 Agent 去配置\n\n而且还支持多个模型合并、故障转移、轮询功能",
+    "media": [
+      {
+        "file": "media/2079526272787427570_3_2079525563992248320.jpg",
+        "url": "https://pbs.twimg.com/media/HNv1e48aEAA0bLD.jpg",
+        "type": "photo",
+        "media_key": "3_2079525563992248320"
+      }
+    ]
+  },
+  {
+    "id": "2079703215583469702",
+    "url": "https://x.com/gkxspace/status/2079703215583469702",
+    "username": "gkxspace",
+    "name": "余温",
+    "created_at": "2026-07-21T23:01:00.000Z",
+    "metrics": {
+      "bookmark_count": 10,
+      "impression_count": 13907,
+      "like_count": 10,
+      "quote_count": 0,
+      "reply_count": 65,
+      "retweet_count": 1
+    },
+    "text": "终于重置了！！！我额度刚好见底，Tibo 来得是真及时\n\n不过，最近重置没那么频繁了，大家伙还是省着点用\n\nUltra 可以先关了，要不然会非常过度思考，Fast 也关了（消耗是普通模式的 2.5 倍）\n\n如果大家还是不够用，但是还想用 Codex，可以用opencodex把 Kimi、Qwen 等接入 Codex，效果还蛮不错的 https://t.co/smAilQ1aDI https://t.co/d23R1Ss6mH",
+    "media": [
+      {
+        "file": "media/2079703215583469702_3_2079630388066955265.png",
+        "url": "https://pbs.twimg.com/media/HNxU0dDWsAEJv7v.png",
+        "type": "photo",
+        "media_key": "3_2079630388066955265"
+      }
+    ]
+  },
+  {
+    "id": "2081197823966761215",
+    "url": "https://pbs.twimg.com/media/HOHmZAnbkAArz4u.jpg?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2081197823966761215.jpg",
+        "url": "https://pbs.twimg.com/media/HOHmZAnbkAArz4u.jpg?name=orig"
+      }
+    ],
+    "source": "direct"
+  },
+  {
+    "id": "2081055248928629005",
+    "url": "https://pbs.twimg.com/media/HOFkt8IaUAA1Ud_.png?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2081055248928629005.png",
+        "url": "https://pbs.twimg.com/media/HOFkt8IaUAA1Ud_.png?name=orig"
+      }
+    ],
+    "source": "direct"
+  },
+  {
+    "id": "2080976466674864214",
+    "url": "https://pbs.twimg.com/media/HOEbuFca0AAe6TV.jpg?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2080976466674864214.jpg",
+        "url": "https://pbs.twimg.com/media/HOEbuFca0AAe6TV.jpg?name=orig"
+      }
+    ],
+    "source": "direct"
+  },
+  {
+    "id": "2080976466674864214b",
+    "url": "https://pbs.twimg.com/media/HOEdDb2acAA75YN.jpg?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2080976466674864214b.jpg",
+        "url": "https://pbs.twimg.com/media/HOEdDb2acAA75YN.jpg?name=orig"
+      }
+    ],
+    "source": "direct"
+  },
+  {
+    "id": "2080479206065266707",
+    "url": "https://pbs.twimg.com/media/HN9YANibQAEWtUd.jpg?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2080479206065266707.jpg",
+        "url": "https://pbs.twimg.com/media/HN9YANibQAEWtUd.jpg?name=orig"
+      }
+    ],
+    "source": "direct"
+  },
+  {
+    "id": "2080973614690730029",
+    "url": "https://pbs.twimg.com/media/HOEaePpbcAAzfOL.jpg?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2080973614690730029.jpg",
+        "url": "https://pbs.twimg.com/media/HOEaePpbcAAzfOL.jpg?name=orig"
+      }
+    ],
+    "source": "direct"
+  },
+  {
+    "id": "2080927483424305234",
+    "url": "https://pbs.twimg.com/media/HODweSJbkAAKxgF.jpg?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2080927483424305234.jpg",
+        "url": "https://pbs.twimg.com/media/HODweSJbkAAKxgF.jpg?name=orig"
+      }
+    ],
+    "source": "direct"
+  },
+  {
+    "id": "2079751258538467773",
+    "url": "https://pbs.twimg.com/media/HNzCoUoakAAjQ8_.jpg?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2079751258538467773.jpg",
+        "url": "https://pbs.twimg.com/media/HNzCoUoakAAjQ8_.jpg?name=orig"
+      }
+    ],
+    "source": "direct"
+  },
+  {
+    "id": "2079751258538467773b",
+    "url": "https://pbs.twimg.com/media/HNzCva4a4AAQe_G.jpg?name=orig",
+    "media": [
+      {
+        "file": "media/direct_2079751258538467773b.jpg",
+        "url": "https://pbs.twimg.com/media/HNzCva4a4AAQe_G.jpg?name=orig"
+      }
+    ],
+    "source": "direct"
+  }
+]

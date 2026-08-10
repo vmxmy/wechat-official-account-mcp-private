@@ -1,0 +1,5 @@
+[1;34m> POST[0m https://api.x.com/2/tweets
+[1;36m> Content-Type[0m: application/json
+[1;36m> Authorization[0m: Bearer b2FEbHFTSG9lSzJxSnAwZVhMV3NNREZGS2VPYVZLZUpIS2lMcENNN2hHdmhJOjE3ODUwMzYxNjc3MzY6MToxOmF0OjE
+[1;36m> User-Agent[0m: xurl/1.2.3
+

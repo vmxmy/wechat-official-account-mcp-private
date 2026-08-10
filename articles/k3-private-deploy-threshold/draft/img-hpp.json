@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "tenantId": "tenant_default",
+    "accountId": "acct_31c623c5709b451b996c500c",
+    "userId": "op_8e688dd9b04944c389ff1aea",
+    "requestId": "req_34d38c6d8cda4fe197df95d4",
+    "quota": {
+      "plan": "plus",
+      "checks": [
+        {
+          "metric": "tool_calls_day",
+          "label": "每日 MCP 工具调用次数",
+          "used": 10,
+          "limit": 500,
+          "remaining": 490,
+          "amount": 1,
+          "period": "2026-07-26",
+          "resetAt": 1785110400000
+        },
+        {
+          "metric": "tool_calls_month",
+          "label": "每月 MCP 工具调用次数",
+          "used": 97,
+          "limit": 3000,
+          "remaining": 2903,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        },
+        {
+          "metric": "media_uploads_month",
+          "label": "每月素材上传次数",
+          "used": 16,
+          "limit": 500,
+          "remaining": 484,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        }
+      ],
+      "refunded": false
+    }
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "图片上传成功！\n图片URL: http://mmbiz.qpic.cn/sz_mmbiz_jpg/G54UQVjjFicmVkEunsMpnQR0xbxCC3b4kG5WceGV85ExgjDcLzNA8oQrB0PJcEianjEdls65MCR84wlydxBx8ibV5JG7kibyCeIMAo7ZiaC0oIf8/0?from=appmsg\n文件名: hppzyy-64xh200.jpg\n文件大小: 221480 字节\n格式: image/jpeg"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "2080252333829628163",
+  "url": "https://x.com/cyrilXBT/status/2080252333829628163",
+  "username": "cyrilXBT",
+  "name": "CyrilXBT",
+  "created_at": "2026-07-23T11:23:00.000Z",
+  "metrics": {
+    "bookmark_count": 269,
+    "impression_count": 23593,
+    "like_count": 181,
+    "quote_count": 0,
+    "reply_count": 35,
+    "retweet_count": 28
+  },
+  "text": "Holy sh*t this is F*cking dangerous \n\nRUNNING FABLE 5, KIMI K3, AND GROK 4.5 INSIDE CODEX IS NOW ONE NPM INSTALL AWAY.\n\nThe tool is opencodex, a lightweight local proxy that translates Codex's own API format into whatever provider you actually want underneath it.\n\nSame Codex workflow. Different brain, picked per session.\n\nSetup is genuinely simple.\n\nnpm install -g @bitkyc08/opencodex\nocx init to add a provider\nocx start to run the proxy\n\nFrom there, Codex routes through it automatically, streaming, tool calls, images, all working in both directions.\n\nIt also works with Claude Code directly, auto-context up to 1M tokens, sub-agents included.\n\nBookmark this before you lose the setup steps.",
+  "media": [
+    {
+      "file": "media/2080252333829628163_13_2080146724157341696.mp4",
+      "url": "https://video.twimg.com/amplify_video/2080146724157341696/vid/avc1/1684x1080/mKv4usNOiarG0nqE.mp4",
+      "type": "video",
+      "media_key": "13_2080146724157341696"
+    }
+  ]
+}

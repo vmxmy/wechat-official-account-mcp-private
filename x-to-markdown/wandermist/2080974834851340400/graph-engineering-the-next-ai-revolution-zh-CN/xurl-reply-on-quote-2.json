@@ -1,0 +1,44 @@
+[1;34m> POST[0m https://api.x.com/2/tweets
+[1;36m> Content-Type[0m: application/json
+[1;36m> Authorization[0m: Bearer b2FEbHFTSG9lSzJxSnAwZVhMV3NNREZGS2VPYVZLZUpIS2lMcENNN2hHdmhJOjE3ODUwMzYxNjc3MzY6MToxOmF0OjE
+[1;36m> User-Agent[0m: xurl/1.2.3
+
+[1;31m< 201 Created[0m
+[1;32m< Content-Disposition[0m: attachment; filename=json.json
+[1;32m< X-Response-Time[0m: 367
+[1;32m< X-Rate-Limit-Remaining[0m: 91
+[1;32m< Set-Cookie[0m: guest_id_marketing=v1%3A178504141172562228; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:50:12 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: guest_id_ads=v1%3A178504141172562228; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:50:12 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: personalization_id="v1_PnbXamb/2jCruAakyihoJw=="; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:50:12 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: guest_id=v1%3A178504141172562228; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:50:12 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: __cf_bm=pfv8AObR_cwmKyDb2PmLnBkbg_PANSAm2HYJpsEfzwo-1785041411.6658921-1.0.1.1-OOdLAybaHu.QmpeqGRnS7e7CB6idh6La0xAh.QXPFSONrId4mdUshrpinU6LzTtCc78e5q2JHZazj5WO2Q7Wpn5KAGqwFMh1t3gbuX9fj58a25jbcbX_QnVqfZ.j6F5V; HttpOnly; SameSite=None; Secure; Path=/; Domain=x.com; Expires=Sun, 26 Jul 2026 05:20:12 GMT
+[1;32m< Api-Version[0m: 2.167
+[1;32m< Cf-Cache-Status[0m: DYNAMIC
+[1;32m< Vary[0m: accept-encoding
+[1;32m< Location[0m: https://api.x.com/2/tweets/2081240644417466473
+[1;32m< X-Content-Type-Options[0m: nosniff
+[1;32m< Origin-Cf-Ray[0m: a210c836e90cd79c-NRT
+[1;32m< Perf[0m: 7402827104
+[1;32m< X-Access-Level[0m: read-write-directmessages
+[1;32m< X-Frame-Options[0m: SAMEORIGIN
+[1;32m< X-Transaction-Id[0m: 20d660ac8a03d02d
+[1;32m< X-Xss-Protection[0m: 0
+[1;32m< Date[0m: Sun, 26 Jul 2026 04:50:12 GMT
+[1;32m< Server[0m: cloudflare envoy
+[1;32m< X-Rate-Limit-Limit[0m: 100
+[1;32m< X-Rate-Limit-Reset[0m: 1785041931
+[1;32m< Strict-Transport-Security[0m: max-age=631138519; includeSubdomains
+[1;32m< X-Served-By[0m: t4_p
+[1;32m< Cf-Ray[0m: a210c836e90cd79c-NRT
+[1;32m< Content-Type[0m: application/json; charset=utf-8
+[1;32m< Cache-Control[0m: no-cache, no-store, max-age=0
+
+{
+  "data":{
+    "edit_history_tweet_ids":[
+      ""
+    ],
+    "id":"2081240644417466473",
+    "text":"@wandermist 续：中文配图 ⑤⑥\n\n⑤ 语境卡\n⑥ 人仍然属于这张图\n\n6 张中文图齐了。 https://t.co/n0kct8RJqU"
+  }
+}

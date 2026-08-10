@@ -1,0 +1,18 @@
+{
+  "id": "2081236091802358174",
+  "label": "statswire-8xh100",
+  "url": "https://x.com/StatsWire/status/2081236091802358174",
+  "username": "StatsWire",
+  "name": "Stats Wire",
+  "created_at": "2026-07-26T04:32:06.000Z",
+  "metrics": {
+    "bookmark_count": 0,
+    "impression_count": 7,
+    "like_count": 1,
+    "quote_count": 0,
+    "reply_count": 0,
+    "retweet_count": 0
+  },
+  "text": "Kimi K3's open weights drop tonight.\n\n2.8 trillion parameters. The largest open-source model ever released. Kimi API Platform\nEveryone is going to say \"you can run it locally.\"\n\nThe honest version: you need a minimum of 8× H100 GPUs just to load it. A single RTX 4090 cannot run it even quantized. Explainx\n\nThe hype will be loud. The hardware reality will be quiet.",
+  "media_files": []
+}

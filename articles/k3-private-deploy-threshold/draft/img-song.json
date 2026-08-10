@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "tenantId": "tenant_default",
+    "accountId": "acct_31c623c5709b451b996c500c",
+    "userId": "op_8e688dd9b04944c389ff1aea",
+    "requestId": "req_2e9a518cf6684e40bd145ac8",
+    "quota": {
+      "plan": "plus",
+      "checks": [
+        {
+          "metric": "tool_calls_day",
+          "label": "每日 MCP 工具调用次数",
+          "used": 13,
+          "limit": 500,
+          "remaining": 487,
+          "amount": 1,
+          "period": "2026-07-26",
+          "resetAt": 1785110400000
+        },
+        {
+          "metric": "tool_calls_month",
+          "label": "每月 MCP 工具调用次数",
+          "used": 100,
+          "limit": 3000,
+          "remaining": 2900,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        },
+        {
+          "metric": "media_uploads_month",
+          "label": "每月素材上传次数",
+          "used": 19,
+          "limit": 500,
+          "remaining": 481,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        }
+      ],
+      "refunded": false
+    }
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "图片上传成功！
+图片URL: http://mmbiz.qpic.cn/mmbiz_jpg/G54UQVjjFicnIS6feDTSItE553KYCVjIy29lIJBDvwg85OxNfvaE8FXqiaynYnKicq1cx09k02CB4WcicBAasKObNq4jIegJMHwVCAVODxb5jics/0?from=appmsg
+文件名: songexp-full-deploy-cost.jpg
+文件大小: 342225 字节
+格式: image/jpeg"
+    }
+  ]
+}

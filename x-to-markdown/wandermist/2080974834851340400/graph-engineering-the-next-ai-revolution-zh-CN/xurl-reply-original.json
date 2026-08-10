@@ -1,0 +1,39 @@
+[1;34m> POST[0m https://api.x.com/2/tweets
+[1;36m> Content-Type[0m: application/json
+[1;36m> Authorization[0m: Bearer b2FEbHFTSG9lSzJxSnAwZVhMV3NNREZGS2VPYVZLZUpIS2lMcENNN2hHdmhJOjE3ODUwMzYxNjc3MzY6MToxOmF0OjE
+[1;36m> User-Agent[0m: xurl/1.2.3
+
+[1;31m< 403 Forbidden[0m
+[1;32m< X-Served-By[0m: t4_p
+[1;32m< Cf-Cache-Status[0m: DYNAMIC
+[1;32m< Content-Length[0m: 201
+[1;32m< Server[0m: cloudflare envoy
+[1;32m< X-Frame-Options[0m: SAMEORIGIN
+[1;32m< X-Rate-Limit-Limit[0m: 100
+[1;32m< X-Content-Type-Options[0m: nosniff
+[1;32m< X-Response-Time[0m: 75
+[1;32m< Date[0m: Sun, 26 Jul 2026 04:48:16 GMT
+[1;32m< Perf[0m: 7402827104
+[1;32m< Set-Cookie[0m: guest_id_marketing=v1%3A178504129676088310; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:48:16 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: guest_id_ads=v1%3A178504129676088310; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:48:16 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: personalization_id="v1_6H7ut+56icScezI4dqieyw=="; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:48:16 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: guest_id=v1%3A178504129676088310; Max-Age=63072000; Expires=Tue, 25 Jul 2028 04:48:16 GMT; Path=/; Domain=.x.com; Secure; SameSite=None
+[1;32m< Set-Cookie[0m: __cf_bm=.oS_acKxqlpriqqGOPaWzdEfQmqUctXOSttg5gLJJ0A-1785041296.695995-1.0.1.1-2JJo3r7qfRxSOhXE8_y.aiedklfaLMrc3uhwOaxMLMtafd4Lxl_qN8kQTIXiGtMH8J1FGpHVqrXtZcVOB_mhv.aWk2_DKLrRbPc7A2OUTylNXIRUjKgouiYCjT1rgUNs; HttpOnly; SameSite=None; Secure; Path=/; Domain=x.com; Expires=Sun, 26 Jul 2026 05:18:16 GMT
+[1;32m< Cache-Control[0m: no-cache, no-store, max-age=0
+[1;32m< Cf-Ray[0m: a210c56859e6eb74-NRT
+[1;32m< X-Access-Level[0m: read-write-directmessages
+[1;32m< X-Transaction-Id[0m: b645c590ff5f8bd4
+[1;32m< X-Xss-Protection[0m: 0
+[1;32m< X-Rate-Limit-Reset[0m: 1785041931
+[1;32m< Content-Disposition[0m: attachment; filename=json.json
+[1;32m< Strict-Transport-Security[0m: max-age=631138519; includeSubdomains
+[1;32m< Content-Type[0m: application/problem+json
+[1;32m< X-Rate-Limit-Remaining[0m: 97
+[1;32m< Origin-Cf-Ray[0m: a210c56859e6eb74-NRT
+
+{
+  "detail":"You can only reply to or quote posts where you are mentioned or are the author.",
+  "status":403,
+  "title":"Authorization Error",
+  "type":"https://api.x.com/2/problems/not-authorized-for-resource"
+}

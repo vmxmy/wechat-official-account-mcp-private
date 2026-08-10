@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>emilkowalski-skills-for-prototypers-and-frontend_排版_石墨极简风(graphite-minimal) · 公众号排版预览</title>
+<style>
+  body{margin:0;background:#eef0f2;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;-webkit-text-size-adjust:100%;}
+  .gzh-toolbar{position:fixed;top:0;left:0;right:0;height:54px;background:#ffffff;box-shadow:0 1px 10px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:99;}
+  .gzh-hint{font-size:13px;color:#6b7280;line-height:1.4;}
+  .gzh-hint b{color:#111827;}
+  .gzh-copy{background:#059669;color:#fff;border:0;border-radius:9px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(5,150,105,.28);white-space:nowrap;transition:transform .08s,background .15s;}
+  .gzh-copy:hover{background:#047857;}
+  .gzh-copy:active{transform:translateY(1px);}
+  .gzh-toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
+  .gzh-toast.show{opacity:1;}
+  .gzh-stage{max-width:700px;margin:78px auto 64px;padding:0 8px;}
+  @media(max-width:520px){.gzh-hint{max-width:150px;}}
+</style>
+</head>
+<body>
+<div class="gzh-toolbar">
+  <span class="gzh-hint">👇 下方是排版效果 · 点右侧 <b>复制</b> 直接粘到公众号</span>
+  <button class="gzh-copy" id="gzhCopyBtn" onclick="gzhCopy()">📋 复制到公众号</button>
+</div>
+<div class="gzh-toast" id="gzhToast"></div>
+<div class="gzh-stage">
+  <div id="gzh-content">
+<section style="max-width:677px;margin:0 auto;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;color:#52525B;line-height:1.8;letter-spacing:0.3px;overflow-x:hidden;">
+
+  <!-- 引言卡 -->
+  <section style="margin:10px 10px 40px;padding:32px 24px 24px;border-top:1px solid #E4E4E7;border-bottom:1px solid #E4E4E7;background:#FFFFFF;">
+    <p style="font-size:11px;color:#A1A1AA;letter-spacing:2px;margin:0 0 18px;font-weight:400;">
+      <span leaf="">QUOTE</span>
+    </p>
+    <p style="font-size:18px;font-weight:700;color:#27272A;margin:0 0 8px;line-height:1.7;letter-spacing:0.5px;">
+      <span leaf="">Agent 会写动效代码，但还不会判断</span>
+      <span style="border-bottom:2px solid #F97316;font-weight:700;color:#27272A;"><span leaf="">手感</span></span>
+      <span leaf="">——差的是品味标准，不是技术栈。</span>
+    </p>
+    <p style="text-align:right;font-size:12px;color:#A1A1AA;margin:16px 0 0;letter-spacing:1px;">
+      <span leaf="">—— 大徐</span>
+    </p>
+  </section>
+
+  <!-- 封面图 -->
+  <section style="border:1px solid #E4E4E7;padding:4px;margin:0 10px 8px;">
+    <section style="margin:0;overflow:hidden;">
+      <span leaf=""><img src="http://mmbiz.qpic.cn/mmbiz_png/G54UQVjjFiclBKl1ISialWmOv9l7DiczluooCBYbqr94osbJ2tB8Yfa0Y5fCZBFoSwdAObVwfoKKPM6kia1cXiarmxb1BY5DHNFrib4v4GOrwcyAs/0?from=appmsg" alt="封面" style="max-width:100%;height:auto;display:block;margin:0 auto;"></span>
+    </section>
+  </section>
+  <p style="font-size:12px;color:#A1A1AA;text-align:center;margin:0 10px 28px;letter-spacing:0.5px;">
+    <span leaf="">— 先问该不该动，再谈怎么动</span>
+  </p>
+
+  <!-- 前言 -->
+  <section style="padding:0 10px 8px;">
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">给做</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">产品原型</span></span>
+      <span leaf="">和</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">前端</span></span>
+      <span leaf="">的同学：什么时候该动、怎么动、什么绝不动。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">Agent 帮你出 settings、下拉、确认弹窗，能点能跳能演示——却总像模板。根因往往不在「会不会写动画」，而在有没有一套可执行的</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">手感标准</span></span>
+      <span leaf="">。</span>
+    </p>
+  </section>
+
+  <!-- 本文看点 -->
+  <section style="padding:0 10px 40px;">
+    <p style="font-size:11px;color:#A1A1AA;margin:0 0 16px;letter-spacing:2px;">
+      <span leaf="">本文看点</span>
+    </p>
+    <section style="display:flex;justify-content:space-between;">
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;margin-right:8px;">
+        <p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">01</span></p>
+        <p style="font-size:13px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">六个 skill 怎么选</span></p>
+      </section>
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;margin-right:8px;">
+        <p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">02</span></p>
+        <p style="font-size:13px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">原型 / 前端工作流</span></p>
+      </section>
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;">
+        <p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">03</span></p>
+        <p style="font-size:13px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">三条立刻见效规则</span></p>
+      </section>
+    </section>
+  </section>
+
+  <!-- 01 太长不看 -->
+  <section style="margin-top:16px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">01</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">TL;DR</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">太长不看</span>
+        </h3>
+      </section>
+    </section>
+
+    <section style="border-left:3px solid #F97316;padding:14px 0 14px 22px;margin:24px 0 24px;">
+      <p style="font-size:14px;font-weight:700;color:#27272A;margin:0;line-height:1.8;">
+        <span leaf="">一句话：Emil Kowalski 的 skills 把「该不该动、怎么动」编码成 Agent 可执行规则，专治 AI 味界面。</span>
+      </p>
+    </section>
+
+    <p style="margin-bottom:14px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">装这个：</span>
+    </p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+      <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">bash</span></span>
+      </section>
+      <section style="padding:11px 14px;">
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">npx skills@latest add emilkowalski/skills</span></p>
+      </section>
+    </section>
+
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">仓库：</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">github.com/emilkowalski/skills</span></span>
+      <span leaf="">（注意是 skills 复数，网上常写成单数 skill）。</span>
+    </p>
+
+    <p style="margin-bottom:12px;font-size:15px;line-height:1.8;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">六个 skill 怎么选：</span>
+    </p>
+    <section style="margin:0 0 24px;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">场景</span></th>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">用哪个</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">日常写 UI / 动效</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">emil-design-eng</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">不知道该不该加动画</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">find-animation-opportunities</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">PR / 出活前审查</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">review-animations</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">整页动效太乱要治理</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">improve-animations</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">说不清「那种弹一下」</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">animation-vocabulary</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">要 sheet / 手势 / 流体感</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">apple-design</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p style="margin-bottom:12px;font-size:15px;line-height:1.8;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">只记三条规则：</span>
+    </p>
+    <section style="margin-bottom:24px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">频率决定要不要动——快捷键、命令面板等超高频路径：</span><strong style="color:#27272A;"><span leaf="">不要动画</span></strong></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">进场用</span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">ease-out</span></span><span leaf="">，别用</span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">ease-in</span></span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">不要</span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">scale(0)</span></span><span leaf="">；popover 从 trigger 长出来（Modal 居中除外）</span></p>
+      </section>
+    </section>
+
+    <section style="background:#FAFAFA;border:1px solid #E4E4E7;padding:20px 22px;margin:0 0 8px;">
+      <p style="font-size:11px;color:#A1A1AA;margin:0 0 8px;letter-spacing:2px;font-weight:500;">
+        <span leaf="">10 MIN</span>
+      </p>
+      <p style="font-size:15px;color:#3F3F46;margin:0;line-height:1.8;text-align:justify;">
+        <span leaf="">最小行动：对最近一页 Agent 生成的 UI 说——「什么该动、什么不该动？拒绝项必须写。最多 5 条建议。」</span>
+      </p>
+    </section>
+  </section>
+
+  <!-- 分割线 -->
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 02 你一定见过 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">02</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">PAIN</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">你一定见过这种「能用」</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin:24px 0 22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">Agent 帮你出了一版 settings、一个下拉菜单、一个确认弹窗。能点、能跳、能演示——但总差点意思：</span>
+    </p>
+    <section style="margin-bottom:24px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">按钮按下去没反馈，像点在平面海报上</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">弹层从屏幕正中「冒」出来，和触发按钮毫无关系</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">下拉用了</span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">ease-in</span></span><span leaf="">，前半段发闷，后半段才冲出来</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">4</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">命令面板、快捷键也配华丽开场，用几次就觉得拖</span></p>
+      </section>
+    </section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">产品同学拿去路演说「挺完整」。前端同学 review 时心里只有一句：</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">像 AI 写的</span></span>
+      <span leaf="">。</span>
+    </p>
+    <section style="border-left:3px solid #52525B;padding:16px 0 16px 24px;margin:0 0 8px;">
+      <p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.7;letter-spacing:0.5px;">
+        <span leaf="">「问题往往不在会不会写动画，而在有没有一套可执行的手感标准。」</span>
+      </p>
+    </section>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 03 为什么 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">03</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">WHY</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">为什么 Agent 特别容易写出「AI 味」界面</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">会写代码 ≠ 知道手感</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">它知道 transition、scale、keyframes，却经常选错配方：进场该用</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">ease-out</span></span>
+      <span leaf="">却写成 ease-in；从</span>
+      <span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">scale(0)</span></span>
+      <span leaf="">长出来；给一天上百次的操作也加动画，让高频路径变钝。</span>
+    </p>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">小细节会复利</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">单独看每一处都不算 bug。叠在一起，就是你说不清、但用户一秒能感到的廉价感。Emil 的判断很直白：</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">Agents don't have great taste</span></span>
+      <span leaf="">。Skill 不是取代设计师，而是把领域经验放大到每一次生成和审查里。</span>
+    </p>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">原型和前端，其实是同一刀</span>
+    </p>
+    <p style="margin-bottom:8px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">原型阶段若定错运动语言，后面要么照搬烂动效，要么推倒重做。所以这套 skill</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">不只适合写 CSS 的人</span></span>
+      <span leaf="">——做高保真原型、用 Agent 出可交互稿的同学，同样用得上。</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 04 是什么 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">04</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">WHAT</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">它是什么，又不是什么</span>
+        </h3>
+      </section>
+    </section>
+
+    <section style="margin:24px 0 24px;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">项</span></th>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">说明</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">是什么</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">给 coding agent 用的 Design Engineering Skills，约束 UI / 动效决策</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">谁做的</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">Emil Kowalski（Sonner、Vaul；背景含 Vercel、Linear）</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">不是什么</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">不是 Figma 插件，不是组件库，不会一键「美化全站」</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p style="margin-bottom:14px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">它提供三件事：</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">规则</span></span>
+      <span leaf="">、</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">审查</span></span>
+      <span leaf="">、</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">工作流</span></span>
+      <span leaf="">（先找机会 / 再审计 / 再执行）。</span>
+    </p>
+    <section style="border-left:2px solid #E4E4E7;padding:12px 0 12px 20px;margin:0 0 20px;">
+      <p style="font-size:13px;color:#A1A1AA;margin:0;line-height:1.8;text-align:justify;">
+        <span leaf="">社区常把它和 Impeccable、Taste 并列：别人管版式与「去模板感」，Emil 这条线更擅长 motion 与克制。</span>
+      </p>
+    </section>
+    <p style="margin-bottom:8px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">兼容 Claude Code、Cursor、Codex 等常见 Agent 环境（以 Skills CLI 当前支持为准）。</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 05 六个 skill -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">05</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">SKILLS</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">六个 skill，一张表说清「该用哪个」</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin:24px 0 16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">不必一次全开。按场景选就行。</span>
+    </p>
+    <section style="margin:0 0 24px;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 10px;text-align:left;"><span leaf="">Skill</span></th>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 10px;text-align:left;"><span leaf="">一句话</span></th>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 10px;text-align:left;"><span leaf="">原型</span></th>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 10px;text-align:left;"><span leaf="">前端</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#27272A;font-weight:600;"><span leaf="">emil-design-eng</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">主 skill：动效哲学 + 组件手感</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">默认品味</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">常驻约束</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#27272A;font-weight:600;background:#FAFAFA;"><span leaf="">find-animation-opportunities</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">找该动的，更写清不该动的</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">演示前扫</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">shield</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#27272A;font-weight:600;"><span leaf="">review-animations</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">严格审查现有动效</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">对照交互稿</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">PR review</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#27272A;font-weight:600;background:#FAFAFA;"><span leaf="">improve-animations</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">全页审计 → 可执行 plan</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">少用</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">屎山治理</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#27272A;font-weight:600;"><span leaf="">animation-vocabulary</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">模糊描述 → 精确术语</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">对齐语言</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">写 prompt</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#27272A;font-weight:600;background:#FAFAFA;"><span leaf="">apple-design</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">Apple 流体原则落到 Web</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">高保真手势</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">drawer / spring</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section style="border-left:3px solid #52525B;padding:16px 0 16px 24px;margin:0 0 8px;">
+      <p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.7;letter-spacing:0.5px;">
+        <span leaf="">「最被低估的一句：一半价值不在多加点动画，而在什么绝不动。」</span>
+      </p>
+    </section>
+    <p style="margin:20px 0 8px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">键盘触发、一天上百次的路径——</span>
+      <strong style="color:#27272A;"><span leaf="">不要动画</span></strong>
+      <span leaf="">。Raycast 开关没有开场动画，不是偷懒，是正确。</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 06 工作流 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">06</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">WORKFLOW</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">两条可直接照抄的工作流</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">路径 A：产品 / 原型</span>
+    </p>
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">目标不是「动效最多」，而是</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">演示时顺、日常用时不烦</span></span>
+      <span leaf="">。</span>
+    </p>
+    <section style="margin-bottom:22px;">
+      <section style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">STEP 01</span></span>
+        <span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">先把结构和状态做对</span></span>
+      </section>
+      <p style="font-size:15px;margin:0 0 16px;color:#52525B;line-height:1.8;text-align:justify;">
+        <span leaf="">先别急着加动画。</span>
+      </p>
+    </section>
+    <section style="margin-bottom:22px;">
+      <section style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">STEP 02</span></span>
+        <span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">find-animation-opportunities</span></span>
+      </section>
+      <p style="font-size:15px;margin:0 0 16px;color:#52525B;line-height:1.8;text-align:justify;">
+        <span leaf="">强制输出「建议 + 拒绝项」。</span>
+      </p>
+    </section>
+    <section style="margin-bottom:22px;">
+      <section style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">STEP 03</span></span>
+        <span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">只采纳 3～5 个高杠杆动效</span></span>
+      </section>
+      <p style="font-size:15px;margin:0 0 16px;color:#52525B;line-height:1.8;text-align:justify;">
+        <span leaf="">用 emil-design-eng 落地具体数值，演示前 review-animations 过一遍。</span>
+      </p>
+    </section>
+
+    <p style="margin-bottom:10px;font-size:14px;font-weight:700;color:#27272A;"><span leaf="">可复制 Prompt</span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+      <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">prompt</span></span>
+      </section>
+      <section style="padding:11px 14px;">
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">这是设置页，用户每天会进出几十次。</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">请用 find-animation-opportunities 的标准，列出真正值得加动效的点；</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">并明确写出你拒绝了哪些候选、为什么拒绝。</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">最多给 5 条建议，按杠杆排序。</span></p>
+      </section>
+    </section>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">路径 B：前端</span>
+    </p>
+    <section style="margin-bottom:22px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">新页面刚生成：先 shield，再动手</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">已有动效很乱：improve-animations 出 plan，再按 plan 改</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">PR 前：review-animations，要 Before / After / Why 表</span></p>
+      </section>
+    </section>
+
+    <p style="margin-bottom:10px;font-size:14px;font-weight:700;color:#27272A;"><span leaf="">自查清单（30 秒版）</span></p>
+    <section style="margin-bottom:8px;">
+      <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">☐ 有没有 transition: all</span></p>
+      <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">☐ 有没有从 scale(0) 进场</span></p>
+      <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">☐ UI 进场是否误用了 ease-in</span></p>
+      <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">☐ popover 是否从 trigger 长出</span></p>
+      <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">☐ 键盘 / 超高频操作是否还带着动画</span></p>
+      <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">☐ UI 动效是否普遍超过 300ms</span></p>
+      <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">☐ hover 是否考虑了触控误触发</span></p>
+      <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">☐ 是否处理了 prefers-reduced-motion</span></p>
+    </section>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 07 三条规则 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">07</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">RULES</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">只记三条，也能立刻少踩坑</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin:24px 0 16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">即使今天不装 skill，记住这三条，已经能挡住大半「AI 默认配方」。</span>
+    </p>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">1. 频率决定要不要动</span>
+    </p>
+    <section style="margin:0 0 20px;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">出现频率</span></th>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">策略</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">100+ 次/天</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><strong style="color:#27272A;"><span leaf="">不要动画</span></strong></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">一天几十次</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">极短、极轻，或干脆去掉</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">偶尔（Modal / Drawer / Toast）</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">标准动效</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">很少 / 首次</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">才有资格谈一点 delight</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">2. 进场用 ease-out，别用 ease-in</span>
+    </p>
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">用户盯的是「点下去之后有没有立刻动」。同样是 200ms，ease-in 会感觉更钝——因为慢在开头。</span>
+    </p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+      <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">css</span></span>
+      </section>
+      <section style="padding:11px 14px;">
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">--ease-out: cubic-bezier(0.23, 1, 0.32, 1);</span></p>
+      </section>
+    </section>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">3. 不要从虚无出现；popover 从按钮长出来</span>
+    </p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+      <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">css</span></span>
+      </section>
+      <section style="padding:11px 14px;">
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/* 差 */  transform: scale(0);</span></p>
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/* 好 */  transform: scale(0.95); opacity: 0;</span></p>
+      </section>
+    </section>
+
+    <p style="margin-bottom:12px;font-size:14px;font-weight:700;color:#27272A;"><span leaf="">Before / After 速查</span></p>
+    <section style="margin:0 0 8px;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 10px;text-align:left;"><span leaf="">Before</span></th>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 10px;text-align:left;"><span leaf="">After</span></th>
+            <th style="background:#27272A;color:#fff;font-weight:700;padding:8px 10px;text-align:left;"><span leaf="">Why</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">transition: all</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">只动画 transform 等</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">避免误伤与掉帧</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">scale(0)</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">scale(0.95)+opacity</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">不从虚无出现</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">ease-in 下拉</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">ease-out / 强曲线</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">响应感在前半段</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">无 :active</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">scale(0.97)</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">按下要有反馈</span></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">命令面板有动画</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">删掉动画</span></td>
+            <td style="padding:8px 10px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">超高频 = 延迟</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 08 边界 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">08</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">LIMITS</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">边界：别把它神化</span>
+        </h3>
+      </section>
+    </section>
+
+    <section style="margin:24px 0 8px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">装了不会自动变好看</span></span><span leaf="">——要在对的时机调用：找机会、审查、审计。</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">动效只是「AI 味」的一部分；版式与文案仍可能很模板。</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">公开 skill 已够大多数原型与业务前端开工；课程版覆盖更广。</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">4</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">克制比花活重要</span></span><span leaf="">——若扫完告诉你「几乎不该加动画」，那是好结果。</span></p>
+      </section>
+    </section>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 09 行动 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">09</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">ACTION</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">今天最小可行动作</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin:24px 0 16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">任选一个，十分钟内能做完：</span>
+    </p>
+    <section style="margin-bottom:8px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">装上 skill，对最近一页 Agent 生成的 UI 跑：「什么该动、什么不该动？拒绝项必须写。」</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">不装也行：用 8 条 checklist，打开一个 Button + 一个 Popover 自查。</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:15px;color:#52525B;margin:0;line-height:1.8;flex:1;"><span leaf="">进阶：把团队 3 条动效规范也写成 skill——学的是方法，不只是安装。</span></p>
+      </section>
+    </section>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- ∞ 结语 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">∞</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">EPILOGUE</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">结语</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin:24px 0 22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">好界面很少靠「多一个炫技动画」取胜。更多时候，是无数用户说不清的细节，在同一套标准下站在了一起。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">Agent 已经很会交付「能用的界面」。差的那一层，往往是：</span>
+      <span style="border-bottom:2px solid #F97316;font-weight:700;color:#27272A;"><span leaf="">该不该动、怎么动、什么绝不动</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">你不需要先成为动效专家。你可以先给 Agent 一套更好的品味约束——然后在每一次原型和每一次 PR 里，复利下去。</span>
+    </p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+      <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;">.</span>
+        <span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">bash</span></span>
+      </section>
+      <section style="padding:11px 14px;">
+        <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">npx skills@latest add emilkowalski/skills</span></p>
+      </section>
+    </section>
+
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">延伸阅读</span>
+    </p>
+    <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">· GitHub：github.com/emilkowalski/skills</span></p>
+    <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">· 作者站点：emilkowal.ski/skill · animations.dev/skills</span></p>
+    <p style="margin:0 0 8px;font-size:15px;color:#52525B;line-height:1.8;"><span leaf="">· 相关文章：Agents with Taste</span></p>
+  </section>
+
+  <!-- END -->
+  <section style="padding:0 10px;">
+    <section style="text-align:center;margin:0 0 36px;">
+      <section style="display:flex;align-items:center;justify-content:center;">
+        <span style="height:1px;width:48px;background:#E4E4E7;margin-right:16px;"><span leaf=""><br></span></span>
+        <span style="font-size:10px;color:#A1A1AA;letter-spacing:4px;font-weight:500;"><span leaf="">END</span></span>
+        <span style="height:1px;width:48px;background:#E4E4E7;margin-left:16px;"><span leaf=""><br></span></span>
+      </section>
+    </section>
+  </section>
+
+  <!-- 签名 -->
+  <section style="padding:0 10px 24px;">
+    <section style="border-top:1px solid #E4E4E7;padding-top:28px;">
+      <p style="margin-bottom:16px;font-size:15px;line-height:1.8;color:#52525B;text-align:justify;">
+        <span leaf="">我是大徐，热衷于分享 AI 观察与设计工程干货。</span>
+      </p>
+      <p style="margin-bottom:0;font-size:15px;line-height:1.8;color:#52525B;text-align:justify;">
+        <span leaf="">如果你觉得今天这篇有收获，欢迎</span>
+        <strong style="color:#27272A;"><span leaf="">点赞、在看、转发</span></strong>
+        <span leaf="">三连，我们下篇见。</span>
+      </p>
+    </section>
+  </section>
+
+  <!-- 品牌钩子 -->
+  <section style="background:#FAFAFA;border:1px solid #E4E4E7;border-radius:8px;padding:14px 16px;margin:20px 20px 16px;text-align:center;">
+    <section style="display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 10px;">
+      <span style="display:inline-block;line-height:0;"><img src="https://mmbiz.qpic.cn/mmbiz_png/G54UQVjjFicmZics0yUrPTuib04MkepoQmw3qRFMC6lRaGO8vKOia707JWaClAWbjrsSj1NuJ4micQJdHoo9whTD2iarjhCfegZrNiaQUy21cZQWnU/640?wx_fmt=png" alt="ziikoo" style="width:88px;max-width:100%;height:auto;display:block;margin:0 auto;"></span>
+      <span style="font-size:12px;font-weight:800;color:#111827;letter-spacing:0.14em;"><span leaf="">有话说</span></span>
+    </section>
+    <p style="margin:0;line-height:1.7;">
+      <span style="font-size:15px;color:#52525B;font-weight:bold;"><span leaf="">会写动画不够，先问该不该动才算品味。</span></span>
+    </p>
+    <p style="margin:10px 0 0;font-size:11px;line-height:1.6;color:#8b8b8b;letter-spacing:0.08em;"><span leaf="">企业 AI 生产力管理平台 · ai.ziikoo.com</span></p>
+  </section>
+
+  <section style="padding:0 10px 32px;">
+    <p style="margin:0;font-size:14px;line-height:1.8;color:#71717A;text-align:justify;">
+      <span leaf="">如果你有用这套 skill 前后的页面对比，欢迎留言——「该动 / 不该动」的真实案例，比再安利十次安装命令都有用。</span>
+    </p>
+  </section>
+
+</section>
+  </div>
+</div>
+<script>
+  function gzhShowToast(msg){
+    var t=document.getElementById('gzhToast');
+    t.textContent=msg;t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer=setTimeout(function(){t.classList.remove('show');},2800);
+  }
+  function gzhCopy(){
+    var el=document.getElementById('gzh-content');
+    // 选中渲染后的富文本节点并复制（等价于手动 Ctrl+A / Ctrl+C，保留全部样式）
+    var range=document.createRange();
+    range.selectNodeContents(el);
+    var sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var ok=false;
+    try{ok=document.execCommand('copy');}catch(e){ok=false;}
+    sel.removeAllRanges();
+    var btn=document.getElementById('gzhCopyBtn');
+    if(ok){
+      gzhShowToast('✅ 已复制！去公众号编辑器按 Ctrl/⌘+V 粘贴即可');
+      var old=btn.textContent;btn.textContent='✅ 已复制';
+      setTimeout(function(){btn.textContent=old;},2200);
+    }else{
+      gzhShowToast('⚠ 自动复制失败，请手动全选(Ctrl/⌘+A)再复制(Ctrl/⌘+C)');
+    }
+  }
+</script>
+</body>
+</html>

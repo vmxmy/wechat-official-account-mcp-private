@@ -1,0 +1,318 @@
+{
+  "cover": {
+    "_meta": {
+      "tenantId": "tenant_default",
+      "accountId": "acct_31c623c5709b451b996c500c",
+      "userId": "op_8e688dd9b04944c389ff1aea",
+      "requestId": "req_ed9b10b226c24f2888dadc48",
+      "quota": {
+        "plan": "plus",
+        "checks": [
+          {
+            "metric": "tool_calls_day",
+            "label": "每日 MCP 工具调用次数",
+            "used": 1,
+            "limit": 500,
+            "remaining": 499,
+            "amount": 1,
+            "period": "2026-07-26",
+            "resetAt": 1785110400000
+          },
+          {
+            "metric": "tool_calls_month",
+            "label": "每月 MCP 工具调用次数",
+            "used": 88,
+            "limit": 3000,
+            "remaining": 2912,
+            "amount": 1,
+            "period": "billing:1784341851000:1787020251000",
+            "resetAt": 1787020251000
+          },
+          {
+            "metric": "media_uploads_month",
+            "label": "每月素材上传次数",
+            "used": 10,
+            "limit": 500,
+            "remaining": 490,
+            "amount": 1,
+            "period": "billing:1784341851000:1787020251000",
+            "resetAt": 1787020251000
+          }
+        ],
+        "refunded": false
+      }
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "永久素材上传成功！\n素材ID: xv9tsA2b6d4MzpARc-AiwATInmMfCt4tAXzfZCRTgAZsbkbT0NdPeVmQvZZuqYPf\n素材URL: http://mmbiz.qpic.cn/mmbiz_jpg/G54UQVjjFiclJD1ybtDvBYEg9sGl8OibQWZ8oGGorsDAgp0KqgCHdOtKMInOwONfjOeVfaLfuChK9yyZsia5OC3Vicao726EiaVs4a1fhmT0Rhlo/0?wx_fmt=jpeg\n文件名: img-001-HOEL73BXMAAICJ5-zh.jpg\n来源: r2Key"
+      }
+    ]
+  },
+  "thumbMediaId": null,
+  "img-002-HOD_GvEXgAAaluf-zh.jpg": {
+    "resp": {
+      "_meta": {
+        "tenantId": "tenant_default",
+        "accountId": "acct_31c623c5709b451b996c500c",
+        "userId": "op_8e688dd9b04944c389ff1aea",
+        "requestId": "req_5165fd8e4db248e6b0df9afb",
+        "quota": {
+          "plan": "plus",
+          "checks": [
+            {
+              "metric": "tool_calls_day",
+              "label": "每日 MCP 工具调用次数",
+              "used": 2,
+              "limit": 500,
+              "remaining": 498,
+              "amount": 1,
+              "period": "2026-07-26",
+              "resetAt": 1785110400000
+            },
+            {
+              "metric": "tool_calls_month",
+              "label": "每月 MCP 工具调用次数",
+              "used": 89,
+              "limit": 3000,
+              "remaining": 2911,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            },
+            {
+              "metric": "media_uploads_month",
+              "label": "每月素材上传次数",
+              "used": 11,
+              "limit": 500,
+              "remaining": 489,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            }
+          ],
+          "refunded": false
+        }
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "图片上传成功！\n图片URL: http://mmbiz.qpic.cn/sz_mmbiz_jpg/G54UQVjjFicnNgzaelMqXYiaBNzpyv2PdsWAnsshR2S9MZhxu4Ao5wNcPlFNzUKjaNE6TQwGkYrktmxk4gAMzcj62wVyu7KX8j8wJH8ibKt59k/0?from=appmsg\n文件名: img-002-HOD_GvEXgAAaluf-zh.jpg\n文件大小: 51756 字节\n格式: image/jpeg"
+        }
+      ]
+    },
+    "url": null
+  },
+  "img-003-HOD_QQUXsAAvUmD-zh.jpg": {
+    "resp": {
+      "_meta": {
+        "tenantId": "tenant_default",
+        "accountId": "acct_31c623c5709b451b996c500c",
+        "userId": "op_8e688dd9b04944c389ff1aea",
+        "requestId": "req_5376df343dc747ac802ad5c5",
+        "quota": {
+          "plan": "plus",
+          "checks": [
+            {
+              "metric": "tool_calls_day",
+              "label": "每日 MCP 工具调用次数",
+              "used": 3,
+              "limit": 500,
+              "remaining": 497,
+              "amount": 1,
+              "period": "2026-07-26",
+              "resetAt": 1785110400000
+            },
+            {
+              "metric": "tool_calls_month",
+              "label": "每月 MCP 工具调用次数",
+              "used": 90,
+              "limit": 3000,
+              "remaining": 2910,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            },
+            {
+              "metric": "media_uploads_month",
+              "label": "每月素材上传次数",
+              "used": 12,
+              "limit": 500,
+              "remaining": 488,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            }
+          ],
+          "refunded": false
+        }
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "图片上传成功！\n图片URL: http://mmbiz.qpic.cn/mmbiz_jpg/G54UQVjjFickIsNc7Zn7mdTEic3NTJIkmm9vfBuTXePhopWverUysGXeDg1nXlPdGlbllg2uNeMxXeib0ZoCA7wO6OK6DgThvlGFgwlcsIVy0E/0?from=appmsg\n文件名: img-003-HOD_QQUXsAAvUmD-zh.jpg\n文件大小: 181154 字节\n格式: image/jpeg"
+        }
+      ]
+    },
+    "url": null
+  },
+  "img-004-HOD_aaRXEAAv9rt-zh.jpg": {
+    "resp": {
+      "_meta": {
+        "tenantId": "tenant_default",
+        "accountId": "acct_31c623c5709b451b996c500c",
+        "userId": "op_8e688dd9b04944c389ff1aea",
+        "requestId": "req_312ceb8a3ba64da0ad136245",
+        "quota": {
+          "plan": "plus",
+          "checks": [
+            {
+              "metric": "tool_calls_day",
+              "label": "每日 MCP 工具调用次数",
+              "used": 4,
+              "limit": 500,
+              "remaining": 496,
+              "amount": 1,
+              "period": "2026-07-26",
+              "resetAt": 1785110400000
+            },
+            {
+              "metric": "tool_calls_month",
+              "label": "每月 MCP 工具调用次数",
+              "used": 91,
+              "limit": 3000,
+              "remaining": 2909,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            },
+            {
+              "metric": "media_uploads_month",
+              "label": "每月素材上传次数",
+              "used": 13,
+              "limit": 500,
+              "remaining": 487,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            }
+          ],
+          "refunded": false
+        }
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "图片上传成功！\n图片URL: http://mmbiz.qpic.cn/mmbiz_jpg/G54UQVjjFicnnJK03KlqxWTzgoOibb8fSPxXbk5W5J4fraDeedBORt0r8lC3tLI35u3YIn4Vo6Bjy6l8zfUTE6PG5Lwg4sEFLTUz4NHaibKiboQ/0?from=appmsg\n文件名: img-004-HOD_aaRXEAAv9rt-zh.jpg\n文件大小: 113455 字节\n格式: image/jpeg"
+        }
+      ]
+    },
+    "url": null
+  },
+  "img-005-HOD_fStXwAA1GWu-zh.jpg": {
+    "resp": {
+      "_meta": {
+        "tenantId": "tenant_default",
+        "accountId": "acct_31c623c5709b451b996c500c",
+        "userId": "op_8e688dd9b04944c389ff1aea",
+        "requestId": "req_69d90416894947be8bef1a0b",
+        "quota": {
+          "plan": "plus",
+          "checks": [
+            {
+              "metric": "tool_calls_day",
+              "label": "每日 MCP 工具调用次数",
+              "used": 5,
+              "limit": 500,
+              "remaining": 495,
+              "amount": 1,
+              "period": "2026-07-26",
+              "resetAt": 1785110400000
+            },
+            {
+              "metric": "tool_calls_month",
+              "label": "每月 MCP 工具调用次数",
+              "used": 92,
+              "limit": 3000,
+              "remaining": 2908,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            },
+            {
+              "metric": "media_uploads_month",
+              "label": "每月素材上传次数",
+              "used": 14,
+              "limit": 500,
+              "remaining": 486,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            }
+          ],
+          "refunded": false
+        }
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "图片上传成功！\n图片URL: http://mmbiz.qpic.cn/sz_mmbiz_jpg/G54UQVjjFicnhPVuqdI87W44vbmIvH9qhtv9o4GP8xxXwEsmiaicf9n1FJBoKvzSZ7kibGIcwkOAFtBseYrP5OpSTPZtia5AoibI7G6CMxA5TjWEk/0?from=appmsg\n文件名: img-005-HOD_fStXwAA1GWu-zh.jpg\n文件大小: 153819 字节\n格式: image/jpeg"
+        }
+      ]
+    },
+    "url": null
+  },
+  "img-006-HOD_n0DWwAAlhpU-zh.jpg": {
+    "resp": {
+      "_meta": {
+        "tenantId": "tenant_default",
+        "accountId": "acct_31c623c5709b451b996c500c",
+        "userId": "op_8e688dd9b04944c389ff1aea",
+        "requestId": "req_cb39f9ad4d2449508525349f",
+        "quota": {
+          "plan": "plus",
+          "checks": [
+            {
+              "metric": "tool_calls_day",
+              "label": "每日 MCP 工具调用次数",
+              "used": 6,
+              "limit": 500,
+              "remaining": 494,
+              "amount": 1,
+              "period": "2026-07-26",
+              "resetAt": 1785110400000
+            },
+            {
+              "metric": "tool_calls_month",
+              "label": "每月 MCP 工具调用次数",
+              "used": 93,
+              "limit": 3000,
+              "remaining": 2907,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            },
+            {
+              "metric": "media_uploads_month",
+              "label": "每月素材上传次数",
+              "used": 15,
+              "limit": 500,
+              "remaining": 485,
+              "amount": 1,
+              "period": "billing:1784341851000:1787020251000",
+              "resetAt": 1787020251000
+            }
+          ],
+          "refunded": false
+        }
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "图片上传成功！\n图片URL: http://mmbiz.qpic.cn/sz_mmbiz_jpg/G54UQVjjFicmibynpeZqPfHoVN7AdiakDjAUn16gqfgIeQ4xTxP8CVYHIb0NMdbZKvhmTc4nUDHG38YaVDiczvlGKibSz1mqUsSbXEfBoHTtibLMk/0?from=appmsg\n文件名: img-006-HOD_n0DWwAAlhpU-zh.jpg\n文件大小: 174897 字节\n格式: image/jpeg"
+        }
+      ]
+    },
+    "url": null
+  }
+}

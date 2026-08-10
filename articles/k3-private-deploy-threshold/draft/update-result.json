@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "tenantId": "tenant_default",
+    "accountId": "acct_31c623c5709b451b996c500c",
+    "userId": "op_8e688dd9b04944c389ff1aea",
+    "requestId": "req_ab612c891d3f455ebea2dd2a",
+    "quota": {
+      "plan": "plus",
+      "checks": [
+        {
+          "metric": "tool_calls_day",
+          "label": "每日 MCP 工具调用次数",
+          "used": 19,
+          "limit": 500,
+          "remaining": 481,
+          "amount": 1,
+          "period": "2026-07-26",
+          "resetAt": 1785110400000
+        },
+        {
+          "metric": "tool_calls_month",
+          "label": "每月 MCP 工具调用次数",
+          "used": 106,
+          "limit": 3000,
+          "remaining": 2894,
+          "amount": 1,
+          "period": "billing:1784341851000:1787020251000",
+          "resetAt": 1787020251000
+        }
+      ],
+      "refunded": false
+    }
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "草稿更新成功！
+草稿ID: xv9tsA2b6d4MzpARc-AiwPHClyeL-CVDdAMJakQI3TPII9_FtI1No5Ib5gIJ5AG3
+更新索引: 0"
+    }
+  ]
+}

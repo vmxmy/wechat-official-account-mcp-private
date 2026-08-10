@@ -1,0 +1,24 @@
+{
+  "id": "2079526272787427570",
+  "url": "https://x.com/yongyuanaiBTC/status/2079526272787427570",
+  "username": "yongyuanaiBTC",
+  "name": "Ycpe",
+  "created_at": "2026-07-21T11:17:53.000Z",
+  "metrics": {
+    "bookmark_count": 0,
+    "impression_count": 151,
+    "like_count": 0,
+    "quote_count": 0,
+    "reply_count": 1,
+    "retweet_count": 0
+  },
+  "text": "https://t.co/jOK0BZPJQq\n试用了一下 OpenCodex感觉挺不错，不用像 CC-Switch一样切换模型需要重启客户端\n\n它还兼容OpenAI Responses API 格式，适合经常使用多个 Agent App，然后订阅了多个 AI 服务商的小伙伴\n\n在本地部署好这个项目，请求都经过代理转发，后续只需要在项目面板里维护 API 就可以了，不用每个 Agent 去配置\n\n而且还支持多个模型合并、故障转移、轮询功能",
+  "media": [
+    {
+      "file": "media/2079526272787427570_3_2079525563992248320.jpg",
+      "url": "https://pbs.twimg.com/media/HNv1e48aEAA0bLD.jpg",
+      "type": "photo",
+      "media_key": "3_2079525563992248320"
+    }
+  ]
+}

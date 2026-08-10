@@ -1,0 +1,18 @@
+{
+  "draft_media_id": "xv9tsA2b6d4MzpARc-AiwEo-twlOb2VBdEWnPRytneZB_PKgowqMb4OwgUe_EuOj",
+  "thumb_media_id": "xv9tsA2b6d4MzpARc-AiwKmV1dOQTtlEHmgowmOjuFFwZF9RxeY_zYG53Ln3GNJa",
+  "r2_key_thumb": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/25/5f22ec23-7ef5-468b-b7ca-d3f732dc6553-cover-thumb-lt64k.jpg",
+  "title": "先别让 Agent 写代码：Matt 用 7 行 skill 把你先「烤」明白",
+  "author": "ZIIKOO有话说",
+  "digest": "Agent 一上来就写代码，十有八九在猜。Matt Pocock 的 grill-first：先把你烤明白，再 to-spec / implement / 双轴 review。",
+  "account": "智蔲科技 acct_31c623c5709b451b996c500c",
+  "tenant": "tenant_default",
+  "html": "articles/matt-pocock-grill-skills/01-wechat.html",
+  "md": "articles/matt-pocock-grill-skills/01-wechat.md",
+  "body_md": "articles/matt-pocock-grill-skills/01-wechat-body.md",
+  "cover_wechat": "articles/matt-pocock-grill-skills/imgs/cover-wechat-900x383.jpg",
+  "cover_png": "articles/matt-pocock-grill-skills/imgs/cover.png",
+  "cover_thumb_upload": "articles/matt-pocock-grill-skills/imgs/cover-thumb-lt64k.jpg",
+  "created_at": "2026-07-25T04:54:12Z",
+  "note": "draft only via woa draft add; not published; thumb <64KB permanent media; needOpenComment=1"
+}

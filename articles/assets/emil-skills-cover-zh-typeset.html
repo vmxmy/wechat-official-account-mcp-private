@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<style>
+@font-face {
+  font-family: "SourceHanSerif";
+  src: url("file:///Users/xumingyang/Library/Fonts/SourceHanSerif-VF.otf.ttc") format("truetype");
+  font-weight: 1 999;
+  font-style: normal;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #111;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+.cover {
+  position: relative;
+  width: 2350px;
+  height: 1000px;
+  overflow: hidden;
+  background: #f7f1e6 url("file:///Users/xumingyang/github/wechat-official-account-mcp/articles/assets/emil-skills-cover-refstyle-notext-2.35x1.jpg") center/cover no-repeat;
+  font-family: "SourceHanSerif", "Songti SC", "Noto Serif SC", serif;
+  color: #1a1a1a;
+}
+.title-block {
+  position: absolute;
+  left: 0; right: 0;
+  top: 36px;
+  text-align: center;
+  z-index: 3;
+  pointer-events: none;
+}
+.title-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 8px 20px;
+}
+.title-row .logo {
+  height: 72px;
+  width: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  /* 20:4 aspect -> height 72 => width 360 */
+  width: 360px;
+  height: 72px;
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 0 rgba(255,255,255,0.55));
+}
+.title-row .cn {
+  font-size: 100px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: #141414;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.55),
+    0 2px 12px rgba(247,241,230,0.9);
+}
+.title-block .sub {
+  margin-top: 18px;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: #2a2a2a;
+}
+.title-block .vol {
+  margin-top: 10px;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: #3f3f46;
+}
+.tag {
+  position: absolute;
+  z-index: 4;
+  background: rgba(255,255,255,0.94);
+  border: 1.5px solid rgba(20,20,20,0.08);
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: #1c1917;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  white-space: nowrap;
+}
+.tag-1 { left: 420px; top: 560px; }
+.tag-2 { left: 1040px; bottom: 118px; }
+.tag-3 { right: 420px; top: 520px; }
+.tag-4 { right: 180px; top: 280px; }
+.credit {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 28px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: #52525b;
+  z-index: 4;
+}
+</style>
+</head>
+<body>
+  <div class="cover" id="cover">
+    <div class="title-block">
+      <div class="title-row">
+        <!-- pixel wordmark: ziikoo -->
+        <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 4" shape-rendering="crispEdges" aria-label="ziikoo" preserveAspectRatio="xMidYMid meet">
+          <path d="M4,0h1v1h-1Z M6,0h1v1h-1Z M12,1h3v1h-3Z M16,1h3v1h-3Z M12,2h1v2h-1Z M14,2h1v2h-1Z M16,2h1v2h-1Z M18,2h1v2h-1Z M13,3h1v1h-1Z M17,3h1v1h-1Z" fill="#ff7f00"/>
+          <path d="M8,0h1v4h-1Z M0,1h3v1h-3Z M10,1h1v1h-1Z M1,2h1v2h-1Z M4,2h1v2h-1Z M6,2h1v2h-1Z M9,2h1v1h-1Z M0,3h1v1h-1Z M2,3h1v1h-1Z M10,3h1v1h-1Z" fill="#000000"/>
+        </svg>
+        <span class="cn">有话说</span>
+      </div>
+      <div class="sub">设计工程特刊 · 2026</div>
+      <div class="vol">第 07 卷 · 第 1 期 · 2026 夏</div>
+    </div>
+    <div class="tag tag-1">先 ease-out</div>
+    <div class="tag tag-2">频率门控</div>
+    <div class="tag tag-3">动效手艺</div>
+    <div class="tag tag-4">拒绝 AI 味</div>
+    <div class="credit">emilkowalski/skills · 封面专题</div>
+  </div>
+</body>
+</html>

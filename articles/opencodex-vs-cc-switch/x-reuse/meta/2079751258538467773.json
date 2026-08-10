@@ -1,0 +1,30 @@
+{
+  "id": "2079751258538467773",
+  "url": "https://x.com/iBigQiang/status/2079751258538467773",
+  "username": "iBigQiang",
+  "name": "强子手记",
+  "created_at": "2026-07-22T02:11:54.000Z",
+  "metrics": {
+    "bookmark_count": 0,
+    "impression_count": 349,
+    "like_count": 0,
+    "quote_count": 1,
+    "reply_count": 0,
+    "retweet_count": 0
+  },
+  "text": "昨天看到多个推优都在分享推荐这个 #opencodex 开源项目，早上安装试了下确实不错，恰逢 #codex 重置成功续命，刚启动后就配置了下现有的 plan 渠道商，刚让 codex 把🌋火山的套餐也接进来了，晚点再去搞个 #Cursor 的Pro+ 把 Grok 4.5接进来听说这个量大管饱。 https://t.co/NcjwJXilQK https://t.co/GN0f5sWZFf",
+  "media": [
+    {
+      "file": "media/2079751258538467773_3_2079751125927104512.jpg",
+      "url": "https://pbs.twimg.com/media/HNzCoUoakAAjQ8_.jpg",
+      "type": "photo",
+      "media_key": "3_2079751125927104512"
+    },
+    {
+      "file": "media/2079751258538467773_3_2079751247863930880.jpg",
+      "url": "https://pbs.twimg.com/media/HNzCva4a4AAQe_G.jpg",
+      "type": "photo",
+      "media_key": "3_2079751247863930880"
+    }
+  ]
+}

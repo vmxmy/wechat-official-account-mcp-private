@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "status": "freepublish_submitted",
+  "title": "Fable当脑子，Sol做牛马？",
+  "author": "大徐",
+  "format": "xiaohongshu_cards_to_wechat",
+  "accountId": "acct_31c623c5709b451b996c500c",
+  "accountName": "智蔲科技",
+  "thumbMediaId": "xv9tsA2b6d4MzpARc-AiwEhyHZQZ_I1od1VIKc4OtqCbm2h-K8TtYDQHmqrRI7Pk",
+  "draftMediaId": "xv9tsA2b6d4MzpARc-AiwJdjLC590JFFJy8lKADRXKoEC_OBau0jTSsWEJ31Pr7g",
+  "publishId": "2247488188",
+  "images": {
+    "xhs-01-cover.png": "https://mmbiz.qpic.cn/sz_mmbiz_png/G54UQVjjFickmvkMxibib1n7yjibUKgicV2SPrLYrQ39JQiaTjLJzPZnxUibyzrZwKxCsITqviajsH3Vlo96jDiccyOs4qq2uYemSf0ib79pVBEcOHXLA/0?from=appmsg",
+    "xhs-02-thesis.png": "https://mmbiz.qpic.cn/mmbiz_png/G54UQVjjFiclE50r3jKk3tWINRRRetW5OKoia1ialNXZWvBviavSChjBoPEEg6AWsbD79cSC16DWIDnyFe2DDiavfPQfhQFQgYJN4hAiactjFZbYk/0?from=appmsg",
+    "xhs-03-roles.png": "https://mmbiz.qpic.cn/mmbiz_png/G54UQVjjFiclLB1k5NNvibA5CibrHAEPRWBqBx8JhGJ9H7MTsZnD5LxAD1z25ENX8OibcV1fdiaN9ptLrtx7dH6f5ibS975F9DxovJeVNhibzYgYas/0?from=appmsg",
+    "xhs-04-pipeline.png": "https://mmbiz.qpic.cn/sz_mmbiz_png/G54UQVjjFicmd4NoMOt0yuib8HKPQce8a2Ba0ibib3RCtJPj1yhqniaZ7hqwFol6m6jnwlic3q3KR3n0kjoQu0VtXWlOHadX5m8vbYKdqHoxOCwAA/0?from=appmsg",
+    "xhs-05-default-sol.png": "https://mmbiz.qpic.cn/sz_mmbiz_png/G54UQVjjFick4NAKAibiaclw4LbKziahkjdMjvfl0Re21sn3x3yawOmcwA1nZd08uEniczCIaGjlCUib4JZWcFvZfhTetExfpibM8zVbS2eqhpibLIw/0?from=appmsg",
+    "xhs-06-pick-table.png": "https://mmbiz.qpic.cn/mmbiz_png/G54UQVjjFicmAicBXaAx0SBjb3sqBbxiblBKtArf7ibDiarjdU1RMbbkUk4QWlVpmP1PRhKVbj6jtgvpve4IUXnAAStU37iaTB0TEr08TF8CqotwA/0?from=appmsg",
+    "xhs-07-action.png": "https://mmbiz.qpic.cn/mmbiz_png/G54UQVjjFickWFDibRjv5I0YyibNnyrKZftayOYHOx2MB9boOpdLWAKoF0SQf1MneKicbpLGEFv7CvprUYZCTQbTuG2qOOPTicASsNnwcWDseNAk/0?from=appmsg"
+  },
+  "source": "guizang-social-card local-tests/fable-sol-workflow/output",
+  "contentFile": "articles/out-fable-sol/xhs/wechat-from-xhs.html"
+}

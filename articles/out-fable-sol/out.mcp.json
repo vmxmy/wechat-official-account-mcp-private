@@ -1,0 +1,389 @@
+{
+  "version": 1,
+  "meta": {
+    "title": "Fable当脑子，Sol做牛马？",
+    "author": "blueyang",
+    "digest": "日本开发者几乎统一了 Fable 与 Sol 的分工；再叠 Ben 的 GPT-5.6 三档。脑子负责想清楚，牛马负责干完。",
+    "thumbMediaId": null,
+    "contentSourceUrl": null
+  },
+  "style": {
+    "id": "dushaofei-column",
+    "displayName": "杜绍斐专栏 · Gossip Editorial"
+  },
+  "content": [
+    {
+      "type": "lede",
+      "text": "Fable当脑子，Sol做牛马？"
+    },
+    {
+      "type": "figure",
+      "alt": "封面",
+      "src": "assets/column/01-cover.png"
+    },
+    {
+      "type": "paragraph",
+      "text": "老爷们刷日推了吗？AI 圈高质量吵架又更新了。"
+    },
+    {
+      "type": "paragraph",
+      "text": "GPT-5.6 出来之后，大家吵的不是「谁吊打谁」。"
+    },
+    {
+      "type": "paragraph",
+      "text": "是另一件事："
+    },
+    {
+      "type": "paragraph",
+      "text": "**Fable 5 和 Sol，到底谁当脑子，谁做牛马？**"
+    },
+    {
+      "type": "paragraph",
+      "text": "日本开发者圈最近一批高收藏帖，结论出奇一致。"
+    },
+    {
+      "type": "paragraph",
+      "text": "著名 AI Newsletter 博主 Ben，又补了一套 GPT-5.6 三档搭配。"
+    },
+    {
+      "type": "paragraph",
+      "text": "这篇把两边捏在一起。方便直接抄。"
+    },
+    {
+      "type": "callout",
+      "text": "所以问题就变成：脑子坐哪里？牛马坐哪里？"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "h2",
+      "text": "跨生态：猫头鹰当脑子，罗威纳做牛马"
+    },
+    {
+      "type": "figure",
+      "alt": "Fable 与 Sol 分工",
+      "src": "assets/column/02-fable-sol.png"
+    },
+    {
+      "type": "paragraph",
+      "text": "*左 Fable 当脑子，右 Sol 做牛马*"
+    },
+    {
+      "type": "paragraph",
+      "text": "日推里最好记的说法是："
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "**Fable ≈ 猫头鹰**：看得深，会问「该不该做」",
+        "**Sol ≈ 罗威纳**：咬住任务，默默干到结束"
+      ]
+    },
+    {
+      "type": "callout",
+      "text": "脑子 → Fable。牛马 → Sol。分工就这么粗暴。"
+    },
+    {
+      "type": "paragraph",
+      "text": "别自己写超长 prompt。"
+    },
+    {
+      "type": "paragraph",
+      "text": "也别让 Fable 直接改生产代码。"
+    },
+    {
+      "type": "paragraph",
+      "text": "更稳的流程只有三步："
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "**你说**目标、边界、不能做什么",
+        "**Fable 写成**验收、影响范围、测试、风险",
+        "**原样丢给** Codex + Sol"
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "中间少一层「人手翻译」，少一次信息损耗。"
+    },
+    {
+      "type": "callout",
+      "text": "牛马位，不要自己终审。同一模型会给自己找补。"
+    },
+    {
+      "type": "paragraph",
+      "text": "角色怎么分："
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "**脑子位（Fable）**：架构、产品边界、咨询、评审",
+        "**牛马位（Sol）**：跨文件实现、长清单、贴合存量代码"
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "只剩一个名额时，很多人仍选 Fable。"
+    },
+    {
+      "type": "callout",
+      "text": "因为脑子位更稀缺，不是因为牛马不重要。"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "h2",
+      "text": "七种几乎被统一的用法"
+    },
+    {
+      "type": "figure",
+      "alt": "七种用法",
+      "src": "assets/column/03-seven.png"
+    },
+    {
+      "type": "paragraph",
+      "text": "*七种几乎被统一的用法*"
+    },
+    {
+      "type": "paragraph",
+      "text": "日本圈把上面这套，收敛成七种几乎统一的用法："
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "**Fable 写指示，Sol 去执行**——脑子出指令，牛马去落地",
+        "**设计归 Fable，实现归 Sol**——脑子想清楚，牛马干完",
+        "**商量找 Fable，写码找 Sol**——脑子位和牛马位别混会话",
+        "**有意让 Fable 指挥 Sol**——脑子规划 → 牛马执行 → 换模型只读复审",
+        "**长文偏 Fable；研究有时选 Sol**——别默认最强编程模型=最强写手",
+        "**按任务选，不按信仰选**——Fable 聪明偶漏；Sol 未必最机灵但会收尾",
+        "**日常三步：对稿、重活、手脚**——额度、速度、风险的工程选择"
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "最小闭环再写一遍："
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "**脑子规划**",
+        "**牛马执行**",
+        "**换模型只读复审**"
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "别在一个窗口里从聊天聊到上线。"
+    },
+    {
+      "type": "callout",
+      "text": "脑子当脑子，牛马做牛马——角色一旦反了，账单和事故会一起涨。"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "h2",
+      "text": "Ben 的 GPT-5.6 三档"
+    },
+    {
+      "type": "figure",
+      "alt": "Ben 三档",
+      "src": "assets/column/04-ben-tiers.png"
+    },
+    {
+      "type": "paragraph",
+      "text": "*Ben 的 GPT-5.6 默认搭配*"
+    },
+    {
+      "type": "paragraph",
+      "text": "只在 OpenAI 栈里干活时，Ben 的组合很实用："
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "**主要开发 + 创意 → Sol medium**"
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "够强，又没那么烧；常作牛马位默认值"
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "**复杂任务 → 开 Ultra**"
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "大量 Subagent 跑后台；子代理可以是 Sol，也可以是 Terra"
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "**日常对话 → Luna xhigh**"
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "聊天、轻问轻答，把贵模型省下来"
+    },
+    {
+      "type": "paragraph",
+      "text": "三档体感，也请直接记："
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "**Sol**：UI 可以，给参考更好；Max 写作强，聊起来有意思",
+        "**Terra**：像 GPT-5.5 升级版，更听话，适合当牛马子代理",
+        "**Luna**：有点小模型味；提示词糊就 get 不到"
+      ]
+    },
+    {
+      "type": "callout",
+      "text": "任务定义清楚，才不掉链子。不是模型不行，是脑子还没把规格想清楚。"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "h2",
+      "text": "一张作战卡"
+    },
+    {
+      "type": "figure",
+      "alt": "作战卡",
+      "src": "assets/column/05-routing.png"
+    },
+    {
+      "type": "paragraph",
+      "text": "*一张能直接贴团队墙的作战卡*"
+    },
+    {
+      "type": "paragraph",
+      "text": "跨生态路由："
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "**意图糊** → 脑子位上 Fable 对稿",
+        "**规格清** → 牛马位上 Sol medium 执行",
+        "**终审** → 换模型、只读"
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "纯 OpenAI 路由："
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "**主开发 / 创意** → Sol medium 当牛马",
+        "**复杂可并行** → Ultra + Sol/Terra 子代理",
+        "**日常对话** → Luna xhigh"
+      ]
+    },
+    {
+      "type": "callout",
+      "text": "Fable 当脑子写指令，Sol 当牛马去干活。聊天 Luna，复杂 Ultra，Terra 当听话的牛马手。"
+    },
+    {
+      "type": "h3",
+      "text": "别踩这些坑"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "全程 Sol Ultra 吃到饱",
+        "模糊需求硬塞 Luna",
+        "Full Access 加无沙箱",
+        "牛马会话自己终审",
+        "一个对话从闲聊做到上线"
+      ]
+    },
+    {
+      "type": "callout",
+      "text": "请先只做影响范围和简短规格。写完后停止，等确认。不要直接改代码。"
+    },
+    {
+      "type": "h3",
+      "text": "本周就能落地"
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        "双模型规则做成 Skill，别塞进所有聊天",
+        "主开发默认 Sol medium，别一上来 Max / Ultra",
+        "子 Agent 预先钉死模型",
+        "给 Sol 做 UI 时附参考，不要只丢形容词",
+        "看可合并的 diff，不看 tool 调用次数"
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "h2",
+      "text": "结语"
+    },
+    {
+      "type": "paragraph",
+      "text": "编排时代，胜负手不是榜单第一。"
+    },
+    {
+      "type": "paragraph",
+      "text": "是你有没有把「想」和「做」拆开，再给「做」配上匹配成本的档位。"
+    },
+    {
+      "type": "paragraph",
+      "text": "Fable 和 Sol 不是信仰之战。"
+    },
+    {
+      "type": "paragraph",
+      "text": "Luna / Terra / Sol 也不是面子工程。"
+    },
+    {
+      "type": "paragraph",
+      "text": "它们是同一条产线上的不同工位。"
+    },
+    {
+      "type": "callout",
+      "text": "脑子负责想清楚。牛马负责干完。"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "paragraph",
+      "text": "延伸阅读："
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        "[日推｜Fable 与 Sol 的七种用法合集](https://x.com/ctgptlb/status/2077660888224698573)",
+        "[日推｜Kenn：Fable 别写码，让它写给 Codex 的指令](https://x.com/kenn/status/2077017118663696667)",
+        "[日推｜猫头鹰 vs 罗威纳：Fable / Sol 分工](https://x.com/suna_gaku/status/2075063260072558708)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+[
+  {
+    "id": "2081236228461265284",
+    "label": "songexp-full-deploy-cost",
+    "url": "https://x.com/songexp/status/2081236228461265284",
+    "username": "songexp",
+    "name": "Riyam",
+    "created_at": "2026-07-26T04:32:39.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 82,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "全量部署Kimi K3 得花多少？ https://t.co/d8LycUZxdR",
+    "media_files": [
+      "imgs/songexp-full-deploy-cost_3_2081236219074367488.jpg"
+    ]
+  },
+  {
+    "id": "2081062901826433511",
+    "label": "hppzyy-64xh200",
+    "url": "https://x.com/hppzyy/status/2081062901826433511",
+    "username": "hppzyy",
+    "name": "hppzyy",
+    "created_at": "2026-07-25T17:03:54.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 69,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "Kimi K3亮相后，老板让我算算本地化部署要多少钱。 算完他沉默了。 K3有2.8万亿参数，MoE架构，想本地跑？ 最少64张H200起步。 我列了个清单： 显卡：64张H200，141GB显存版本 网络：NVLink交换机 + 800G光模块 + RDMA交换机 CPU：双路Xeon/EPYC，PCIe 5.0 内存：每台1-2TB DDR5 Exciting times. https://t.co/cXulNV260l",
+    "media_files": [
+      "imgs/hppzyy-64xh200_3_2081062883509866496.jpg"
+    ]
+  },
+  {
+    "id": "2081236822747652440",
+    "label": "fferr16-1.4tb",
+    "url": "https://x.com/Fferr16/status/2081236822747652440",
+    "username": "Fferr16",
+    "name": "Felix F",
+    "created_at": "2026-07-26T04:35:00.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 6,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "后天（7/27），Kimi K3 完整权重正式开源。\n- 2.8 万亿参数，MoE 架构\n- 896 选 16，每次激活约 500 亿参数\n- MXFP4 量化后约 1.4TB\n- 100 万 token 上下文\n7/23 The Information 爆料：微软内部正在测试用 K3 替代 Copilot 里的 ChatGPT 和 Claude。\n预计每百万 token 省 60% 成本，一年省下约 6 亿美元。\n对开发者：API 已经在跑，OpenAI 兼容（官方API紧张的情况下，建议跑Open Router 的API）。\n对想本地跑的：1.4TB 起步，Blackwell / MI400 才能舒适装载。",
+    "media_files": []
+  },
+  {
+    "id": "2081236091802358174",
+    "label": "statswire-8xh100",
+    "url": "https://x.com/StatsWire/status/2081236091802358174",
+    "username": "StatsWire",
+    "name": "Stats Wire",
+    "created_at": "2026-07-26T04:32:06.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 7,
+      "like_count": 1,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "Kimi K3's open weights drop tonight.\n\n2.8 trillion parameters. The largest open-source model ever released. Kimi API Platform\nEveryone is going to say \"you can run it locally.\"\n\nThe honest version: you need a minimum of 8× H100 GPUs just to load it. A single RTX 4090 cannot run it even quantized. Explainx\n\nThe hype will be loud. The hardware reality will be quiet.",
+    "media_files": []
+  },
+  {
+    "id": "2081047199522115690",
+    "label": "mrcollison-11.7m",
+    "url": "https://x.com/MrCollison/status/2081047199522115690",
+    "username": "MrCollison",
+    "name": "Matt",
+    "created_at": "2026-07-25T16:01:31.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 94,
+      "like_count": 2,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "@zeeg @steebchen I asked gpt for a speculative host yourself solution for high uptime kimi k3\n\n“$11.7m for upfront infrastructure, $154k a month at full load”\n\nThe cloud solutions didn’t seem much better, just minus the upfront",
+    "media_files": []
+  },
+  {
+    "id": "2079712604050649330",
+    "label": "constraintedge-1m",
+    "url": "https://x.com/ConstraintEdge/status/2079712604050649330",
+    "username": "ConstraintEdge",
+    "name": "Constraint Edge",
+    "created_at": "2026-07-21T23:38:18.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 101,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "That’s basically the AWS model: self-hosting is cheaper at high, steady utilization. Most companies would rather pay a premium for instant capacity, flexibility and no infrastructure burden. Running Kimi K3 internally could require roughly $1M+ of hardware before power, networking and an AI ops team.",
+    "media_files": []
+  },
+  {
+    "id": "2081239062489256334",
+    "label": "circumjovial-100k",
+    "url": "https://x.com/CircumjovialLLC/status/2081239062489256334",
+    "username": "CircumjovialLLC",
+    "name": "Circumjovial",
+    "created_at": "2026-07-26T04:43:54.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 17,
+      "like_count": 0,
+      "quote_count": 0,
+      "reply_count": 0,
+      "retweet_count": 0
+    },
+    "text": "They're only raising concerns about the frontier-level models, not lobbying to ban open weight models. Besides, Kimi K3 would take about $100,000 worth of hardware for someone to run at home. Nobody is gonna do that anyway so it's moot. There ARE real security concerns with a model as powerful as Kimi K3 being available to well-funded malicious adversaries. This is all rather overblown, and, ultimately, the letter itself means and obligates nothing.",
+    "media_files": []
+  },
+  {
+    "id": "2079301605179191716",
+    "label": "cline-selfhost-savings",
+    "url": "https://x.com/cline/status/2079301605179191716",
+    "username": "cline",
+    "name": "Cline",
+    "created_at": "2026-07-20T20:25:08.000Z",
+    "metrics": {
+      "bookmark_count": 171,
+      "impression_count": 72028,
+      "like_count": 719,
+      "quote_count": 11,
+      "reply_count": 28,
+      "retweet_count": 46
+    },
+    "text": "Kimi costs ~3-12x cheaper than Fable, but how much more could you save hosting it yourself?\n\nWe ran the numbers on Cline’s production traffic, and the results:\n\n~10% savings, 25%+ with time-of-day autoscaling (but this only works if over $500K/year of spend)\n\nWe predict self-hosting open weight models is going to become standard practice as businesses scale their token consumption with increased adoption, given the price and data sovereignty benefits.\n\nAnd we’re excited to see Kimi K3 bring us closer to this future, enabling broader and more competitive access.",
+    "media_files": [
+      "imgs/cline-selfhost-savings_3_2079295148870230016.jpg"
+    ]
+  },
+  {
+    "id": "2078473575250698411",
+    "label": "haider-correct-selfhost",
+    "url": "https://x.com/haider1/status/2078473575250698411",
+    "username": "haider1",
+    "name": "Haider.",
+    "created_at": "2026-07-18T13:34:51.000Z",
+    "metrics": {
+      "bookmark_count": 15,
+      "impression_count": 28483,
+      "like_count": 195,
+      "quote_count": 0,
+      "reply_count": 8,
+      "retweet_count": 4
+    },
+    "text": "i need to correct something:\n\ni made it sound like an individual could realistically self-host kimi k3 today, which is clearly not true\n\nwhat i meant to write was that large companies with serious infrastructure can afford to run models at this scale, and i know some people working at companies that already host very large models locally, but this is not practical for individual users\n\nhowever, i expect that over the next 12–15 months, better quantization, memory efficiency, inference software, and cheaper hardware could make running models at this scale locally far more affordable and practical\n\nonce again, i apologize for the confusion",
+    "media_files": []
+  },
+  {
+    "id": "2079900428842504465",
+    "label": "calder-weights-not-out",
+    "url": "https://x.com/CalderBuild/status/2079900428842504465",
+    "username": "CalderBuild",
+    "name": "Calder",
+    "created_at": "2026-07-22T12:04:39.000Z",
+    "metrics": {
+      "bookmark_count": 0,
+      "impression_count": 195,
+      "like_count": 1,
+      "quote_count": 0,
+      "reply_count": 1,
+      "retweet_count": 0
+    },
+    "text": "@web3_FBI For agentic work, self-hostable and cheap wins, because the bill caps how many loops you run. But you named the catch the hype skips: K3's weights aren't out yet. So right now it's a $15/M API you can't self-host. The local story starts when the weights drop.",
+    "media_files": []
+  }
+]

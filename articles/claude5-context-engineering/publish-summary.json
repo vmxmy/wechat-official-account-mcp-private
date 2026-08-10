@@ -1,0 +1,16 @@
+{
+  "draft_media_id": "xv9tsA2b6d4MzpARc-AiwDGYFCgNIyQm_vIActdAWzbupcgeaBQAw4NuLv5Wnmgo",
+  "thumb_media_id": "xv9tsA2b6d4MzpARc-AiwJT7ExRDWc9PWWqPR2QJp5meqkWaVQXwgX4A5chJO8rB",
+  "title": "Claude 砍掉 80% 系统提示词之后：上下文工程的新规则",
+  "author": "ZIIKOO TALK",
+  "digest": "Anthropic 砍掉 Claude Code 80% 系统提示还不掉分——六条旧神话作废，附今晚可执行的 CLAUDE.md / Skill 精简清单。",
+  "account": "智蔲科技 acct_31c623c5709b451b996c500c",
+  "html": "articles/claude5-context-engineering/01-wechat-body.html",
+  "markdown": "articles/claude5-context-engineering/01-wechat-body.md",
+  "theme": "default / blue",
+  "cover_magazine": "articles/claude5-context-engineering/imgs/claude5-context-engineering-cinematic-tech-cover-01-magazine.png",
+  "cover_wechat": "articles/claude5-context-engineering/imgs/cover-wechat-900x383.jpg",
+  "source_url": "https://x.com/trq212/status/2080710971228918066",
+  "created_at": "2026-07-25T10:34:44Z",
+  "note": "create via woa mcp wechat_draft add; permanent thumb from r2 staging; draft box only (not published). Local API failed with 40164 invalid IP; used Workers/MCP path."
+}

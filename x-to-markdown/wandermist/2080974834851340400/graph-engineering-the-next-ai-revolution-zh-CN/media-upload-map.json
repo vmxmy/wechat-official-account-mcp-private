@@ -1,0 +1,188 @@
+{
+  "img-001-HOEL73BXMAAICJ5-zh.jpg": {
+    "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/325de8e6-11e0-432c-868d-109a0cb98053-img-001-HOEL73BXMAAICJ5-zh.jpg",
+    "raw": {
+      "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/325de8e6-11e0-432c-868d-109a0cb98053-img-001-HOEL73BXMAAICJ5-zh.jpg",
+      "fileName": "img-001-HOEL73BXMAAICJ5-zh.jpg",
+      "mimeType": "image/jpeg",
+      "size": 246192,
+      "next": {
+        "contentImage": {
+          "tool": "wechat_upload_img",
+          "arguments": {
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/325de8e6-11e0-432c-868d-109a0cb98053-img-001-HOEL73BXMAAICJ5-zh.jpg",
+            "fileName": "img-001-HOEL73BXMAAICJ5-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          }
+        },
+        "permanentMedia": {
+          "tool": "wechat_permanent_media",
+          "arguments": {
+            "action": "add",
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/325de8e6-11e0-432c-868d-109a0cb98053-img-001-HOEL73BXMAAICJ5-zh.jpg",
+            "fileName": "img-001-HOEL73BXMAAICJ5-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          },
+          "requiredArgument": "type: image | thumb | voice | video"
+        }
+      }
+    }
+  },
+  "img-002-HOD_GvEXgAAaluf-zh.jpg": {
+    "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/6b681944-c7f9-4371-867c-eb01fd5d3eef-img-002-HOD_GvEXgAAaluf-zh.jpg",
+    "raw": {
+      "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/6b681944-c7f9-4371-867c-eb01fd5d3eef-img-002-HOD_GvEXgAAaluf-zh.jpg",
+      "fileName": "img-002-HOD_GvEXgAAaluf-zh.jpg",
+      "mimeType": "image/jpeg",
+      "size": 51756,
+      "next": {
+        "contentImage": {
+          "tool": "wechat_upload_img",
+          "arguments": {
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/6b681944-c7f9-4371-867c-eb01fd5d3eef-img-002-HOD_GvEXgAAaluf-zh.jpg",
+            "fileName": "img-002-HOD_GvEXgAAaluf-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          }
+        },
+        "permanentMedia": {
+          "tool": "wechat_permanent_media",
+          "arguments": {
+            "action": "add",
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/6b681944-c7f9-4371-867c-eb01fd5d3eef-img-002-HOD_GvEXgAAaluf-zh.jpg",
+            "fileName": "img-002-HOD_GvEXgAAaluf-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          },
+          "requiredArgument": "type: image | thumb | voice | video"
+        }
+      }
+    }
+  },
+  "img-003-HOD_QQUXsAAvUmD-zh.jpg": {
+    "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/72000a38-38bf-4f24-85a4-8bb1f9a0bfba-img-003-HOD_QQUXsAAvUmD-zh.jpg",
+    "raw": {
+      "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/72000a38-38bf-4f24-85a4-8bb1f9a0bfba-img-003-HOD_QQUXsAAvUmD-zh.jpg",
+      "fileName": "img-003-HOD_QQUXsAAvUmD-zh.jpg",
+      "mimeType": "image/jpeg",
+      "size": 181154,
+      "next": {
+        "contentImage": {
+          "tool": "wechat_upload_img",
+          "arguments": {
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/72000a38-38bf-4f24-85a4-8bb1f9a0bfba-img-003-HOD_QQUXsAAvUmD-zh.jpg",
+            "fileName": "img-003-HOD_QQUXsAAvUmD-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          }
+        },
+        "permanentMedia": {
+          "tool": "wechat_permanent_media",
+          "arguments": {
+            "action": "add",
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/72000a38-38bf-4f24-85a4-8bb1f9a0bfba-img-003-HOD_QQUXsAAvUmD-zh.jpg",
+            "fileName": "img-003-HOD_QQUXsAAvUmD-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          },
+          "requiredArgument": "type: image | thumb | voice | video"
+        }
+      }
+    }
+  },
+  "img-004-HOD_aaRXEAAv9rt-zh.jpg": {
+    "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/26f7ed44-bc2d-4ecb-a17f-4e0722b51f86-img-004-HOD_aaRXEAAv9rt-zh.jpg",
+    "raw": {
+      "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/26f7ed44-bc2d-4ecb-a17f-4e0722b51f86-img-004-HOD_aaRXEAAv9rt-zh.jpg",
+      "fileName": "img-004-HOD_aaRXEAAv9rt-zh.jpg",
+      "mimeType": "image/jpeg",
+      "size": 113455,
+      "next": {
+        "contentImage": {
+          "tool": "wechat_upload_img",
+          "arguments": {
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/26f7ed44-bc2d-4ecb-a17f-4e0722b51f86-img-004-HOD_aaRXEAAv9rt-zh.jpg",
+            "fileName": "img-004-HOD_aaRXEAAv9rt-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          }
+        },
+        "permanentMedia": {
+          "tool": "wechat_permanent_media",
+          "arguments": {
+            "action": "add",
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/26f7ed44-bc2d-4ecb-a17f-4e0722b51f86-img-004-HOD_aaRXEAAv9rt-zh.jpg",
+            "fileName": "img-004-HOD_aaRXEAAv9rt-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          },
+          "requiredArgument": "type: image | thumb | voice | video"
+        }
+      }
+    }
+  },
+  "img-005-HOD_fStXwAA1GWu-zh.jpg": {
+    "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/c7020172-ed36-4d8d-9dfb-8d199d44f702-img-005-HOD_fStXwAA1GWu-zh.jpg",
+    "raw": {
+      "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/c7020172-ed36-4d8d-9dfb-8d199d44f702-img-005-HOD_fStXwAA1GWu-zh.jpg",
+      "fileName": "img-005-HOD_fStXwAA1GWu-zh.jpg",
+      "mimeType": "image/jpeg",
+      "size": 153819,
+      "next": {
+        "contentImage": {
+          "tool": "wechat_upload_img",
+          "arguments": {
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/c7020172-ed36-4d8d-9dfb-8d199d44f702-img-005-HOD_fStXwAA1GWu-zh.jpg",
+            "fileName": "img-005-HOD_fStXwAA1GWu-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          }
+        },
+        "permanentMedia": {
+          "tool": "wechat_permanent_media",
+          "arguments": {
+            "action": "add",
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/c7020172-ed36-4d8d-9dfb-8d199d44f702-img-005-HOD_fStXwAA1GWu-zh.jpg",
+            "fileName": "img-005-HOD_fStXwAA1GWu-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          },
+          "requiredArgument": "type: image | thumb | voice | video"
+        }
+      }
+    }
+  },
+  "img-006-HOD_n0DWwAAlhpU-zh.jpg": {
+    "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/70b7bcc0-f2b4-4d42-ad7c-0ac9caabe3b3-img-006-HOD_n0DWwAAlhpU-zh.jpg",
+    "raw": {
+      "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/70b7bcc0-f2b4-4d42-ad7c-0ac9caabe3b3-img-006-HOD_n0DWwAAlhpU-zh.jpg",
+      "fileName": "img-006-HOD_n0DWwAAlhpU-zh.jpg",
+      "mimeType": "image/jpeg",
+      "size": 174897,
+      "next": {
+        "contentImage": {
+          "tool": "wechat_upload_img",
+          "arguments": {
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/70b7bcc0-f2b4-4d42-ad7c-0ac9caabe3b3-img-006-HOD_n0DWwAAlhpU-zh.jpg",
+            "fileName": "img-006-HOD_n0DWwAAlhpU-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          }
+        },
+        "permanentMedia": {
+          "tool": "wechat_permanent_media",
+          "arguments": {
+            "action": "add",
+            "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/70b7bcc0-f2b4-4d42-ad7c-0ac9caabe3b3-img-006-HOD_n0DWwAAlhpU-zh.jpg",
+            "fileName": "img-006-HOD_n0DWwAAlhpU-zh.jpg",
+            "mimeType": "image/jpeg",
+            "accountId": "acct_31c623c5709b451b996c500c"
+          },
+          "requiredArgument": "type: image | thumb | voice | video"
+        }
+      }
+    }
+  }
+}

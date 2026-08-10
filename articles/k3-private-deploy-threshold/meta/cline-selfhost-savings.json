@@ -1,0 +1,20 @@
+{
+  "id": "2079301605179191716",
+  "label": "cline-selfhost-savings",
+  "url": "https://x.com/cline/status/2079301605179191716",
+  "username": "cline",
+  "name": "Cline",
+  "created_at": "2026-07-20T20:25:08.000Z",
+  "metrics": {
+    "bookmark_count": 171,
+    "impression_count": 72028,
+    "like_count": 719,
+    "quote_count": 11,
+    "reply_count": 28,
+    "retweet_count": 46
+  },
+  "text": "Kimi costs ~3-12x cheaper than Fable, but how much more could you save hosting it yourself?\n\nWe ran the numbers on Cline’s production traffic, and the results:\n\n~10% savings, 25%+ with time-of-day autoscaling (but this only works if over $500K/year of spend)\n\nWe predict self-hosting open weight models is going to become standard practice as businesses scale their token consumption with increased adoption, given the price and data sovereignty benefits.\n\nAnd we’re excited to see Kimi K3 bring us closer to this future, enabling broader and more competitive access.",
+  "media_files": [
+    "imgs/cline-selfhost-savings_3_2079295148870230016.jpg"
+  ]
+}

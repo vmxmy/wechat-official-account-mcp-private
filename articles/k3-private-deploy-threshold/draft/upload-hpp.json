@@ -1,0 +1,34 @@
+=== upload hppzyy-64xh200_3_2081062883509866496.jpg ===
+{
+  "success": true,
+  "data": {
+    "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/2385b4ce-da72-4dbe-8b79-ebb0c48ecc12-hppzyy-64xh200_3_2081062883509866496.jpg",
+    "fileName": "hppzyy-64xh200_3_2081062883509866496.jpg",
+    "mimeType": "image/jpeg",
+    "size": 221480,
+    "next": {
+      "contentImage": {
+        "tool": "wechat_upload_img",
+        "arguments": {
+          "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/2385b4ce-da72-4dbe-8b79-ebb0c48ecc12-hppzyy-64xh200_3_2081062883509866496.jpg",
+          "fileName": "hppzyy-64xh200_3_2081062883509866496.jpg",
+          "mimeType": "image/jpeg",
+          "accountId": "acct_31c623c5709b451b996c500c"
+        }
+      },
+      "permanentMedia": {
+        "tool": "wechat_permanent_media",
+        "arguments": {
+          "action": "add",
+          "r2Key": "staging/tenants/tenant_default/accounts/acct_31c623c5709b451b996c500c/uploads/2026/07/26/2385b4ce-da72-4dbe-8b79-ebb0c48ecc12-hppzyy-64xh200_3_2081062883509866496.jpg",
+          "fileName": "hppzyy-64xh200_3_2081062883509866496.jpg",
+          "mimeType": "image/jpeg",
+          "accountId": "acct_31c623c5709b451b996c500c"
+        },
+        "requiredArgument": "type: image | thumb | voice | video"
+      }
+    }
+  },
+  "requestId": "req_8b902f3f5b9b47c2b81f05e4"
+}
+

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mattpocock-skills-v1.1_排版_石墨极简风(graphite-minimal) · 公众号排版预览</title>
+<style>
+  body{margin:0;background:#eef0f2;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;-webkit-text-size-adjust:100%;}
+  .gzh-toolbar{position:fixed;top:0;left:0;right:0;height:54px;background:#ffffff;box-shadow:0 1px 10px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:99;}
+  .gzh-hint{font-size:13px;color:#6b7280;line-height:1.4;}
+  .gzh-hint b{color:#111827;}
+  .gzh-copy{background:#059669;color:#fff;border:0;border-radius:9px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(5,150,105,.28);white-space:nowrap;transition:transform .08s,background .15s;}
+  .gzh-copy:hover{background:#047857;}
+  .gzh-copy:active{transform:translateY(1px);}
+  .gzh-toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
+  .gzh-toast.show{opacity:1;}
+  .gzh-stage{max-width:700px;margin:78px auto 64px;padding:0 8px;}
+  @media(max-width:520px){.gzh-hint{max-width:150px;}}
+</style>
+</head>
+<body>
+<div class="gzh-toolbar">
+  <span class="gzh-hint">👇 下方是排版效果 · 点右侧 <b>复制</b> 直接粘到公众号</span>
+  <button class="gzh-copy" id="gzhCopyBtn" onclick="gzhCopy()">📋 复制到公众号</button>
+</div>
+<div class="gzh-toast" id="gzhToast"></div>
+<div class="gzh-stage">
+  <div id="gzh-content">
+<section style="max-width:677px;margin:0 auto;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;color:#52525B;line-height:1.8;letter-spacing:0.3px;overflow-x:hidden;">
+  <section style="margin:10px 10px 40px;padding:32px 24px 24px;border-top:1px solid #E4E4E7;border-bottom:1px solid #E4E4E7;background:#FFFFFF;">
+    <p style="font-size:11px;color:#A1A1AA;letter-spacing:2px;margin:0 0 18px;font-weight:400;"><span leaf="">QUOTE</span></p>
+    <p style="font-size:18px;font-weight:700;color:#27272A;margin:0 0 8px;line-height:1.7;letter-spacing:0.5px;"><span leaf="">Agent 越强，越不能把</span><span style="border-bottom:2px solid #F97316;font-weight:700;color:#27272A;"><span leaf="">事实、决策、规划、实现与审查</span></span><span leaf="">全部塞进同一个黑盒。</span></p>
+    <p style="text-align:right;font-size:12px;color:#A1A1AA;margin:16px 0 0;letter-spacing:1px;"><span leaf="">—— ziikoo研究院</span></p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">一条版本发布帖，</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">超过 3500 次点赞，约 24.6 万次浏览</span></span><span leaf="">。</span></p>
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">三天后，Matt 又专门发帖解释推荐工作流，依然获得超过 1400 次点赞。</span></p>
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">问题来了：一个 Skill 仓库的 Minor Release，为什么会引起这么大反响？</span></p>
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">因为 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">mattpocock/skills v1.1.0</span></span><span leaf=""> 没有继续讲“怎样让 Agent 做更多”，而是开始回答一个更棘手的问题：</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">项目变复杂以后，人和 Agent 到底应该怎样分工？</span></span></p>
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">答案不是再写一条万能 Prompt，而是把调研、决策、规划、实现和审查拆成一组</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">可检查的中间状态</span></span><span leaf="">。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">这篇文章不逐条翻译 Release Notes。我们只讲三件对开发者真正有用的事：工作流变了什么、社区为什么关注，以及你明天可以怎样用。</span></p>
+    <section style="border-left:3px solid #27272A;padding:14px 0 14px 20px;margin:4px 0 28px;">
+      <p style="font-size:11px;color:#A1A1AA;margin:0 0 7px;letter-spacing:2px;font-weight:600;"><span leaf="">使用说明</span></p>
+      <p style="font-size:14px;font-weight:700;color:#27272A;margin:0 0 8px;line-height:1.8;"><span leaf="">每个 Skill 怎么用，真实 Prompt 都已经写好了。</span></p>
+      <p style="font-size:14px;color:#52525B;margin:0;line-height:1.8;text-align:justify;"><span leaf="">你不用背整套框架。找到与当前任务最接近的模块，把提示词里的业务背景、技术栈和限制条件换成自己的，照着写就够了。</span></p>
+    </section>
+  </section>
+
+  <section style="padding:0 10px 40px;">
+    <p style="font-size:11px;color:#A1A1AA;margin:0 0 16px;letter-spacing:2px;"><span leaf="">本文看点</span></p>
+    <section style="display:flex;justify-content:space-between;">
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;margin-right:8px;"><p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">01</span></p><p style="font-size:13px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">大家追的不是新 Skill</span></p></section>
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;margin-right:8px;"><p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">02</span></p><p style="font-size:13px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">决策权为什么要还给人</span></p></section>
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;"><p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">03</span></p><p style="font-size:13px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">不同项目怎样选入口</span></p></section>
+    </section>
+  </section>
+
+  <section style="margin-top:16px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;"><p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;"><span leaf="">01</span></p><section style="margin-top:-8px;"><p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;"><span leaf="">WORKFLOW</span></p><h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;"><span leaf="">3500 个赞背后：大家追的不是新 Skill</span></h3></section></section>
+    <p style="margin:28px 0 14px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">先看最直观的变化：原本分散的规划工具，被收进一条主流程。</span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">workflow</span></span></section><section style="padding:11px 14px;"><p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">idea → to-spec → to-tickets → implement → code-review</span></p></section></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">如果面对的是一个大到单次 Agent 会话装不下的项目，则先进入：</span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;"><p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">wayfinder → to-spec → to-tickets → implement → code-review</span></p></section></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">旧的 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">to-prd</span></span><span leaf=""> 被重命名为 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">to-spec</span></span><span leaf="">，</span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">to-plan</span></span><span leaf=""> 与 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">to-issues</span></span><span leaf=""> 被合并进 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">to-tickets</span></span><span leaf="">。这不只是命名调整，它在统一整个系统对“中间产物”的理解：</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">先形成明确规格，再拆成有依赖关系的交付任务</span></span><span leaf="">，最后进入实现和审查。</span></p>
+    <section style="border-left:3px solid #52525B;padding:16px 0 16px 24px;margin:0 0 28px;"><p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.7;letter-spacing:0.5px;"><span leaf="">「Agent 不再被期待从一句模糊需求直接冲到代码，而是必须经过一组可检查的中间状态。」</span></p></section>
+  </section>
+
+  <section style="padding:0 10px;"><section style="height:1px;background:#E4E4E7;margin:0;"><span leaf=""><br></span></section></section>
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;"><p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;"><span leaf="">02</span></p><section style="margin-top:-8px;"><p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;"><span leaf="">WAYFINDER</span></p><h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;"><span leaf="">Wayfinder 很火，但最容易被用错</span></h3></section></section>
+    <p style="margin:28px 0 16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">wayfinder</span></span><span leaf=""> 是本次更新最火的能力，也是最容易被误解的能力。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">它不是“更强的项目经理 Agent”，更不是所有项目的新默认入口。它只解决一类问题：</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">无法装进一个会话的复杂工作</span></span><span leaf="">。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">它使用的隐喻不是“项目计划”，而是“战争迷雾”：你知道目的地，却不知道所有路径。Agent 的任务不是假装一开始就拥有完整答案，而是</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">逐步暴露未知、建立阻塞关系</span></span><span leaf="">，并找出当前可以推进的 Frontier。</span></p>
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;"><span leaf="">一张地图回答四个问题</span></p>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:14px;font-weight:700;color:#27272A;background:#F4F4F5;padding:3px 10px;border-radius:999px;"><span leaf="">Destination</span></span></p><p style="font-size:14px;color:#71717A;margin:0;line-height:1.7;text-align:justify;"><span leaf="">最终要到达哪里，它决定整张地图的范围。</span></p></section>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:14px;font-weight:700;color:#27272A;background:#F4F4F5;padding:3px 10px;border-radius:999px;"><span leaf="">Not yet specified</span></span></p><p style="font-size:14px;color:#71717A;margin:0;line-height:1.7;text-align:justify;"><span leaf="">范围内还有什么没有弄清楚。</span></p></section>
+    <section style="margin-bottom:14px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:14px;font-weight:700;color:#27272A;background:#F4F4F5;padding:3px 10px;border-radius:999px;"><span leaf="">Out of scope</span></span></p><p style="font-size:14px;color:#71717A;margin:0;line-height:1.7;text-align:justify;"><span leaf="">哪些工作已经明确排除，不会重新回到待办范围。</span></p></section>
+    <section style="margin-bottom:24px;"><p style="margin:0 0 6px;"><span style="display:inline-block;font-size:14px;font-weight:700;color:#27272A;background:#F4F4F5;padding:3px 10px;border-radius:999px;"><span leaf="">Frontier</span></span></p><p style="font-size:14px;color:#71717A;margin:0;line-height:1.7;text-align:justify;"><span leaf="">哪些任务已经没有前置阻塞，可以立即推进。</span></p></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">地图本身不保存所有细节。每项研究、决策或原型都进入独立 Ticket，地图只保留摘要和链接。这使它更像</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">共享索引，而不是又一份大文档</span></span><span leaf="">。</span></p>
+    <section style="border-left:3px solid #27272A;padding:14px 0 14px 22px;margin:0 0 24px;"><p style="font-size:14px;font-weight:700;color:#27272A;margin:0;line-height:1.8;"><span leaf="">Matt 后续特别澄清：wayfinder 负责找路，不负责替整个团队走完全程。地图稳定以后，仍然应该转入 spec、tickets 和实现流程。</span></p></section>
+    <p style="margin:24px 0 12px;"><span style="display:inline-block;border:1px solid #A1A1AA;color:#52525B;font-size:11px;font-weight:600;padding:2px 9px;border-radius:2px;margin-right:8px;letter-spacing:0.5px;"><span leaf="">PROMPT</span></span><span style="font-size:14px;font-weight:700;color:#27272A;"><span leaf="">把订阅制 SaaS 改造成按量计费</span></span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;"><span leaf="">.</span></span><span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">wayfinder prompt</span></span></section><section style="padding:11px 14px;">
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/wayfinder</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">我们要把现有单体 SaaS 从按席位订阅改为按 API 调用量计费。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">系统使用 Stripe、PostgreSQL 和三个异步 Worker，已有约 2 万个付费租户。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">目标是在不中断现有订阅的情况下，上线计量、账单预览、超额提醒与迁移方案。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">请先建立 Destination、Not yet specified、Out of scope 和 Ticket 依赖图。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">把事实调查交给 research，需要业务取舍的节点标为 HITL。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">暂时不要修改代码；如果工作量能在一个会话内完成，请提前退出并说明原因。</span></p>
+    </section></section>
+  </section>
+
+  <section style="padding:0 10px;"><section style="height:1px;background:#E4E4E7;margin:0;"><span leaf=""><br></span></section></section>
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;"><p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;"><span leaf="">03</span></p><section style="margin-top:-8px;"><p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;"><span leaf="">BOUNDARIES</span></p><h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;"><span leaf="">真正的升级：把决策权还给人</span></h3></section></section>
+    <p style="margin:28px 0 16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">Wayfinder 负责找路，但这还不是 v1.1.0 最重要的变化。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">真正值得开发者关注的，是它开始明确规定：</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">哪些事可以交给 Agent，哪些事必须停下来等人</span></span><span leaf="">。</span></p>
+    <section style="height:1px;background:#E4E4E7;margin:34px 0 26px;"><span leaf=""><br></span></section>
+    <section style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">MODULE 01</span></span><span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">Ask Matt：不知道从哪开始，就先问路由器</span></span></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">ask-matt</span></span><span leaf=""> 是用户主动调用的总入口。它不直接替你实现功能，而是根据当前处境，</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">把任务引导到合适的 Skill 或工作流</span></span><span leaf="">。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">v1.1.0 补齐了它此前遗漏的多个路由，包括 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">tdd</span></span><span leaf="">、</span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">diagnosing-bugs</span></span><span leaf="">、</span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">domain-modeling</span></span><span leaf="">、</span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">codebase-design</span></span><span leaf=""> 与 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">grilling</span></span><span leaf="">；同时把 prototype、research 和 wayfinder 纳入更完整的入口说明。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">这意味着开发者不必先记住整套 Skill 名称。遇到 Bug、架构语言混乱、需求不清或大型项目时，可以先调用 ask-matt 描述处境，再由它选择下一步。它更像</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">一个工作流导航台</span></span><span leaf="">，而不是另一个执行 Agent。</span></p>
+    <p style="margin:24px 0 12px;"><span style="display:inline-block;border:1px solid #A1A1AA;color:#52525B;font-size:11px;font-weight:600;padding:2px 9px;border-radius:2px;margin-right:8px;letter-spacing:0.5px;"><span leaf="">PROMPT 01</span></span><span style="font-size:14px;font-weight:700;color:#27272A;"><span leaf="">支付回调偶发重复订单</span></span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;">
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/ask-matt</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">生产环境的支付 Webhook 偶发重复创建订单，每周约 3～5 次。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">日志显示同一个 event_id 在 30 秒内到达两次，但数据库没有唯一约束。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">我不确定应该先诊断、调研第三方重试规则，还是直接用 TDD 修复。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">请检查当前仓库和已有 Issue，把这个问题路由到合适的 Skill 与流程。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">先说明推荐路径和理由，不要直接修改生产代码。</span></p>
+    </section></section>
+    <section style="height:1px;background:#E4E4E7;margin:38px 0 26px;"><span leaf=""><br></span></section>
+    <section style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">MODULE 02</span></span><span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">Research：事实交给 Agent 查</span></span></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">新的 research 会在后台代理中检索官方文档、源代码、技术规范和第一方 API，并把结果整理成带引用的 Markdown 文档。它解决的是</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">可并行的阅读型工作</span></span><span leaf="">：主 Agent 可以继续处理当前任务，研究 Agent 在后台补齐事实证据。</span></p>
+    <p style="margin:24px 0 12px;"><span style="display:inline-block;border:1px solid #A1A1AA;color:#52525B;font-size:11px;font-weight:600;padding:2px 9px;border-radius:2px;margin-right:8px;letter-spacing:0.5px;"><span leaf="">PROMPT 02</span></span><span style="font-size:14px;font-weight:700;color:#27272A;"><span leaf="">验证 Workers 中的 Stripe 签名</span></span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;">
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/research</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">调查在 Cloudflare Workers 中验证 Stripe Webhook 签名的正确实现。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">只使用 Stripe 官方文档、Cloudflare 官方文档和相关 SDK 源码。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">重点确认原始请求体读取、Web Crypto 支持、时间容差与重放攻击防护。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">对比 stripe-node 与手写验签的运行时限制，并给出适用于当前仓库的建议。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">把带引用的结论写入 docs/research/stripe-workers-webhook.md。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">不要修改业务代码，也不要引用二手博客作为事实来源。</span></p>
+    </section></section>
+    <section style="height:1px;background:#E4E4E7;margin:38px 0 26px;"><span leaf=""><br></span></section>
+    <section style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">MODULE 03</span></span><span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">Prototype：用一次性代码回答设计问题</span></span></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">prototype</span></span><span leaf=""> 适合在正式实现前验证状态逻辑或 UI 方向。它的产物用于</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">回答设计问题</span></span><span leaf="">，而不是直接进入生产环境。</span></p>
+    <p style="margin:24px 0 12px;"><span style="display:inline-block;border:1px solid #A1A1AA;color:#52525B;font-size:11px;font-weight:600;padding:2px 9px;border-radius:2px;margin-right:8px;letter-spacing:0.5px;"><span leaf="">PROMPT 03</span></span><span style="font-size:14px;font-weight:700;color:#27272A;"><span leaf="">验证企业权限编辑器的交互</span></span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;">
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/prototype</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">为企业管理员做一个角色权限编辑器原型。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">真实场景包含 500 个权限点、20 个内置角色、搜索、批量选择和继承关系。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">请制作两个可点击方案：按资源分组的矩阵视图，以及搜索优先的命令面板视图。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">使用模拟数据，验证管理员能否在 2 分钟内找出并撤销高风险权限。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">记录两种方案的状态复杂度和可访问性风险。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">这是一次性原型，不接生产 API，不迁移现有组件，不把原型代码当最终实现。</span></p>
+    </section></section>
+    <section style="height:1px;background:#E4E4E7;margin:38px 0 26px;"><span leaf=""><br></span></section>
+    <section style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">MODULE 04</span></span><span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">Grilling：决策必须交还给人</span></span></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">grilling 现在明确区分事实和决策。事实可以通过代码库和资料查证；</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">产品取舍、范围边界与风险偏好</span></span><span leaf="">则必须询问用户。新版还增加了确认门：在人类确认双方已经达成共同理解之前，Agent 不得直接执行方案。</span></p>
+    <section style="border-left:3px solid #52525B;padding:16px 0 16px 24px;margin:0 0 28px;"><p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.7;letter-spacing:0.5px;"><span leaf="">「很多 AI 编程失败，不是模型不会写代码，而是它悄悄替用户完成了本应由用户作出的决定。」</span></p></section>
+    <p style="margin:24px 0 12px;"><span style="display:inline-block;border:1px solid #A1A1AA;color:#52525B;font-size:11px;font-weight:600;padding:2px 9px;border-radius:2px;margin-right:8px;letter-spacing:0.5px;"><span leaf="">PROMPT 04</span></span><span style="font-size:14px;font-weight:700;color:#27272A;"><span leaf="">澄清企业 SSO 的产品决策</span></span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;">
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/grill-with-docs docs/sso-requirements.md</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">我们准备为企业版增加 SAML SSO，但文档没有明确多 IdP、域名认领和即时停用策略。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">请先从代码库确认现有租户、成员和会话模型，这些属于事实。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">涉及登录回退、强制 SSO、生效范围和迁移窗口的内容属于产品决策，请逐项问我。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">每次只推进一个关键决策，并记录已确认结论与未决问题。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">在我明确确认共同理解之前，不要生成实施计划，也不要修改代码。</span></p>
+    </section></section>
+    <section style="height:1px;background:#E4E4E7;margin:38px 0 26px;"><span leaf=""><br></span></section>
+    <section style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">MODULE 05</span></span><span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">To-spec 与 To-tickets：把理解变成结构</span></span></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">to-spec 负责形成清晰规格，to-tickets 则将规格拆成纵向切片，并显式记录阻塞关系。对于跨越整个代码库的机械式重构，新版引入 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">Expand–Contract</span></span><span leaf=""> 思路：先让新旧形式并存，再分批迁移调用方，最后删除旧形式，尽量保证每个批次后 CI 仍然可用。</span></p>
+    <p style="margin:24px 0 12px;"><span style="display:inline-block;border:1px solid #A1A1AA;color:#52525B;font-size:11px;font-weight:600;padding:2px 9px;border-radius:2px;margin-right:8px;letter-spacing:0.5px;"><span leaf="">PROMPT 05</span></span><span style="font-size:14px;font-weight:700;color:#27272A;"><span leaf="">无停机迁移租户主键</span></span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;">
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/to-spec</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">把 PostgreSQL 中 tenants.id 从自增 INT 迁移为 UUID。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">该字段被 38 张表、Kafka 事件和公开 REST API 引用，迁移期间不能停机。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">规格必须覆盖双写、回填、读路径切换、外部 API 兼容、回滚条件和可观测性。</span></p>
+      <p style="margin:0 0 8px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">不要假设可以一次性修改全部调用方。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/to-tickets</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">把确认后的规格拆成 Expand–Contract 任务。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">每个 Ticket 都要给出验收条件、阻塞关系、可独立验证方式和回滚边界。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">优先让每批迁移后的主分支保持绿色；无法独立绿色的步骤集中到最终集成 Ticket。</span></p>
+    </section></section>
+    <section style="height:1px;background:#E4E4E7;margin:38px 0 26px;"><span leaf=""><br></span></section>
+    <section style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">MODULE 06</span></span><span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">TDD：只负责 Red → Green</span></span></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">TDD 被收敛为 Red → Green，重构阶段被移交给 code-review。测试只应该写在预先确认的系统接缝上，同时必须避免“同义反复式测试”：如果测试用与实现相同的方式重新计算期望值，它即使通过，</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">也不能提供真实信心</span></span><span leaf="">。</span></p>
+    <p style="margin:24px 0 12px;"><span style="display:inline-block;border:1px solid #A1A1AA;color:#52525B;font-size:11px;font-weight:600;padding:2px 9px;border-radius:2px;margin-right:8px;letter-spacing:0.5px;"><span leaf="">PROMPT 06</span></span><span style="font-size:14px;font-weight:700;color:#27272A;"><span leaf="">用 TDD 修复 Webhook 幂等性</span></span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;">
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/tdd</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">修复同一个 payment event_id 被重复处理时创建两笔订单的问题。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">建议测试接缝为 handlePaymentWebhook(event, orderStore)，但写测试前请先与我确认。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">先写一个能稳定复现重复投递的失败测试，期望值来自唯一 event_id 业务规则。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">再实现最小改动让测试变绿，并覆盖并发到达场景。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">不要在本阶段重构周边模块；不要用实现内部的去重算法重新计算期望值。</span></p>
+    </section></section>
+    <section style="height:1px;background:#E4E4E7;margin:38px 0 26px;"><span leaf=""><br></span></section>
+    <section style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span style="display:inline-block;background:#27272A;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:0.5px;"><span leaf="">MODULE 07</span></span><span style="font-size:15px;font-weight:800;color:#27272A;"><span leaf="">Code Review：重构与质量审查在这里发生</span></span></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">正式发布的 code-review 加入一组 Fowler 代码坏味道作为参考基线，包括重复代码、特性依恋、数据泥团、霰弹式修改和过度设计等。但</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">项目自身规范拥有更高优先级</span></span><span leaf="">，坏味道只能作为专业判断，不能被当成机械违规。</span></p>
+    <p style="margin:24px 0 12px;"><span style="display:inline-block;border:1px solid #A1A1AA;color:#52525B;font-size:11px;font-weight:600;padding:2px 9px;border-radius:2px;margin-right:8px;letter-spacing:0.5px;"><span leaf="">PROMPT 07</span></span><span style="font-size:14px;font-weight:700;color:#27272A;"><span leaf="">审查幂等性修复分支</span></span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;">
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">/code-review</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">审查 feat/webhook-idempotency 相对 main 的改动。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">先读取仓库 AGENTS.md、数据库约束规范和错误处理约定，它们优先于通用规则。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">重点检查并发安全、事务边界、唯一索引迁移、重试行为和测试是否真正独立。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">使用 Fowler 坏味道作为参考，但每项都标明这是判断而不是硬性违规。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">按阻塞、重要、建议三级输出，并为每项提供文件位置和证据。</span></p>
+      <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">只做审查报告，不要直接重写代码。</span></p>
+    </section></section>
+  </section>
+
+  <section style="padding:0 10px;"><section style="height:1px;background:#E4E4E7;margin:0;"><span leaf=""><br></span></section></section>
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;"><p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;"><span leaf="">04</span></p><section style="margin-top:-8px;"><p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;"><span leaf="">COMMUNITY</span></p><h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;"><span leaf="">社区开始分化：有人编排，也有人质疑</span></h3></section></section>
+    <p style="margin:28px 0 22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">从 Grok 对 X 的搜索结果看，热度几乎都集中在 </span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">wayfinder 和完整工程链路</span></span><span leaf="">上。这说明大家关注的已经不是单个 Skill，而是怎样把多个 Agent 能力组织起来。</span></p>
+    <section style="display:flex;margin:0 0 28px;"><section style="flex:1;border:1px solid #E4E4E7;padding:22px 16px;margin-right:8px;text-align:center;"><p style="font-size:32px;font-weight:900;color:#27272A;margin:0 0 6px;line-height:1;letter-spacing:-1px;"><span leaf="">3500＋</span></p><p style="font-size:11px;color:#A1A1AA;margin:0;letter-spacing:1px;"><span leaf="">官方发布帖点赞</span></p></section><section style="flex:1;border:1px solid #E4E4E7;padding:22px 16px;text-align:center;"><p style="font-size:32px;font-weight:900;color:#27272A;margin:0 0 6px;line-height:1;letter-spacing:-1px;"><span leaf="">24.6 万</span></p><p style="font-size:11px;color:#A1A1AA;margin:0;letter-spacing:1px;"><span leaf="">官方发布帖浏览</span></p></section></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">Matt 随后发布的工作流澄清也获得超过 1400 次点赞。Will Ness 分享的实践，则把传统的 Research → Plan → Implement 概括为更动态的 </span><span style="background:linear-gradient(180deg,transparent 60%,#E4E4E7 60%);font-weight:700;color:#27272A;"><span leaf="">Goal → Task → Adjust</span></span><span leaf=""> 循环。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">更有意思的是，社区开始把 wayfinder 当成</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">自定义 Skill 的轻量编排器</span></span><span leaf="">：把前端访谈、研究、原型验证等能力挂到地图节点上，每次只加载当前任务需要的上下文。</span></p>
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">但社区也并非只有赞美。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">少量反馈提到 to-tickets 仍可能出现术语漂移和输出一致性问题。Skill 提供的是结构和约束，不是确定性编译器。</span></p>
+    <section style="background:#FAFAFA;border-top:2px solid #27272A;padding:18px 22px;margin:0 0 24px;"><p style="font-size:11px;color:#A1A1AA;margin:0 0 10px;letter-spacing:2px;font-weight:500;"><span leaf="">TAKEAWAY</span></p><p style="font-size:14px;color:#52525B;margin:0;line-height:1.8;"><span leaf="">越依赖 Agent 自动生成中间产物，越要保留人工检查点。</span></p></section>
+  </section>
+
+  <section style="padding:0 10px;"><section style="height:1px;background:#E4E4E7;margin:0;"><span leaf=""><br></span></section></section>
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;"><p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;"><span leaf="">05</span></p><section style="margin-top:-8px;"><p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;"><span leaf="">ADOPTION</span></p><h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;"><span leaf="">别全套照搬：按项目大小选入口</span></h3></section></section>
+    <p style="margin:28px 0 16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">看到这里，最容易犯的错误是：把整条流程复制到每一个任务里。</span></p>
+    <p style="margin-bottom:16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">没有必要。更合理的方式，是根据</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">不确定性和工作规模</span></span><span leaf="">选择入口。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">如果连任务属于哪一种都不确定，就先从 </span><span style="background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:14px;"><span leaf="">ask-matt</span></span><span leaf=""> 开始，让它把问题路由到调试、访谈、建模、原型或完整交付链路。</span></p>
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;"><span leaf="">小型、边界清楚的修改</span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;"><p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">implement → code-review</span></p></section></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">例如修复一个定位清楚的 Bug、增加一个小字段，或者完成一个已经写明验收条件的任务。此时</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">不需要为简单工作制造地图和规格文档</span></span><span leaf="">。</span></p>
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;"><span leaf="">中型功能或存在需求分歧</span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;"><p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">grill-with-docs → to-spec → to-tickets → implement → code-review</span></p></section></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">先从现有 Issue、设计文档与代码库中建立共同理解，再形成</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">规格和交付切片</span></span><span leaf="">。</span></p>
+    <p style="font-size:15px;font-weight:800;color:#27272A;margin:28px 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;"><span leaf="">大型项目或跨多个会话</span></p>
+    <section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);"><section style="padding:11px 14px;"><p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">wayfinder → to-spec → to-tickets → implement → code-review</span></p></section></section>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">先明确 Destination 和未知区域，再将研究、人工决策、原型与任务挂到共享地图中。地图足够清晰后，才进入</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">常规交付链路</span></span><span leaf="">。</span></p>
+  </section>
+
+  <section style="padding:0 10px;"><section style="height:1px;background:#E4E4E7;margin:0;"><span leaf=""><br></span></section></section>
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;"><p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;"><span leaf="">06</span></p><section style="margin-top:-8px;"><p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;"><span leaf="">MIGRATION</span></p><h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;"><span leaf="">升级前，先在仓库里搜一遍旧名字</span></h3></section></section>
+    <p style="margin:28px 0 22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">虽然官方将 v1.1.0 标为 Minor Release，但旧提示词、脚本和项目文档可能受到以下变化影响：</span></p>
+    <section style="margin:0 0 24px;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:14px;"><thead><tr><th style="background:#27272A;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">旧名称</span></th><th style="background:#27272A;color:#fff;font-weight:700;padding:8px 12px;text-align:left;"><span leaf="">新名称</span></th></tr></thead><tbody>
+      <tr><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">to-prd</span></td><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">to-spec</span></td></tr>
+      <tr><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">to-plan</span></td><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">to-tickets</span></td></tr>
+      <tr><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">to-issues</span></td><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">to-tickets</span></td></tr>
+      <tr><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">review</span></td><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;background:#FAFAFA;"><span leaf="">code-review</span></td></tr>
+      <tr><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">decision-mapping</span></td><td style="padding:8px 12px;border-bottom:1px solid #E4E4E7;color:#52525B;"><span leaf="">wayfinder</span></td></tr>
+    </tbody></table></section>
+    <section style="border-left:3px solid #F97316;padding:14px 0 14px 22px;margin:0 0 24px;"><p style="font-size:14px;font-weight:700;color:#27272A;margin:0;line-height:1.8;"><span leaf="">升级后，建议搜索仓库中的旧 Skill 名称，同步修改 AGENTS.md、CLAUDE.md、自动化脚本与团队文档。</span></p></section>
+  </section>
+
+  <section style="padding:0 10px;"><section style="height:1px;background:#E4E4E7;margin:0;"><span leaf=""><br></span></section></section>
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;"><p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;"><span leaf="">∞</span></p><section style="margin-top:-8px;"><p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;"><span leaf="">THE END</span></p><h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;"><span leaf="">AI 编程下半场，拼的是边界</span></h3></section></section>
+    <p style="margin:28px 0 16px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">回头看，v1.1.0 最有价值的地方，不是新增了一个会画地图的 Agent。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">它真正重新定义的，是</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">自动化应该停在哪里</span></span><span leaf="">。</span></p>
+    <p style="margin-bottom:22px;font-size:15px;line-height:1.8;text-align:justify;color:#52525B;letter-spacing:0.3px;"><span leaf="">事实可以交给 Agent 调研，代码可以交给 Agent 实现，依赖关系可以交给系统维护；但</span><span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">产品决策、目标边界和关键取舍</span></span><span leaf="">，仍然需要人类确认。</span></p>
+    <section style="border-left:3px solid #52525B;padding:16px 0 16px 24px;margin:0 0 28px;"><p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.7;letter-spacing:0.5px;"><span leaf="">「当 Agent 越来越强，真正稀缺的就不再是执行能力，而是清晰的目标、可验证的中间产物，以及不被自动化越过的决策边界。」</span></p></section>
+    <section style="border-left:2px solid #E4E4E7;padding:12px 0 12px 20px;margin:0 0 24px;">
+      <p style="font-size:13px;color:#A1A1AA;margin:0 0 8px;line-height:1.8;text-align:justify;"><span leaf="">资料来源：GitHub Release、Matt Pocock 官方发布帖与工作流说明、Will Ness 实践分享、Kieran Zhang 中文拆解。</span></p>
+      <p style="font-size:12px;color:#A1A1AA;margin:0 0 6px;line-height:1.7;word-break:break-all;"><span leaf="">https://github.com/mattpocock/skills/releases/tag/v1.1.0</span></p>
+      <p style="font-size:12px;color:#A1A1AA;margin:0 0 6px;line-height:1.7;word-break:break-all;"><span leaf="">https://x.com/mattpocockuk/status/2074860312423997800</span></p>
+      <p style="font-size:12px;color:#A1A1AA;margin:0 0 8px;line-height:1.7;word-break:break-all;"><span leaf="">https://x.com/mattpocockuk/status/2075856898142740821</span></p>
+      <p style="font-size:13px;color:#A1A1AA;margin:0;line-height:1.8;text-align:justify;"><span leaf="">互动数据为 2026 年 7 月 17 日搜索时的可见快照。</span></p>
+    </section>
+  </section>
+
+  <section style="padding:0 10px;"><section style="text-align:center;margin:0 0 36px;"><section style="display:flex;align-items:center;justify-content:center;"><span style="height:1px;width:48px;background:#E4E4E7;margin-right:16px;"><span leaf=""><br></span></span><span style="font-size:10px;color:#A1A1AA;letter-spacing:4px;font-weight:500;"><span leaf="">END</span></span><span style="height:1px;width:48px;background:#E4E4E7;margin-left:16px;"><span leaf=""><br></span></span></section></section></section>
+  <section style="padding:0 10px 8px;"><section style="border-top:1px solid #E4E4E7;padding-top:28px;"><p style="margin-bottom:0;font-size:15px;line-height:1.8;color:#52525B;text-align:justify;"><span leaf="">我们是 ziikoo研究院，专注于企业 AI 基础设施服务。</span></p></section></section>
+  <section style="background:#FAFAFA;border:1px solid #E4E4E7;border-radius:8px;padding:14px 16px;margin:20px 20px 16px;text-align:center;">
+    <section style="display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 10px;"><span style="display:inline-block;line-height:0;"><img src="https://mmbiz.qpic.cn/mmbiz_png/G54UQVjjFicmZics0yUrPTuib04MkepoQmw3qRFMC6lRaGO8vKOia707JWaClAWbjrsSj1NuJ4micQJdHoo9whTD2iarjhCfegZrNiaQUy21cZQWnU/640?wx_fmt=png" alt="ziikoo" style="width:88px;max-width:100%;height:auto;display:block;margin:0 auto;"></span><span style="font-size:12px;font-weight:800;color:#111827;letter-spacing:0.14em;"><span leaf="">有话说</span></span></section>
+    <p style="margin:0;line-height:1.7;"><span style="font-size:15px;color:#52525B;font-weight:bold;"><span leaf="">Agent 可以替你赶路，但目的地与岔路口仍要由人决定。</span></span></p>
+    <p style="margin:10px 0 0;font-size:11px;line-height:1.6;color:#8b8b8b;letter-spacing:0.08em;"><span leaf="">企业 AI 生产力管理平台 · ai.ziikoo.com</span></p>
+  </section>
+  <section style="padding:0 10px 24px;"><p style="margin-bottom:0;font-size:15px;line-height:1.8;color:#52525B;text-align:justify;"><span leaf="">如果你觉得今天这篇有收获，欢迎</span><strong style="color:#27272A;"><span leaf="">点赞、在看、转发</span></strong><span leaf="">三连，我们下篇见。</span></p></section>
+</section>
+  </div>
+</div>
+<script>
+  function gzhShowToast(msg){
+    var t=document.getElementById('gzhToast');
+    t.textContent=msg;t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer=setTimeout(function(){t.classList.remove('show');},2800);
+  }
+  function gzhCopy(){
+    var el=document.getElementById('gzh-content');
+    // 选中渲染后的富文本节点并复制（等价于手动 Ctrl+A / Ctrl+C，保留全部样式）
+    var range=document.createRange();
+    range.selectNodeContents(el);
+    var sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var ok=false;
+    try{ok=document.execCommand('copy');}catch(e){ok=false;}
+    sel.removeAllRanges();
+    var btn=document.getElementById('gzhCopyBtn');
+    if(ok){
+      gzhShowToast('✅ 已复制！去公众号编辑器按 Ctrl/⌘+V 粘贴即可');
+      var old=btn.textContent;btn.textContent='✅ 已复制';
+      setTimeout(function(){btn.textContent=old;},2200);
+    }else{
+      gzhShowToast('⚠ 自动复制失败，请手动全选(Ctrl/⌘+A)再复制(Ctrl/⌘+C)');
+    }
+  }
+</script>
+</body>
+</html>

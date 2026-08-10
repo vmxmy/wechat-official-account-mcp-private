@@ -1,0 +1,19 @@
+{
+  "data":{
+    "edit_history_tweet_ids":[
+      ""
+    ],
+    "id":"2081255058071826478",
+    "text":"ocx 换掉 cc switch，远离丢会话和重启两大痛
+
+额度快用完，想从 A 站切 B 站——打开 cc switch，点一下。
+客户端重启。跑到一半的重构、调试上下文，整个没了。
+
+不是\"有点烦\"，是心碎。两大痛：
+① 换 provider → 丢会话
+② 换模型 → 必须重启
+
+为什么必然这样？
+cc switch 是配置管家：改 https://t.co/JMjlwzFjBo"
+  }
+}

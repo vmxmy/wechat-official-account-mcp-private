@@ -1,0 +1,1410 @@
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081242282809065721",
+    "replyTo": "2081199739291197468",
+    "url": "https://x.com/i/status/2081242282809065721"
+  }
+}
+
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 499, in upload_media
+    resp = session.post(upload_url, headers=headers, data=init_data, timeout=30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.SSLError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 499, in upload_media
+    resp = session.post(upload_url, headers=headers, data=init_data, timeout=30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.SSLError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081242424496750981",
+    "replyTo": "2081216459364331528",
+    "url": "https://x.com/i/status/2081242424496750981"
+  }
+}
+
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081242462027497977",
+    "replyTo": "2080670337016955032",
+    "url": "https://x.com/i/status/2081242462027497977"
+  }
+}
+
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081242507028132031",
+    "replyTo": "2081017726261199185",
+    "url": "https://x.com/i/status/2081242507028132031"
+  }
+}
+
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081242569472913885",
+    "replyTo": "2081235607678816507",
+    "url": "https://x.com/i/status/2081242569472913885"
+  }
+}
+
+=== upload media ===
+[31merror initializing upload: init request failed: HTTP Error: Post "https://api.x.com/2/media/upload/initialize": EOF (cause: Post "https://api.x.com/2/media/upload/initialize": EOF)[0m
+[31merror initializing upload: init request failed: HTTP Error: Post "https://api.x.com/2/media/upload/initialize": EOF (cause: Post "https://api.x.com/2/media/upload/initialize": EOF)[0m
+{
+  "data":{
+    "expires_after_secs":86400,
+    "id":"2081242986483163136",
+    "image":{
+      "height":787,
+      "image_type":"image/jpeg",
+      "width":1400
+    },
+    "media_key":"3_2081242986483163136",
+    "size":142999
+  }
+}
+[32mMedia uploaded successfully! Media ID: 2081242986483163136[0m
+{"action":"media_upload","file":"img-001-HOEL73BXMAAICJ5-zh.jpg","media_id":"2081243029042802688"}
+{"action":"media_upload","file":"img-003-HOD_QQUXsAAvUmD-zh.jpg","media_id":"2081243066380451840"}
+{"action":"media_upload","file":"img-006-HOD_n0DWwAAlhpU-zh.jpg","media_id":"2081243077495447552"}
+---- reply 2080702441809399834 ----
+Error: accepts 2 arg(s), received 3
+Usage:
+  xurl reply POST_ID_OR_URL "TEXT" [flags]
+
+Flags:
+      --auth string            Authentication type (oauth1, oauth2, app)
+  -h, --help                   help for reply
+      --media-id stringArray   Media ID(s) to attach (repeatable)
+  -t, --trace                  Add X-B3-Flags trace header
+  -u, --username string        OAuth2 username to act as
+  -v, --verbose                Print verbose request/response info
+
+Global Flags:
+      --app string   Use a specific registered app (overrides default)
+
+accepts 2 arg(s), received 3
+---- reply 2081084990394077306 ----
+Error: accepts 2 arg(s), received 3
+Usage:
+  xurl reply POST_ID_OR_URL "TEXT" [flags]
+
+Flags:
+      --auth string            Authentication type (oauth1, oauth2, app)
+  -h, --help                   help for reply
+      --media-id stringArray   Media ID(s) to attach (repeatable)
+  -t, --trace                  Add X-B3-Flags trace header
+  -u, --username string        OAuth2 username to act as
+  -v, --verbose                Print verbose request/response info
+
+Global Flags:
+      --app string   Use a specific registered app (overrides default)
+
+accepts 2 arg(s), received 3
+---- reply 2081051936199938550 ----
+Error: accepts 2 arg(s), received 3
+Usage:
+  xurl reply POST_ID_OR_URL "TEXT" [flags]
+
+Flags:
+      --auth string            Authentication type (oauth1, oauth2, app)
+  -h, --help                   help for reply
+      --media-id stringArray   Media ID(s) to attach (repeatable)
+  -t, --trace                  Add X-B3-Flags trace header
+  -u, --username string        OAuth2 username to act as
+  -v, --verbose                Print verbose request/response info
+
+Global Flags:
+      --app string   Use a specific registered app (overrides default)
+
+accepts 2 arg(s), received 3
+---- reply 2081208001009205676 ----
+Error: accepts 2 arg(s), received 3
+Usage:
+  xurl reply POST_ID_OR_URL "TEXT" [flags]
+
+Flags:
+      --auth string            Authentication type (oauth1, oauth2, app)
+  -h, --help                   help for reply
+      --media-id stringArray   Media ID(s) to attach (repeatable)
+  -t, --trace                  Add X-B3-Flags trace header
+  -u, --username string        OAuth2 username to act as
+  -v, --verbose                Print verbose request/response info
+
+Global Flags:
+      --app string   Use a specific registered app (overrides default)
+
+accepts 2 arg(s), received 3
+---- reply 2081195581167555068 ----
+Error: accepts 2 arg(s), received 3
+Usage:
+  xurl reply POST_ID_OR_URL "TEXT" [flags]
+
+Flags:
+      --auth string            Authentication type (oauth1, oauth2, app)
+  -h, --help                   help for reply
+      --media-id stringArray   Media ID(s) to attach (repeatable)
+  -t, --trace                  Add X-B3-Flags trace header
+  -u, --username string        OAuth2 username to act as
+  -v, --verbose                Print verbose request/response info
+
+Global Flags:
+      --app string   Use a specific registered app (overrides default)
+
+accepts 2 arg(s), received 3
+---- reply 2081235348294615103 ----
+Error: accepts 2 arg(s), received 3
+Usage:
+  xurl reply POST_ID_OR_URL "TEXT" [flags]
+
+Flags:
+      --auth string            Authentication type (oauth1, oauth2, app)
+  -h, --help                   help for reply
+      --media-id stringArray   Media ID(s) to attach (repeatable)
+  -t, --trace                  Add X-B3-Flags trace header
+  -u, --username string        OAuth2 username to act as
+  -v, --verbose                Print verbose request/response info
+
+Global Flags:
+      --app string   Use a specific registered app (overrides default)
+
+accepts 2 arg(s), received 3
+---- reply 2080702441809399834 ----
+[31mError: HTTP Error: Post "https://api.x.com/2/tweets": EOF (cause: Post "https://api.x.com/2/tweets": EOF)[0m
+---- reply 2081084990394077306 ----
+{
+  "detail":"You can only reply to or quote posts where you are mentioned or are the author.",
+  "status":403,
+  "title":"Authorization Error",
+  "type":"https://api.x.com/2/problems/not-authorized-for-resource"
+}
+---- reply 2081051936199938550 ----
+{
+  "detail":"You can only reply to or quote posts where you are mentioned or are the author.",
+  "status":403,
+  "title":"Authorization Error",
+  "type":"https://api.x.com/2/problems/not-authorized-for-resource"
+}
+---- reply 2081208001009205676 ----
+{
+  "detail":"You can only reply to or quote posts where you are mentioned or are the author.",
+  "status":403,
+  "title":"Authorization Error",
+  "type":"https://api.x.com/2/problems/not-authorized-for-resource"
+}
+---- reply 2081195581167555068 ----
+{
+  "detail":"You can only reply to or quote posts where you are mentioned or are the author.",
+  "status":403,
+  "title":"Authorization Error",
+  "type":"https://api.x.com/2/problems/not-authorized-for-resource"
+}
+---- reply 2081235348294615103 ----
+{
+  "detail":"You can only reply to or quote posts where you are mentioned or are the author.",
+  "status":403,
+  "title":"Authorization Error",
+  "type":"https://api.x.com/2/problems/not-authorized-for-resource"
+}
+---- twitter reply 2080702441809399834 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 499, in upload_media
+    resp = session.post(upload_url, headers=headers, data=init_data, timeout=30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.SSLError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+---- twitter reply 2081084990394077306 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 499, in upload_media
+    resp = session.post(upload_url, headers=headers, data=init_data, timeout=30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.SSLError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+---- twitter reply 2081051936199938550 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081243519503708583",
+    "replyTo": "2081051936199938550",
+    "url": "https://x.com/i/status/2081243519503708583"
+  }
+}
+---- twitter reply 2081208001009205676 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081243559890731368",
+    "replyTo": "2081208001009205676",
+    "url": "https://x.com/i/status/2081243559890731368"
+  }
+}
+---- twitter reply 2081195581167555068 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081243606128754748",
+    "replyTo": "2081195581167555068",
+    "url": "https://x.com/i/status/2081243606128754748"
+  }
+}
+---- twitter reply 2081235348294615103 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (92) HTTP/2 stream 9 was not closed cleanly: PROTOCOL_ERROR (err 1). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 524, in upload_media
+    resp = session.post(upload_url, headers=headers, data=append_data, timeout=60)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.HTTPError: Failed to perform, curl: (92) HTTP/2 stream 9 was not closed cleanly: PROTOCOL_ERROR (err 1). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+---- twitter reply 2080702441809399834 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080702441809399834"
+    }
+  }
+}
+---- twitter reply 2080702441809399834 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080702441809399834"
+    }
+  }
+}
+---- twitter reply 2080702441809399834 try=3 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (28) Operation timed out after 60001 milliseconds with 0 bytes received. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 524, in upload_media
+    resp = session.post(upload_url, headers=headers, data=append_data, timeout=60)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.Timeout: Failed to perform, curl: (28) Operation timed out after 60001 milliseconds with 0 bytes received. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+---- twitter reply 2081084990394077306 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081084990394077306"
+    }
+  }
+}
+---- twitter reply 2081084990394077306 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081084990394077306"
+    }
+  }
+}
+---- twitter reply 2081084990394077306 try=3 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081084990394077306"
+    }
+  }
+}
+---- twitter reply 2081235348294615103 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081235348294615103"
+    }
+  }
+}
+---- twitter reply 2081235348294615103 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081235348294615103"
+    }
+  }
+}
+---- twitter reply 2081235348294615103 try=3 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081245208101208535",
+    "replyTo": "2081235348294615103",
+    "url": "https://x.com/i/status/2081245208101208535"
+  }
+}
+---- reply 2080702441809399834 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 499, in upload_media
+    resp = session.post(upload_url, headers=headers, data=init_data, timeout=30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.SSLError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+---- reply 2080702441809399834 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080702441809399834"
+    }
+  }
+}
+---- reply 2080702441809399834 try=3 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081245420458795079",
+    "replyTo": "2080702441809399834",
+    "url": "https://x.com/i/status/2081245420458795079"
+  }
+}
+---- reply 2081084990394077306 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081084990394077306"
+    }
+  }
+}
+---- reply 2081084990394077306 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081084990394077306"
+    }
+  }
+}
+---- reply 2081084990394077306 try=3 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081084990394077306"
+    }
+  }
+}
+---- reply 2081084990394077306 try=4 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081084990394077306"
+    }
+  }
+}
+---- reply 2080626046903157126 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 499, in upload_media
+    resp = session.post(upload_url, headers=headers, data=init_data, timeout=30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.SSLError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+---- reply 2080626046903157126 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081245810084434260",
+    "replyTo": "2080626046903157126",
+    "url": "https://x.com/i/status/2081245810084434260"
+  }
+}
+---- reply 2080727774436757863 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080727774436757863"
+    }
+  }
+}
+---- reply 2080727774436757863 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 499, in upload_media
+    resp = session.post(upload_url, headers=headers, data=init_data, timeout=30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.SSLError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+---- reply 2080727774436757863 try=3 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081246032252592449",
+    "replyTo": "2080727774436757863",
+    "url": "https://x.com/i/status/2081246032252592449"
+  }
+}
+---- reply 2080355386452791578 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080355386452791578"
+    }
+  }
+}
+---- reply 2080355386452791578 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081246133482135591",
+    "replyTo": "2080355386452791578",
+    "url": "https://x.com/i/status/2081246133482135591"
+  }
+}
+---- reply 2081179329493381163 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081179329493381163"
+    }
+  }
+}
+---- reply 2081179329493381163 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081246257579012461",
+    "replyTo": "2081179329493381163",
+    "url": "https://x.com/i/status/2081246257579012461"
+  }
+}
+---- reply 2080939064518496593 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080939064518496593"
+    }
+  }
+}
+---- reply 2080939064518496593 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080939064518496593"
+    }
+  }
+}
+---- reply 2080939064518496593 try=3 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080939064518496593"
+    }
+  }
+}
+---- reply 2080939064518496593 try=4 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2080939064518496593"
+    }
+  }
+}
+---- reply 2081237346708516950 try=1 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081237346708516950"
+    }
+  }
+}
+---- reply 2081237346708516950 try=2 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081237346708516950"
+    }
+  }
+}
+---- reply 2081237346708516950 try=3 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 732, in _request_once
+    c.perform()
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 505, in perform
+    self._check_error(ret, "perform")
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/curl.py", line 269, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/xumingyang/.local/bin/twitter", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1406, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1873, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1142, in reply_tweet
+    payload = _run_write_command(
+              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 280, in _run_write_command
+    payload = operation(client)
+              ^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1132, in operation
+    media_ids = _upload_images(client, images, rich_output=rich_output)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/cli.py", line 1060, in _upload_images
+    media_ids.append(client.upload_media(path))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/twitter_cli/client.py", line 499, in upload_media
+    resp = session.post(upload_url, headers=headers, data=init_data, timeout=30)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 845, in post
+    return self.request(method="POST", url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 795, in request
+    return self._request_once(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/xumingyang/.local/share/uv/tools/twitter-cli/lib/python3.11/site-packages/curl_cffi/requests/session.py", line 739, in _request_once
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.SSLError: Failed to perform, curl: (35) TLS connect error: error:00000000:invalid library (0):OPENSSL_internal:invalid library (0). See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+---- reply 2081237346708516950 try=4 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081237346708516950"
+    }
+  }
+}
+=== reupload fresh media for xurl posts ===
+{
+  "data":{
+    "expires_after_secs":86400,
+    "id":"2081246796702162944",
+    "image":{
+      "height":725,
+      "image_type":"image/jpeg",
+      "width":1800
+    },
+    "media_key":"3_2081246796702162944",
+    "size":234199
+  }
+}
+[32mMedia uploaded successfully! Media ID: 2081246796702162944[0m
+{
+  "data":{
+    "expires_after_secs":86400,
+    "id":"2081246805082472448",
+    "image":{
+      "height":787,
+      "image_type":"image/jpeg",
+      "width":1400
+    },
+    "media_key":"3_2081246805082472448",
+    "size":171455
+  }
+}
+[32mMedia uploaded successfully! Media ID: 2081246805082472448[0m
+=== xurl own posts ===
+{
+  "data":{
+    "edit_history_tweet_ids":[
+      ""
+    ],
+    "id":"2081246812086861905",
+    "text":"补一张中文配图版 Graph Engineering。
+
+对应这条高热视频讨论（@AnatoliKopadze 线）和近期 graph engineering 热帖：
+https://t.co/sFsr3asM71
+
+六原则 / 词汇表 / 串并行 / 菱形 — 扫图上手。
+https://t.co/l8Ixu8DnsA
+ziikoo 研究院 · 中文配图 https://t.co/6JGEf7jlpo https://t.co/l8Ixu8DnsA"
+  }
+}
+{
+  "data":{
+    "edit_history_tweet_ids":[
+      ""
+    ],
+    "id":"2081246827878441387",
+    "text":"中文配套信息图回复 graph engineering 讨论：
+
+- 设计层 ≠ 实现层（LangGraph 是实现）
+- 并行分工 + 独立校验 + 定点回修
+- 英文长文看图劝退 → 先刷中文卡
+
+https://t.co/l8Ixu8DnsA
+ziikoo · 中文配图 https://t.co/8pXv9A3Xd4 https://t.co/l8Ixu8DnsA"
+  }
+}
+=== cookie retry remaining ===
+---- 2081084990394077306 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081246876775645373",
+    "replyTo": "2081084990394077306",
+    "url": "https://x.com/i/status/2081246876775645373"
+  }
+}
+---- 2080939064518496593 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": {
+    "success": true,
+    "action": "reply",
+    "id": "2081246926406877576",
+    "replyTo": "2080939064518496593",
+    "url": "https://x.com/i/status/2081246926406877576"
+  }
+}
+---- 2081237346708516950 ----
+
+🔐 Getting Twitter cookies...
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+{
+  "ok": false,
+  "schema_version": "1",
+  "error": {
+    "code": "api_error",
+    "message": "Twitter API error (HTTP 0): Twitter API returned errors: Authorization: You have reached your daily limit for sending Tweets and messages. Please try again later. (344)",
+    "details": {
+      "action": "reply",
+      "replyTo": "2081237346708516950"
+    }
+  }
+}

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>translation_排版_石墨极简风(graphite-minimal) · 公众号排版预览</title>
+<style>
+  body{margin:0;background:#eef0f2;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;-webkit-text-size-adjust:100%;}
+  .gzh-toolbar{position:fixed;top:0;left:0;right:0;height:54px;background:#ffffff;box-shadow:0 1px 10px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:99;}
+  .gzh-hint{font-size:13px;color:#6b7280;line-height:1.4;}
+  .gzh-hint b{color:#111827;}
+  .gzh-copy{background:#059669;color:#fff;border:0;border-radius:9px;padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(5,150,105,.28);white-space:nowrap;transition:transform .08s,background .15s;}
+  .gzh-copy:hover{background:#047857;}
+  .gzh-copy:active{transform:translateY(1px);}
+  .gzh-toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
+  .gzh-toast.show{opacity:1;}
+  .gzh-stage{max-width:700px;margin:78px auto 64px;padding:0 8px;}
+  @media(max-width:520px){.gzh-hint{max-width:150px;}}
+</style>
+</head>
+<body>
+<div class="gzh-toolbar">
+  <span class="gzh-hint">👇 下方是排版效果 · 点右侧 <b>复制</b> 直接粘到公众号</span>
+  <button class="gzh-copy" id="gzhCopyBtn" onclick="gzhCopy()">📋 复制到公众号</button>
+</div>
+<div class="gzh-toast" id="gzhToast"></div>
+<div class="gzh-stage">
+  <div id="gzh-content">
+<section style="max-width:677px;margin:0 auto;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;color:#52525B;line-height:1.8;letter-spacing:0.3px;overflow-x:hidden;">
+
+  <!-- 1. 开头引言卡片 -->
+  <section style="margin:10px 10px 40px;padding:32px 24px 24px;border-top:1px solid #E4E4E7;border-bottom:1px solid #E4E4E7;background:#FFFFFF;">
+    <p style="font-size:11px;color:#A1A1AA;letter-spacing:2px;margin:0 0 18px;font-weight:400;">
+      <span leaf="">QUOTE</span>
+    </p>
+    <p style="font-size:18px;font-weight:700;color:#27272A;margin:0 0 8px;line-height:1.7;letter-spacing:0.5px;">
+      <span leaf="">最强的 AI 系统，不再是一次对话，也不是无尽循环，而是</span>
+      <span style="border-bottom:2px solid #F97316;font-weight:700;color:#27272A;"><span leaf="">图</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="text-align:right;font-size:13px;color:#A1A1AA;margin:16px 0 0;letter-spacing:1px;">
+      <span leaf="">—— ziikoo 研究院</span>
+    </p>
+  </section>
+
+  <!-- 2. 编译者导读（引用类文章固定结构） -->
+  <section style="padding:0 10px;">
+    <p style="font-size:16px;font-weight:800;color:#27272A;margin:0 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">编译者导读</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">本文由</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">ziikoo 研究院</span></span>
+      <span leaf="">编译整理，内容引用自 X（Twitter）长文，版权归原作者所有，仅供学习交流。</span>
+    </p>
+
+    <section style="background:#FAFAFA;border:1px solid #E4E4E7;padding:20px 22px;margin:0 0 28px;">
+      <p style="font-size:11px;color:#A1A1AA;margin:0 0 8px;letter-spacing:2px;font-weight:500;">
+        <span leaf="">AUTHOR</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span leaf="">原作者</span>
+        <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">@wandermist</span></span>
+        <span leaf="">是</span>
+        <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">Anthropic 工程师</span></span>
+        <span leaf="">，也是这套 Graph 系统的构建者。他在本文中拆解了这套系统的运行机制。</span>
+      </p>
+
+      <p style="font-size:11px;color:#A1A1AA;margin:16px 0 8px;letter-spacing:2px;font-weight:500;">
+        <span leaf="">TOPIC</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span leaf="">本篇核心主题是</span>
+        <span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">图工程（Graph Engineering）</span></span>
+        <span leaf="">：将 AI 工作流从「单次对话」或「死循环式迭代」，升级为可并行执行、可持续校验、可定点修复的图结构系统。</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 8px;line-height:1.75;text-align:justify;">
+        <span leaf="">文章重点讨论三类问题：</span>
+      </p>
+      <section style="margin-bottom:12px;">
+        <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+          <p style="font-size:16px;color:#3F3F46;margin:0;line-height:1.75;flex:1;"><span leaf="">菱形架构如何组织并行任务；</span></p>
+        </section>
+        <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+          <p style="font-size:16px;color:#3F3F46;margin:0;line-height:1.75;flex:1;"><span leaf="">如何识别并清理没有实际作用的「假边」；</span></p>
+        </section>
+        <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:0;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+          <p style="font-size:16px;color:#3F3F46;margin:0;line-height:1.75;flex:1;"><span leaf="">如何划分人类与智能体在工作流中的职责边界。</span></p>
+        </section>
+      </section>
+
+      <p style="font-size:11px;color:#A1A1AA;margin:16px 0 8px;letter-spacing:2px;font-weight:500;">
+        <span leaf="">CONTEXT</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span leaf="">过去一两周，X 上围绕</span>
+        <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">loop engineering → graph engineering</span></span>
+        <span leaf="">的讨论明显升温。@wandermist 以自己参与构建的 Anthropic Graph 系统为例，把这场抽象争论拉回到一个更具体的问题：一张图究竟是如何运行的？</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span leaf="">这套系统的执行链路是：</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">Task → Researcher → Planner → Writer + Code Agent → Reviewer → Deploy</span></span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span leaf="">其中包含六个专业执行节点、一份共享状态，以及沿着边实时流转的数据包。每个节点负责明确的专业任务，整张图则驱动工作流从输入一直运行到部署。</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span leaf="">当任务被拆解为真正清晰的专业分工后，传统的 loop 模式也随之退场：不再由一个智能体包办所有工作。Reviewer 一旦发现问题，会将任务精准退回到出现错误的节点，而不是重启整张图，也不会丢失已有上下文。</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span leaf="">从这个角度看，图并不是更复杂、更花哨的循环，而是智能体系统长期缺失的那张</span>
+        <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">组织架构图</span></span>
+        <span leaf="">。</span>
+      </p>
+      <p style="font-size:16px;color:#3F3F46;margin:0 0 12px;line-height:1.75;text-align:justify;">
+        <span leaf="">这篇长文，正是对这一转向的系统化归纳：</span>
+      </p>
+      <section style="border-left:3px solid #52525B;padding:16px 0 16px 24px;margin:0;">
+        <p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.7;letter-spacing:0.5px;">
+          <span leaf="">「图不是更花哨的 Loop，而是智能体一直缺少的组织架构。」</span>
+        </p>
+      </section>
+    </section>
+
+    <section style="border-left:2px solid #E4E4E7;padding:12px 0 12px 20px;margin:0 0 28px;">
+      <p style="font-size:14px;color:#A1A1AA;margin:0;line-height:1.75;text-align:justify;">
+        <span leaf="">原文：Graph Engineering: The Next AI Revolution</span>
+      </p>
+      <p style="font-size:14px;color:#A1A1AA;margin:6px 0 0;line-height:1.75;text-align:justify;">
+        <span leaf="">链接：https://x.com/wandermist/status/2080974834851340400</span>
+      </p>
+    </section>
+
+    <p style="font-size:16px;font-weight:800;color:#27272A;margin:0 0 14px;padding-left:12px;border-left:3px solid #52525B;line-height:1.4;">
+      <span leaf="">以下为原文编译</span>
+    </p>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">大家好，我是 wandermist——这篇我差点没发。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">所有人都在谈</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">AI 智能体</span></span>
+      <span leaf="">。几个月前，最火的技能还是提示词工程。接着是循环工程（loop engineering）：让模型反复改进自己的产出。今天，讨论又在转向。最强的 AI 系统，不再是一次对话，也不是无尽循环，而是</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">图（graph）</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">这不只是又一个 buzzword。它是一种不同的思考方式：</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">AI 如何解决问题</span></span>
+      <span leaf="">。</span>
+    </p>
+  </section>
+
+  <!-- 3. 前言导读 -->
+  <section style="padding:0 10px 40px;">
+    <p style="font-size:11px;color:#A1A1AA;margin:0 0 16px;letter-spacing:2px;">
+      <span leaf="">本文看点</span>
+    </p>
+    <section style="display:flex;justify-content:space-between;">
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;margin-right:8px;">
+        <p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">01</span></p>
+        <p style="font-size:14px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">图工程如何重组工作流</span></p>
+      </section>
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;margin-right:8px;">
+        <p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">02</span></p>
+        <p style="font-size:14px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">菱形架构与并行校验</span></p>
+      </section>
+      <section style="flex:1;background:#FAFAFA;border-top:1px solid #E4E4E7;padding:18px 12px 16px;">
+        <p style="font-size:11px;color:#A1A1AA;font-weight:500;margin:0 0 8px;letter-spacing:1px;"><span leaf="">03</span></p>
+        <p style="font-size:14px;font-weight:700;color:#27272A;margin:0;line-height:1.5;"><span leaf="">人机协作的系统边界</span></p>
+      </section>
+    </section>
+  </section>
+
+  <!-- 01 线性 AI 的问题 -->
+  <section style="margin-top:16px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">01</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">PROBLEM</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">线性 AI 的问题</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">多数人仍把 AI 当成</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">一个员工</span></span>
+      <span leaf="">来用。</span>
+    </p>
+
+    <section style="margin-bottom:24px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">你提问</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">模型思考</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">它回答</span></p>
+      </section>
+    </section>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">简单任务够用。但真实工作很少这么</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">直来直去</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">想象写一份市场研究报告：有人收集竞品数据，有人研究用户行为，有人核对数字，最后有人在发布前做总审。把这些职责都塞进一次 AI 对话，就像让一个人同时</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">身兼数职</span></span>
+      <span leaf="">。能做，但很难扩展。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">这正是</span>
+      <span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">图工程（Graph Engineering）</span></span>
+      <span leaf="">要解决的问题。</span>
+    </p>
+
+    <section style="border:1px solid #E4E4E7;padding:4px;margin:0 0 28px;">
+      <section style="margin:0;overflow:hidden;">
+        <span leaf=""><img src="imgs/img-002-HOD_GvEXgAAaluf-zh.png" style="max-width:100%;height:auto;display:block;margin:0 auto;"></span>
+      </section>
+    </section>
+  </section>
+
+  <!-- divider -->
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 02 什么是图工程？ -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">02</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">DEFINITION</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">什么是图工程？</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">图工程是一种实践：把 AI 工作流设计成</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">互联网络</span></span>
+      <span leaf="">，而不是一条直线流水线。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">图中每个</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">节点只负责一件事</span></span>
+      <span leaf="">。一个节点做调研，一个写稿，一个校验来源，另一个决定下一步走哪条路径。节点之间的连接，定义信息如何在系统中流动。</span>
+    </p>
+
+    <section style="border:1px solid #E4E4E7;padding:4px;margin:0 0 28px;">
+      <section style="margin:0;overflow:hidden;">
+        <span leaf=""><img src="imgs/img-003-HOD_QQUXsAAvUmD-zh.png" style="max-width:100%;height:auto;display:block;margin:0 auto;"></span>
+      </section>
+    </section>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">你不是让一个 AI 包办一切，而是在组建一支</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">协作团队</span></span>
+      <span leaf="">，每个成员职责清晰。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">结果不只是执行更快。你会得到更易理解、调试、改进和</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">扩展的系统</span></span>
+      <span leaf="">。</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 03 为什么图很重要 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">03</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">PARALLEL</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">为什么图很重要</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">图结构系统的一大优势是</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">并行执行</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">假设要调研五家竞品。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">传统工作流会先做 A 公司，再做 B，再做 C……每一步都要等上一步结束。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">图结构可以同时启动五个调研节点。结果齐了之后，再由另一个节点汇总成一份报告。</span>
+    </p>
+
+    <section style="border:1px solid #E4E4E7;padding:4px;margin:0 0 28px;">
+      <section style="margin:0;overflow:hidden;">
+        <span leaf=""><img src="imgs/img-004-HOD_aaRXEAAv9rt-zh.png" style="max-width:100%;height:auto;display:block;margin:0 auto;"></span>
+      </section>
+    </section>
+
+    <section style="border-left:3px solid #52525B;padding:16px 0 16px 24px;margin:0 0 28px;">
+      <p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.7;letter-spacing:0.5px;">
+        <span leaf="">「只有真正需要等待时，才等待。」</span>
+      </p>
+    </section>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">这一个设计决策，往往就能</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">大幅缩短执行时间</span></span>
+      <span leaf="">，同时产出更丰富。</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 04 不是每条箭头都该存在 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">04</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">EDGES</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">不是每条箭头都该存在</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">构建 AI 系统时，最容易犯的错之一，是把彼此并不依赖的步骤</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">硬连在一起</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">很多工作流之所以被串行化，只是因为当初就按串行画的。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">如果「总结 PDF」和「查明天日程」毫无关系，为什么一个要等另一个？</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">图工程逼你只问一个简单问题：</span>
+    </p>
+
+    <section style="border-left:3px solid #52525B;padding:16px 0 16px 24px;margin:0 0 28px;">
+      <p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.7;letter-spacing:0.5px;">
+        <span leaf="">「这个任务真的依赖前一步的结果吗？」</span>
+      </p>
+    </section>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">如果答案是「不」，依赖就该删掉。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">去掉这些</span>
+      <span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">假边</span></span>
+      <span leaf="">，对工作流的改进，常常比再加一个模型还大。</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 05 菱形模式 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">05</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">DIAMOND</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">菱形模式</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">随着图结构 AI 系统越来越常见，一种架构反复出现。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">工作流先从</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">规划</span></span>
+      <span leaf="">开始。然后分叉成多个并行工作者，各自从不同角度探索。接着是</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">校验</span></span>
+      <span leaf="">：独立智能体挑战已有结论，而不是照单全收。最后，一切合并成单一答复。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">这个模式常被称为</span>
+      <span style="background:#F4F4F5;color:#27272A;padding:2px 7px;border-radius:3px;font-weight:700;font-size:14px;"><span leaf="">菱形架构（Diamond Architecture）</span></span>
+      <span leaf="">。它其实就是人类做了几十年的事。</span>
+    </p>
+
+    <section style="margin-bottom:24px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">研究</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">评审</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">合并</span></p>
+      </section>
+    </section>
+
+    <section style="border:1px solid #E4E4E7;padding:4px;margin:0 0 28px;">
+      <section style="margin:0;overflow:hidden;">
+        <span leaf=""><img src="imgs/img-005-HOD_fStXwAA1GWu-zh.png" style="max-width:100%;height:auto;display:block;margin:0 auto;"></span>
+      </section>
+    </section>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">系统不再轻信第一个答案，而是</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">先制造分歧，再达成共识</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">这一步很简单，却能显著提高</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">输出可靠性</span></span>
+      <span leaf="">。</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 06 校验比生成更有价值 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">06</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">VERIFY</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">校验比生成更有价值</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">生成内容已经很容易。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">信任内容仍然很难。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">关于 AI 最大的误解之一，是假设同一个模型就该</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">审核自己的工作</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">实际上，</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">独立校验几乎总是更稳</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">专职审核者可以追问：</span>
+    </p>
+
+    <section style="margin-bottom:24px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">信息是否事实正确？</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">来源是否仍然时效？</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">这条建议是否真正回应了原始目标？</span></p>
+      </section>
+    </section>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">不同审核者应挑战工作的不同侧面：</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">准确性、时效性、逻辑、证据</span></span>
+      <span leaf="">。</span>
+    </p>
+
+    <section style="border-left:3px solid #F97316;padding:14px 0 14px 22px;margin:0 0 24px;">
+      <p style="font-size:16px;font-weight:700;color:#27272A;margin:0;line-height:1.75;">
+        <span leaf="">图工程把「创造」与「校验」拆开，让整个系统更可靠。</span>
+      </p>
+    </section>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 07 更多智能体 ≠ 更好结果 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">07</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">AGENTS</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">更多智能体 ≠ 更好结果</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">很多构建者就是栽在这里。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">如果每一步都依赖上一步，再堆智能体通常只增加复杂度，却不提升表现。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">图结构只有在工作</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">天然可拆成独立部分</span></span>
+      <span leaf="">时，才会真正发挥优势。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">如果流程必须串行，一个能力够强的智能体，往往比十个协调中的智能体更有效。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">问题从来不是：</span>
+    </p>
+
+    <p style="font-size:16px;margin:0 0 24px;text-align:center;color:#27272A;font-weight:700;letter-spacing:1px;border-top:1px solid #E4E4E7;border-bottom:1px solid #E4E4E7;padding:14px 10px;">
+      <span leaf="">「工作在哪里天然分叉？」</span>
+    </p>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">而不是「我该加多少智能体？」</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- 08 人仍然属于这张图 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">08</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">HUMANS</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">人仍然属于这张图</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">目标不是去掉人，而是把人放在</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">价值最大的位置</span></span>
+      <span leaf="">。</span>
+    </p>
+
+    <section style="margin-bottom:24px;">
+      <section style="margin-bottom:14px;">
+        <p style="margin:0 0 6px;">
+          <span style="display:inline-block;font-size:15px;font-weight:700;color:#27272A;background:#F4F4F5;padding:3px 10px;border-radius:999px;"><span style="display:inline-block;width:6px;height:6px;background:#52525B;border-radius:50%;margin-right:5px;vertical-align:middle;"><span leaf=""><br></span></span><span leaf="">发布文章</span></span>
+        </p>
+      </section>
+      <section style="margin-bottom:14px;">
+        <p style="margin:0 0 6px;">
+          <span style="display:inline-block;font-size:15px;font-weight:700;color:#27272A;background:#F4F4F5;padding:3px 10px;border-radius:999px;"><span style="display:inline-block;width:6px;height:6px;background:#52525B;border-radius:50%;margin-right:5px;vertical-align:middle;"><span leaf=""><br></span></span><span leaf="">发送客户邮件</span></span>
+        </p>
+      </section>
+      <section style="margin-bottom:14px;">
+        <p style="margin:0 0 6px;">
+          <span style="display:inline-block;font-size:15px;font-weight:700;color:#27272A;background:#F4F4F5;padding:3px 10px;border-radius:999px;"><span style="display:inline-block;width:6px;height:6px;background:#52525B;border-radius:50%;margin-right:5px;vertical-align:middle;"><span leaf=""><br></span></span><span leaf="">批准金融交易</span></span>
+        </p>
+      </section>
+      <section style="margin-bottom:14px;">
+        <p style="margin:0 0 6px;">
+          <span style="display:inline-block;font-size:15px;font-weight:700;color:#27272A;background:#F4F4F5;padding:3px 10px;border-radius:999px;"><span style="display:inline-block;width:6px;height:6px;background:#52525B;border-radius:50%;margin-right:5px;vertical-align:middle;"><span leaf=""><br></span></span><span leaf="">上线产品</span></span>
+        </p>
+      </section>
+    </section>
+
+    <section style="border:1px solid #E4E4E7;padding:4px;margin:0 0 28px;">
+      <section style="margin:0;overflow:hidden;">
+        <span leaf=""><img src="imgs/img-006-HOD_n0DWwAAlhpU-zh.png" style="max-width:100%;height:auto;display:block;margin:0 auto;"></span>
+      </section>
+    </section>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">这些如果盲目自动化，代价很高。最聪明的 AI 系统不会取消人类判断，而是把判断留给</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">最关键的决策</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">其余都可以自动发生。</span>
+    </p>
+  </section>
+
+  <section style="padding:0 10px;">
+    <section style="height:1px;background:#E4E4E7;margin:0;">
+      <span leaf=""><br></span>
+    </section>
+  </section>
+
+  <!-- ∞ 结语 -->
+  <section style="margin-top:56px;margin-bottom:32px;padding:0 10px;">
+    <section style="position:relative;padding-bottom:20px;border-bottom:1px solid #E4E4E7;">
+      <p style="font-size:48px;font-weight:900;color:#E4E4E7;margin:0;line-height:1;letter-spacing:-2px;">
+        <span leaf="">∞</span>
+      </p>
+      <section style="margin-top:-8px;">
+        <p style="font-size:10px;color:#A1A1AA;font-weight:500;letter-spacing:3px;margin:0 0 6px;text-transform:uppercase;">
+          <span leaf="">THE END</span>
+        </p>
+        <h3 style="font-size:20px;font-weight:800;color:#27272A;margin:0;letter-spacing:0.5px;line-height:1.4;">
+          <span leaf="">图工程本质上是系统设计</span>
+        </h3>
+      </section>
+    </section>
+
+    <p style="margin-top:28px;margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">说到底，图工程不关于「图」本身，而关于像</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">系统设计者</span></span>
+      <span leaf="">一样思考。</span>
+    </p>
+
+    <section style="margin-bottom:24px;">
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">1</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">每个节点只有一个职责</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">2</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">每条连接都有理由</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">3</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">每次评审都有目的</span></p>
+      </section>
+      <section style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#27272A;color:#fff;font-size:12px;font-weight:700;border-radius:50%;flex-shrink:0;margin-top:2px;"><span leaf="">4</span></span>
+        <p style="font-size:16px;color:#52525B;margin:0;line-height:1.75;flex:1;"><span leaf="">每次审批都有成本</span></p>
+      </section>
+    </section>
+
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">当这些原则合在一起，AI 就不再像聊天机器人，而开始像一支</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">协作团队</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">这才是今天真正发生的转变。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">提示词工程教我们如何与模型沟通。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">循环工程教我们如何通过迭代改进推理。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">图工程教我们如何</span>
+      <span style="border-bottom:2px solid #F97316;font-weight:700;color:#27272A;"><span leaf="">协调智能</span></span>
+      <span leaf="">。</span>
+    </p>
+    <p style="margin-bottom:22px;font-size:16px;line-height:1.75;text-align:justify;color:#52525B;letter-spacing:0.3px;">
+      <span leaf="">随着 AI 系统更大、更自主、更深地嵌入业务，设计工作流——而不是只写提示词——可能成为现代 AI 中</span>
+      <span style="border-bottom:2px solid #52525B;font-weight:600;color:#27272A;"><span leaf="">最有价值的能力之一</span></span>
+      <span leaf="">。</span>
+    </p>
+  </section>
+
+  <!-- END -->
+  <section style="padding:0 10px;">
+    <section style="text-align:center;margin:0 0 36px;">
+      <section style="display:flex;align-items:center;justify-content:center;">
+        <span style="height:1px;width:48px;background:#E4E4E7;margin-right:16px;"><span leaf=""><br></span></span>
+        <span style="font-size:10px;color:#A1A1AA;letter-spacing:4px;font-weight:500;"><span leaf="">END</span></span>
+        <span style="height:1px;width:48px;background:#E4E4E7;margin-left:16px;"><span leaf=""><br></span></span>
+      </section>
+    </section>
+  </section>
+
+  <!-- 签名 -->
+  <section style="padding:0 10px 24px;">
+    <section style="border-top:1px solid #E4E4E7;padding-top:28px;">
+      <p style="margin-bottom:16px;font-size:16px;line-height:1.75;color:#52525B;text-align:justify;">
+        <span leaf="">我是</span>
+        <strong style="color:#27272A;"><span leaf="">ziikoo 研究院</span></strong>
+        <span leaf="">，关注 AI 系统、智能体协作与工作流设计。本文内容引用并编译自 @wandermist 的推特原文，版权归原作者所有。</span>
+      </p>
+      <p style="margin-bottom:0;font-size:16px;line-height:1.75;color:#52525B;text-align:justify;">
+        <span leaf="">如果你觉得今天这篇有收获，欢迎</span>
+        <strong style="color:#27272A;"><span leaf="">点赞、在看、转发</span></strong>
+        <span leaf="">三连，我们下篇见。</span>
+      </p>
+    </section>
+  </section>
+
+</section>
+  </div>
+</div>
+<script>
+  function gzhShowToast(msg){
+    var t=document.getElementById('gzhToast');
+    t.textContent=msg;t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer=setTimeout(function(){t.classList.remove('show');},2800);
+  }
+  function gzhCopy(){
+    var el=document.getElementById('gzh-content');
+    // 选中渲染后的富文本节点并复制（等价于手动 Ctrl+A / Ctrl+C，保留全部样式）
+    var range=document.createRange();
+    range.selectNodeContents(el);
+    var sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var ok=false;
+    try{ok=document.execCommand('copy');}catch(e){ok=false;}
+    sel.removeAllRanges();
+    var btn=document.getElementById('gzhCopyBtn');
+    if(ok){
+      gzhShowToast('✅ 已复制！去公众号编辑器按 Ctrl/⌘+V 粘贴即可');
+      var old=btn.textContent;btn.textContent='✅ 已复制';
+      setTimeout(function(){btn.textContent=old;},2200);
+    }else{
+      gzhShowToast('⚠ 自动复制失败，请手动全选(Ctrl/⌘+A)再复制(Ctrl/⌘+C)');
+    }
+  }
+</script>
+</body>
+</html>
